@@ -4,14 +4,14 @@
 			"command": "node",
 			"args": ["./mcp-server/server.js"],
 			"env": {
-				"ANTHROPIC_API_KEY": "YOUR_ANTHROPIC_API_KEY_HERE",
-				"PERPLEXITY_API_KEY": "YOUR_PERPLEXITY_API_KEY_HERE",
-				"MODEL": "claude-3-7-sonnet-20250219",
-				"PERPLEXITY_MODEL": "sonar-pro",
-				"MAX_TOKENS": 64000,
-				"TEMPERATURE": 0.2,
-				"DEFAULT_SUBTASKS": 5,
-				"DEFAULT_PRIORITY": "medium"
+				"ANTHROPIC_API_KEY": "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",
+				"PERPLEXITY_API_KEY": "pplx-1234567890",
+				"OPENAI_API_KEY": "sk-proj-1234567890",
+				"GOOGLE_API_KEY": "AIzaSyB1234567890",
+				"GROK_API_KEY": "gsk_1234567890",
+				"MISTRAL_API_KEY": "mst_1234567890",
+				"AZURE_OPENAI_API_KEY": "1234567890",
+				"AZURE_OPENAI_ENDPOINT": "https://your-endpoint.openai.azure.com/"
 			}
 		}
 	}
