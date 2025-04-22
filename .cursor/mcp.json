@@ -4,7 +4,7 @@
 			"command": "node",
 			"args": ["./mcp-server/server.js"],
 			"env": {
-				"ANTHROPIC_API_KEY": "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",
+				"ANTHROPIC_API_KEY": "sk-ant-apikeyhere",
 				"PERPLEXITY_API_KEY": "pplx-1234567890",
 				"OPENAI_API_KEY": "sk-proj-1234567890",
 				"GOOGLE_API_KEY": "AIzaSyB1234567890",
