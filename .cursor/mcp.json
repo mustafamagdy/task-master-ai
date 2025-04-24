@@ -5,7 +5,7 @@
 			"args": ["./mcp-server/server.js"],
 			"env": {
 				"ANTHROPIC_API_KEY": "sk-ant-apikeyhere",
-				"PERPLEXITY_API_KEY": "pplx-1234567890",
+				"PERPLEXITY_API_KEY": "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",
 				"OPENAI_API_KEY": "sk-proj-1234567890",
 				"GOOGLE_API_KEY": "AIzaSyB1234567890",
 				"GROK_API_KEY": "gsk_1234567890",
