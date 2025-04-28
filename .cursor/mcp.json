@@ -1,6 +1,6 @@
 {
 	"mcpServers": {
-		"taskmaster-ai": {
+		"task-master-ai": {
 			"command": "node",
 			"args": ["./mcp-server/server.js"],
 			"env": {
