@@ -18,13 +18,13 @@ const TASK_PREFIX = 'T';
  * @returns {string} Reference ID for the user story (e.g., US-001)
  */
 function generateUserStoryRefId(taskId, explicitRoot = null) {
-  if (!getJiraIntegrationEnabled(explicitRoot)) {
-    return null;
-  }
-  
-  // Format the task ID with leading zeros (e.g., 001, 012, 123)
-  const formattedId = String(taskId).padStart(3, '0');
-  return `${USER_STORY_PREFIX}${formattedId}`;
+	if (!getJiraIntegrationEnabled(explicitRoot)) {
+		return null;
+	}
+
+	// Format the task ID with leading zeros (e.g., 001, 012, 123)
+	const formattedId = String(taskId).padStart(3, '0');
+	return `${USER_STORY_PREFIX}${formattedId}`;
 }
 
 /**
@@ -35,16 +35,16 @@ function generateUserStoryRefId(taskId, explicitRoot = null) {
  * @returns {string} Reference ID for the subtask (e.g., T001-01)
  */
 function generateSubtaskRefId(parentTaskId, subtaskId, explicitRoot = null) {
-  if (!getJiraIntegrationEnabled(explicitRoot)) {
-    return null;
-  }
-  
-  // Format the parent task ID with leading zeros (e.g., 001, 012, 123)
-  const formattedParentId = String(parentTaskId).padStart(3, '0');
-  // Format the subtask ID with leading zeros (e.g., 01, 02, 10)
-  const formattedSubtaskId = String(subtaskId).padStart(2, '0');
-  // Keep the hyphen between parent and subtask IDs
-  return `${TASK_PREFIX}${formattedParentId}-${formattedSubtaskId}`;
+	if (!getJiraIntegrationEnabled(explicitRoot)) {
+		return null;
+	}
+
+	// Format the parent task ID with leading zeros (e.g., 001, 012, 123)
+	const formattedParentId = String(parentTaskId).padStart(3, '0');
+	// Format the subtask ID with leading zeros (e.g., 01, 02, 10)
+	const formattedSubtaskId = String(subtaskId).padStart(2, '0');
+	// Keep the hyphen between parent and subtask IDs
+	return `${TASK_PREFIX}${formattedParentId}-${formattedSubtaskId}`;
 }
 
 /**
@@ -53,11 +53,11 @@ function generateSubtaskRefId(parentTaskId, subtaskId, explicitRoot = null) {
  * @returns {string|null} Reference ID if found, null otherwise
  */
 function extractRefIdFromTitle(title) {
-  if (!title) return null;
-  
-  // Match patterns like US001- or T001-01- at the beginning of the title
-  const match = title.match(/^((?:US\d{3})|(?:T\d{3}-\d{2}))-/);
-  return match ? match[1] : null;
+	if (!title) return null;
+
+	// Match patterns like US001- or T001-01- at the beginning of the title
+	const match = title.match(/^((?:US\d{3})|(?:T\d{3}-\d{2}))-/);
+	return match ? match[1] : null;
 }
 
 /**
@@ -67,17 +67,17 @@ function extractRefIdFromTitle(title) {
  * @returns {Object} Updated task object
  */
 function storeRefId(task, refId) {
-  if (!task || !refId) return task;
-  
-  // Initialize metadata if it doesn't exist
-  if (!task.metadata) {
-    task.metadata = {};
-  }
-  
-  // Store reference ID in metadata
-  task.metadata.refId = refId;
-  
-  return task;
+	if (!task || !refId) return task;
+
+	// Initialize metadata if it doesn't exist
+	if (!task.metadata) {
+		task.metadata = {};
+	}
+
+	// Store reference ID in metadata
+	task.metadata.refId = refId;
+
+	return task;
 }
 
 /**
@@ -86,7 +86,7 @@ function storeRefId(task, refId) {
  * @returns {string|null} Reference ID or null if not found
  */
 function getRefId(task) {
-  return task?.metadata?.refId || null;
+	return task?.metadata?.refId || null;
 }
 
 /**
@@ -95,13 +95,13 @@ function getRefId(task) {
  * @returns {string} Formatted title with reference ID for Jira
  */
 function formatTitleForJira(task) {
-  if (!task || !task.title) return '';
-  
-  const refId = getRefId(task);
-  if (!refId) return task.title;
-  
-  // Format as 'US001-Title' instead of '[US-001] Title'
-  return `${refId}-${task.title}`;
+	if (!task || !task.title) return '';
+
+	const refId = getRefId(task);
+	if (!refId) return task.title;
+
+	// Format as 'US001-Title' instead of '[US-001] Title'
+	return `${refId}-${task.title}`;
 }
 
 /**
@@ -111,55 +111,57 @@ function formatTitleForJira(task) {
  * @returns {Object|null} Task object if found, null otherwise
  */
 function findTaskByRefId(tasks, refId) {
-  if (!tasks || !Array.isArray(tasks) || !refId) return null;
-  
-  // Search for the task with the matching reference ID in metadata
-  for (const task of tasks) {
-    const taskRefId = getRefId(task);
-    if (taskRefId === refId) {
-      return task;
-    }
-    
-    // Also search in subtasks if available
-    if (task.subtasks && Array.isArray(task.subtasks)) {
-      for (const subtask of task.subtasks) {
-        const subtaskRefId = getRefId(subtask);
-        if (subtaskRefId === refId) {
-          return subtask;
-        }
-      }
-    }
-    
-    // Fallback to searching in titles if metadata is missing
-    // This helps in migrating from old format to new format
-    const oldFormatRefId = refId.replace(/US(\d{3})/, 'US-$1').replace(/T(\d{3}-\d{2})/, 'T$1');
-    for (const task of tasks) {
-      const title = task.title || '';
-      if (title.includes(`[${oldFormatRefId}]`)) {
-        return task;
-      }
-      
-      // Also check subtasks
-      if (task.subtasks && Array.isArray(task.subtasks)) {
-        for (const subtask of task.subtasks) {
-          const subtaskTitle = subtask.title || '';
-          if (subtaskTitle.includes(`[${oldFormatRefId}]`)) {
-            return subtask;
-          }
-        }
-      }
-    }
-  }
-  
-  return null;
+	if (!tasks || !Array.isArray(tasks) || !refId) return null;
+
+	// Search for the task with the matching reference ID in metadata
+	for (const task of tasks) {
+		const taskRefId = getRefId(task);
+		if (taskRefId === refId) {
+			return task;
+		}
+
+		// Also search in subtasks if available
+		if (task.subtasks && Array.isArray(task.subtasks)) {
+			for (const subtask of task.subtasks) {
+				const subtaskRefId = getRefId(subtask);
+				if (subtaskRefId === refId) {
+					return subtask;
+				}
+			}
+		}
+
+		// Fallback to searching in titles if metadata is missing
+		// This helps in migrating from old format to new format
+		const oldFormatRefId = refId
+			.replace(/US(\d{3})/, 'US-$1')
+			.replace(/T(\d{3}-\d{2})/, 'T$1');
+		for (const task of tasks) {
+			const title = task.title || '';
+			if (title.includes(`[${oldFormatRefId}]`)) {
+				return task;
+			}
+
+			// Also check subtasks
+			if (task.subtasks && Array.isArray(task.subtasks)) {
+				for (const subtask of task.subtasks) {
+					const subtaskTitle = subtask.title || '';
+					if (subtaskTitle.includes(`[${oldFormatRefId}]`)) {
+						return subtask;
+					}
+				}
+			}
+		}
+	}
+
+	return null;
 }
 
 export {
-  generateUserStoryRefId,
-  generateSubtaskRefId,
-  extractRefIdFromTitle,
-  storeRefId,
-  getRefId,
-  formatTitleForJira,
-  findTaskByRefId
+	generateUserStoryRefId,
+	generateSubtaskRefId,
+	extractRefIdFromTitle,
+	storeRefId,
+	getRefId,
+	formatTitleForJira,
+	findTaskByRefId
 };

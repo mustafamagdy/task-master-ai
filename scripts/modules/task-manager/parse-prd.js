@@ -16,8 +16,16 @@ import {
 
 import { generateObjectService } from '../ai-services-unified.js';
 import { getDebugFlag, getJiraIntegrationEnabled } from '../config-manager.js';
-import { createUserStory, isJiraConfigured, storeJiraKey } from '../jira-integration.js';
-import { generateUserStoryRefId, storeRefId, getRefId } from '../reference-id-service.js';
+import {
+	createUserStory,
+	isJiraConfigured,
+	storeJiraKey
+} from '../jira-integration.js';
+import {
+	generateUserStoryRefId,
+	storeRefId,
+	getRefId
+} from '../reference-id-service.js';
 import generateTaskFiles from './generate-task-files.js';
 import { displayAiUsageSummary } from '../ui.js';
 
@@ -263,17 +271,17 @@ Guidelines:
 		let currentId = nextId;
 		// Create a map to track original AI task IDs to new sequential IDs
 		const taskMap = new Map();
-		
+
 		// First pass: Map all AI task IDs to new sequential IDs
 		generatedData.tasks.forEach((task, index) => {
 			const newId = currentId + index;
 			taskMap.set(task.id, newId);
 		});
-		
+
 		// Second pass: Process each task with proper IDs and reference IDs
 		const processedNewTasks = generatedData.tasks.map((task, index) => {
 			const newId = currentId + index;
-			
+
 			// Create new task object with proper ID
 			let newTask = {
 				id: newId,
@@ -287,16 +295,19 @@ Guidelines:
 				subtasks: [],
 				metadata: {}
 			};
-			
+
 			// Store reference ID in task metadata if Jira integration is enabled
 			if (getJiraIntegrationEnabled(projectRoot)) {
 				const refId = generateUserStoryRefId(newId, projectRoot);
 				if (refId) {
 					newTask = storeRefId(newTask, refId);
-					report(`Stored reference ID ${refId} in task ${newId} metadata`, 'info');
+					report(
+						`Stored reference ID ${refId} in task ${newId} metadata`,
+						'info'
+					);
 				}
 			}
-			
+
 			return newTask;
 		});
 
@@ -314,9 +325,15 @@ Guidelines:
 		});
 
 		// Check if Jira integration is enabled and configured
-		if (getJiraIntegrationEnabled(projectRoot) && isJiraConfigured(projectRoot)) {
-			report('Jira integration is enabled. Creating user stories in Jira...', 'info');
-			
+		if (
+			getJiraIntegrationEnabled(projectRoot) &&
+			isJiraConfigured(projectRoot)
+		) {
+			report(
+				'Jira integration is enabled. Creating user stories in Jira...',
+				'info'
+			);
+
 			// Create user stories in Jira for each task
 			for (let i = 0; i < processedNewTasks.length; i++) {
 				let task = processedNewTasks[i];
@@ -338,20 +355,35 @@ Guidelines:
 						processedNewTasks[i] = storeJiraKey(task, jiraIssue.key);
 						// Get reference ID from metadata for logging
 						const refId = getRefId(processedNewTasks[i]);
-						report(`Created Jira user story: ${jiraIssue.key} for task ${task.id} with reference ID ${refId}`, 'success');
+						report(
+							`Created Jira user story: ${jiraIssue.key} for task ${task.id} with reference ID ${refId}`,
+							'success'
+						);
 					} else {
-						report(`Failed to create Jira user story for task ${task.id}`, 'warn');
+						report(
+							`Failed to create Jira user story for task ${task.id}`,
+							'warn'
+						);
 					}
 				} catch (jiraError) {
-					report(`Error creating Jira user story for task ${task.id}: ${jiraError.message}`, 'error');
+					report(
+						`Error creating Jira user story for task ${task.id}: ${jiraError.message}`,
+						'error'
+					);
 				}
 			}
 		}
 
 		// Check if Jira integration is enabled and configured
-		if (getJiraIntegrationEnabled(projectRoot) && isJiraConfigured(projectRoot)) {
-			report('Jira integration is enabled. Creating user stories in Jira...', 'info');
-			
+		if (
+			getJiraIntegrationEnabled(projectRoot) &&
+			isJiraConfigured(projectRoot)
+		) {
+			report(
+				'Jira integration is enabled. Creating user stories in Jira...',
+				'info'
+			);
+
 			// Create user stories in Jira for each task
 			for (let i = 0; i < processedNewTasks.length; i++) {
 				let task = processedNewTasks[i];
@@ -373,17 +405,25 @@ Guidelines:
 						processedNewTasks[i] = storeJiraKey(task, jiraIssue.key);
 						// Get reference ID from metadata for logging
 						const refId = getRefId(processedNewTasks[i]);
-						report(`Created Jira user story: ${jiraIssue.key} for task ${task.id} with reference ID ${refId}`, 'success');
+						report(
+							`Created Jira user story: ${jiraIssue.key} for task ${task.id} with reference ID ${refId}`,
+							'success'
+						);
 					} else {
-						report(`Failed to create Jira user story for task ${task.id}`, 'warn');
+						report(
+							`Failed to create Jira user story for task ${task.id}`,
+							'warn'
+						);
 					}
 				} catch (jiraError) {
-					report(`Error creating Jira user story for task ${task.id}: ${jiraError.message}`, 'error');
+					report(
+						`Error creating Jira user story for task ${task.id}: ${jiraError.message}`,
+						'error'
+					);
 				}
 			}
 		}
 
-		
 		const finalTasks = append
 			? [...existingTasks, ...processedNewTasks]
 			: processedNewTasks;

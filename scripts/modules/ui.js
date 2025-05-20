@@ -2039,13 +2039,25 @@ function displayJiraSyncResults(syncResults) {
 	}
 
 	const table = new Table({
-		head: [chalk.cyan.bold('Type'), chalk.cyan.bold('Created'), chalk.cyan.bold('Updated')],
+		head: [
+			chalk.cyan.bold('Type'),
+			chalk.cyan.bold('Created'),
+			chalk.cyan.bold('Updated')
+		],
 		colWidths: [20, 15, 15]
 	});
 
 	table.push(
-		[chalk.white('User Stories (Tasks)'), chalk.green(stats.tasksCreated), chalk.blue(stats.tasksUpdated)],
-		[chalk.white('Tasks (Subtasks)'), chalk.green(stats.subtasksCreated), chalk.blue(stats.subtasksUpdated)]
+		[
+			chalk.white('User Stories (Tasks)'),
+			chalk.green(stats.tasksCreated),
+			chalk.blue(stats.tasksUpdated)
+		],
+		[
+			chalk.white('Tasks (Subtasks)'),
+			chalk.green(stats.subtasksCreated),
+			chalk.blue(stats.subtasksUpdated)
+		]
 	);
 
 	// Build the results message
@@ -2075,13 +2087,19 @@ function displayJiraSyncResults(syncResults) {
 	nextStepsMessage += `
 
 `;
-	nextStepsMessage += chalk.cyan(`1. Run ${chalk.yellow('task-master list')} to view all tasks`);
+	nextStepsMessage += chalk.cyan(
+		`1. Run ${chalk.yellow('task-master list')} to view all tasks`
+	);
 	nextStepsMessage += `
 `;
-	nextStepsMessage += chalk.cyan(`2. Run ${chalk.yellow('task-master next')} to find the next task to work on`);
+	nextStepsMessage += chalk.cyan(
+		`2. Run ${chalk.yellow('task-master next')} to find the next task to work on`
+	);
 	nextStepsMessage += `
 `;
-	nextStepsMessage += chalk.cyan(`3. Run ${chalk.yellow('task-master sync-jira')} again to update Jira with any new changes`);
+	nextStepsMessage += chalk.cyan(
+		`3. Run ${chalk.yellow('task-master sync-jira')} again to update Jira with any new changes`
+	);
 
 	// Display next steps
 	console.log(
