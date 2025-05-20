@@ -62,11 +62,23 @@ const DEFAULTS = {
 		defaultPriority: 'medium',
 		projectName: 'Task Master',
 		ollamaBaseUrl: 'http://localhost:11434/api',
+		// Ticketing system configuration
+		ticketingSystem: 'none', // none, jira, azure, github
+		// Jira configuration
 		jiraProjectKey: '',
 		jiraBaseUrl: '',
 		jiraEmail: '',
 		jiraApiToken: '',
-		jiraIntegrationEnabled: false
+		jiraIntegrationEnabled: false,
+		// Azure DevOps configuration
+		azureOrganization: '',
+		azurePersonalAccessToken: '',
+		azureProjectName: '',
+		// GitHub Projects configuration
+		githubToken: '',
+		githubOwner: '',
+		githubRepository: '',
+		githubProjectNumber: ''
 	}
 };
 
@@ -412,13 +424,23 @@ function getJiraApiToken(explicitRoot = null) {
 }
 
 /**
- * Gets whether Jira integration is enabled from the configuration.
+ * Gets whether Jira integration is enabled in the configuration.
  * @param {string|null} explicitRoot - Optional explicit path to the project root.
  * @returns {boolean} Whether Jira integration is enabled.
  */
 function getJiraIntegrationEnabled(explicitRoot = null) {
-	// Directly return value from config
-	return getGlobalConfig(explicitRoot).jiraIntegrationEnabled === true;
+	const config = getConfig(explicitRoot);
+	return config?.global?.jiraIntegrationEnabled || false;
+}
+
+/**
+ * Gets whether any ticketing system is enabled and configured.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {boolean} Whether any ticketing system is enabled.
+ */
+function getTicketingSystemEnabled(explicitRoot = null) {
+	const ticketingSystem = getTicketingSystemType(explicitRoot);
+	return ticketingSystem !== 'none' && ticketingSystem !== '';
 }
 
 /**
@@ -767,6 +789,111 @@ function getBaseUrlForRole(role, explicitRoot = null) {
 		: undefined;
 }
 
+// Import ticketing factory only if needed - lazy loading to avoid circular dependencies
+let _ticketingSystemFactory = null;
+async function _getTicketingFactory() {
+	if (_ticketingSystemFactory === null) {
+		try {
+			const module = await import('./ticketing/ticketing-factory.js');
+			_ticketingSystemFactory = module.default;
+		} catch (error) {
+			log('error', `Error loading ticketing factory: ${error.message}`);
+			return null;
+		}
+	}
+	return _ticketingSystemFactory;
+}
+
+/**
+ * Gets the ticketing system implementation based on the configuration.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {Promise<Object|null>} The ticketing system implementation or null if none configured.
+ */
+async function getTicketingSystem(explicitRoot = null) {
+	const type = getTicketingSystemType(explicitRoot);
+	if (type === 'none') {
+		return null;
+	}
+
+	const factory = await _getTicketingFactory();
+	if (!factory) {
+		return null;
+	}
+
+	const config = getConfig(explicitRoot);
+	return factory.create(type, config);
+}
+
+/**
+ * Gets the Azure DevOps organization name from the configuration.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {string} The Azure DevOps organization name or empty string if not set.
+ */
+function getAzureOrganization(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.global?.azureOrganization || '';
+}
+
+/**
+ * Gets the Azure DevOps personal access token from the configuration.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {string} The Azure DevOps personal access token or empty string if not set.
+ */
+function getAzurePersonalAccessToken(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.global?.azurePersonalAccessToken || '';
+}
+
+/**
+ * Gets the Azure DevOps project name from the configuration.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {string} The Azure DevOps project name or empty string if not set.
+ */
+function getAzureProjectName(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.global?.azureProjectName || '';
+}
+
+/**
+ * Gets the GitHub access token from the configuration.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {string} The GitHub access token or empty string if not set.
+ */
+function getGitHubToken(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.global?.githubToken || '';
+}
+
+/**
+ * Gets the GitHub owner (user or organization) from the configuration.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {string} The GitHub owner or empty string if not set.
+ */
+function getGitHubOwner(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.global?.githubOwner || '';
+}
+
+/**
+ * Gets the GitHub repository name from the configuration.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {string} The GitHub repository name or empty string if not set.
+ */
+function getGitHubRepository(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.global?.githubRepository || '';
+}
+
+/**
+ * Gets the GitHub project number from the configuration.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {string} The GitHub project number or empty string if not set.
+ */
+function getGitHubProjectNumber(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.global?.githubProjectNumber || '';
+}
+
 export {
 	// Core config access
 	getConfig,
@@ -804,11 +931,25 @@ export {
 	getDefaultPriority,
 	getProjectName,
 	getOllamaBaseUrl,
+	// Jira getters
 	getJiraProjectKey,
 	getJiraBaseUrl,
 	getJiraEmail,
 	getJiraApiToken,
 	getJiraIntegrationEnabled,
+	// New ticketing system getters
+	getTicketingSystem,
+	getTicketingSystemEnabled,
+	// Azure DevOps getters
+	getAzureOrganization,
+	getAzurePersonalAccessToken,
+	getAzureProjectName,
+	// GitHub Projects getters
+	getGitHubToken,
+	getGitHubOwner,
+	getGitHubRepository,
+	getGitHubProjectNumber,
+	// Other
 	getParametersForRole,
 	getUserId,
 	// API Key Checkers (still relevant)

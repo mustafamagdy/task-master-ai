@@ -2019,10 +2019,10 @@ function displayAvailableModels(availableModels) {
 }
 
 /**
- * Display Jira synchronization results
- * @param {Object} syncResults - Results from the Jira synchronization
+ * Display ticketing system synchronization results
+ * @param {Object} syncResults - Results from the ticketing system synchronization
  */
-function displayJiraSyncResults(syncResults) {
+function displayTicketSyncResults(syncResults) {
 	if (isSilentMode()) return;
 
 	const { stats } = syncResults;
@@ -2061,7 +2061,7 @@ function displayJiraSyncResults(syncResults) {
 	);
 
 	// Build the results message
-	let resultsMessage = chalk.white.bold('Jira Synchronization Results');
+	let resultsMessage = chalk.white.bold('Ticket Synchronization Results');
 	resultsMessage += `
 
 `;
@@ -2098,7 +2098,7 @@ function displayJiraSyncResults(syncResults) {
 	nextStepsMessage += `
 `;
 	nextStepsMessage += chalk.cyan(
-		`3. Run ${chalk.yellow('task-master sync-jira')} again to update Jira with any new changes`
+		`3. Run ${chalk.yellow('task-master sync-tickets')} again to update ticketing system with any new changes`
 	);
 
 	// Display next steps
@@ -2176,5 +2176,5 @@ export {
 	displayModelConfiguration,
 	displayAvailableModels,
 	displayAiUsageSummary,
-	displayJiraSyncResults
+	displayTicketSyncResults
 };

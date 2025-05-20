@@ -33,8 +33,7 @@ import {
 	removeTask,
 	findTaskById,
 	taskExists,
-	isTaskDependentOn,
-	syncJira
+	isTaskDependentOn
 } from './task-manager.js';
 
 import {
@@ -66,8 +65,7 @@ import {
 	stopLoadingIndicator,
 	displayModelConfiguration,
 	displayAvailableModels,
-	displayApiKeyStatus,
-	displayJiraSyncResults
+	displayApiKeyStatus
 } from './ui.js';
 
 import { initializeProject } from '../init.js';
@@ -1274,14 +1272,14 @@ function registerCommands(programInstance) {
 			}
 		});
 
-	// sync-jira command
+	// sync-t	ickets command
 	programInstance
-		.command('sync-jira')
-		.description('Synchronize tasks with Jira')
+		.command('sync-tickets')
+		.description('Synchronize tasks with ticketing system')
 		.option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
 		.option(
 			'--force',
-			'Force synchronization even if Jira integration is not enabled'
+			'Force synchronization even if ticketing system integration is not enabled'
 		)
 		.action(async (options) => {
 			const tasksPath = path.resolve(options.file);
@@ -1293,11 +1291,11 @@ function registerCommands(programInstance) {
 			}
 
 			try {
-				const results = await syncJira(tasksPath, {
+				const results = await syncTickets(tasksPath, {
 					force: options.force
 				});
 
-				displayJiraSyncResults(results);
+				displayTicketSyncResults(results);
 			} catch (error) {
 				console.error(chalk.red(`Error: ${error.message}`));
 				process.exit(1);
