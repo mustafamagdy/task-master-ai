@@ -18,15 +18,10 @@ import {
 	getJiraIntegrationEnabled
 } from '../config-manager.js';
 import {
-	createTask,
-	getJiraKey,
-	isJiraConfigured
-} from '../jira-integration.js';
-import {
 	generateSubtaskRefId,
 	storeRefId,
 	getRefId
-} from '../reference-id-service.js';
+} from '../ticketing/reference-id-service.js';
 import generateTaskFiles from './generate-task-files.js';
 
 // --- Zod Schemas (Keep from previous step) ---

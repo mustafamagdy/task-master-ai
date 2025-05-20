@@ -339,135 +339,136 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 
 	// If the file doesn't exist, create it normally
 	fs.writeFileSync(targetPath, content);
-	log('info', `Created file: ${targetPath}`);
 }
 
 // Main function to initialize a new project (No longer needs isInteractive logic)
 async function initializeProject(options = {}) {
-	// Receives options as argument
 	// Only display banner if not in silent mode
 	if (!isSilentMode()) {
 		displayBanner();
 	}
 
-	// Debug logging only if not in silent mode
-	// if (!isSilentMode()) {
-	// 	console.log('===== DEBUG: INITIALIZE PROJECT OPTIONS RECEIVED =====');
-	// 	console.log('Full options object:', JSON.stringify(options));
-	// 	console.log('options.yes:', options.yes);
-	// 	console.log('==================================================');
-	// }
+	const { addAliases = false, dryRun = false, yes = false } = options;
 
-	const skipPrompts = options.yes || (options.name && options.description);
+	// Configuration for the ticketing system
+	let ticketingOptions = {
+		type: 'none' // Default to no ticketing system
+	};
 
-	// if (!isSilentMode()) {
-	// 	console.log('Skip prompts determined:', skipPrompts);
-	// }
-
-	if (skipPrompts) {
-		if (!isSilentMode()) {
-			console.log('SKIPPING PROMPTS - Using defaults or provided values');
-		}
-
-		// Use provided options or defaults
-		const projectName = options.name || 'task-master-project';
-		const projectDescription =
-			options.description || 'A project managed with Task Master AI';
-		const projectVersion = options.version || '0.1.0';
-		const authorName = options.author || 'Vibe coder';
-		const dryRun = options.dryRun || false;
-		const addAliases = options.aliases || false;
-		const jiraProjectKey = options.jiraProjectKey || '';
-
-		if (dryRun) {
-			log('info', 'DRY RUN MODE: No files will be modified');
-			log('info', 'Would initialize Task Master project');
-			log('info', 'Would create/update necessary project files');
-			if (addAliases) {
-				log('info', 'Would add shell aliases for task-master');
-			}
-			return {
-				dryRun: true
-			};
-		}
-
-		// Pass the jiraProjectKey from options in non-interactive mode
-		createProjectStructure(addAliases, dryRun, jiraProjectKey);
-	} else {
-		// Interactive logic
-		log('info', 'Required options not provided, proceeding with prompts.');
+	if (!yes && !dryRun && !isSilentMode()) {
+		// Create readline interface for user input
 		const rl = readline.createInterface({
 			input: process.stdin,
 			output: process.stdout
 		});
 
 		try {
-			// Prompt for shell aliases
-			const addAliasesInput = await promptQuestion(
-				rl,
-				chalk.cyan(
-					'Add shell aliases for task-master? This lets you type "tm" instead of "task-master" (Y/n): '
-				)
-			);
-			const addAliasesPrompted = addAliasesInput.trim().toLowerCase() !== 'n';
+			// Prompt for ticketing system
+			log('info', 'Select ticketing system to use:');
+			log('info', '1) None');
+			log('info', '2) Jira');
+			log('info', '3) Azure DevOps (Coming Soon)');
+			log('info', '4) GitHub Projects (Coming Soon)');
+			const ticketingChoice = await promptQuestion(rl, 'Enter choice (1-4): ');
 
-			// Prompt for Jira project key
-			const jiraProjectKeyInput = await promptQuestion(
-				rl,
-				chalk.cyan(
-					'Enter your Jira project key (leave empty if not using Jira): '
-				)
-			);
-			const jiraProjectKey = jiraProjectKeyInput.trim();
+			// Process ticketing system choice
+			switch (ticketingChoice.trim()) {
+				case '2': // Jira
+					ticketingOptions = { type: 'jira' };
+					log('info', 'You selected Jira as your ticketing system.');
 
-			// Confirm settings...
-			console.log('\nTask Master Project settings:');
-			console.log(
-				chalk.blue(
-					'Add shell aliases (so you can use "tm" instead of "task-master"):'
-				),
-				chalk.white(addAliasesPrompted ? 'Yes' : 'No')
-			);
-			console.log(
-				chalk.blue('Jira project key:'),
-				chalk.white(jiraProjectKey ? jiraProjectKey : 'Not set')
-			);
+					// Prompt for Jira configuration
+					log('info', 'Enter Jira project key:');
+					ticketingOptions.jiraProjectKey = await promptQuestion(rl, '');
 
-			const confirmInput = await promptQuestion(
-				rl,
-				chalk.yellow('\nDo you want to continue with these settings? (Y/n): ')
-			);
-			const shouldContinue = confirmInput.trim().toLowerCase() !== 'n';
-			rl.close();
+					log(
+						'info',
+						'Enter Jira base URL (e.g., https://yourcompany.atlassian.net):'
+					);
+					ticketingOptions.jiraBaseUrl = await promptQuestion(rl, '');
 
-			if (!shouldContinue) {
-				log('info', 'Project initialization cancelled by user');
-				process.exit(0);
-				return;
+					log('info', 'Enter Jira email:');
+					ticketingOptions.jiraEmail = await promptQuestion(rl, '');
+
+					log('info', 'Enter Jira API token:');
+					ticketingOptions.jiraApiToken = await promptQuestion(rl, '');
+
+					log('success', 'Jira configuration complete!');
+					break;
+
+				case '3': // Azure DevOps
+					ticketingOptions = { type: 'azure' };
+					log('info', 'You selected Azure DevOps as your ticketing system.');
+					log(
+						'warn',
+						'Azure DevOps integration is coming soon. Basic configuration will be set up.'
+					);
+
+					// Prompt for Azure DevOps configuration
+					log('info', 'Enter Azure DevOps organization:');
+					ticketingOptions.azureOrganization = await promptQuestion(rl, '');
+
+					log('info', 'Enter Azure DevOps project name:');
+					ticketingOptions.azureProjectName = await promptQuestion(rl, '');
+
+					log('info', 'Enter Azure DevOps personal access token:');
+					ticketingOptions.azurePersonalAccessToken = await promptQuestion(
+						rl,
+						''
+					);
+
+					log('success', 'Azure DevOps configuration complete!');
+					break;
+
+				case '4': // GitHub Projects
+					ticketingOptions = { type: 'github' };
+					log('info', 'You selected GitHub Projects as your ticketing system.');
+					log(
+						'warn',
+						'GitHub Projects integration is coming soon. Basic configuration will be set up.'
+					);
+
+					// Prompt for GitHub Projects configuration
+					log('info', 'Enter GitHub access token:');
+					ticketingOptions.githubToken = await promptQuestion(rl, '');
+
+					log('info', 'Enter GitHub owner (user or organization):');
+					ticketingOptions.githubOwner = await promptQuestion(rl, '');
+
+					log('info', 'Enter GitHub repository name:');
+					ticketingOptions.githubRepository = await promptQuestion(rl, '');
+
+					log('info', 'Enter GitHub project number:');
+					ticketingOptions.githubProjectNumber = await promptQuestion(rl, '');
+
+					log('success', 'GitHub Projects configuration complete!');
+					break;
+
+				default: // None or invalid choice
+					log('info', 'No ticketing system will be configured.');
+					break;
 			}
-
-			const dryRun = options.dryRun || false;
-
-			if (dryRun) {
-				log('info', 'DRY RUN MODE: No files will be modified');
-				log('info', 'Would initialize Task Master project');
-				log('info', 'Would create/update necessary project files');
-				if (addAliasesPrompted) {
-					log('info', 'Would add shell aliases for task-master');
-				}
-				return {
-					dryRun: true
-				};
-			}
-
-			// Create structure using only necessary values
-			createProjectStructure(addAliasesPrompted, dryRun, jiraProjectKey);
 		} catch (error) {
+			log(
+				'error',
+				`Error during ticketing system configuration: ${error.message}`
+			);
+			log(
+				'warn',
+				'Continuing with default configuration (no ticketing system).'
+			);
+		} finally {
 			rl.close();
-			log('error', `Error during initialization process: ${error.message}`);
-			process.exit(1);
 		}
 	}
+
+	// Create project file structure with ticketing options
+	await createProjectStructure(
+		addAliases,
+		dryRun,
+		ticketingOptions.jiraProjectKey || '',
+		ticketingOptions
+	);
 }
 
 // Helper function to promisify readline question
@@ -480,7 +481,12 @@ function promptQuestion(rl, question) {
 }
 
 // Function to create the project structure
-function createProjectStructure(addAliases, dryRun, jiraProjectKey = '') {
+function createProjectStructure(
+	addAliases,
+	dryRun,
+	jiraProjectKey = '',
+	ticketingOptions = {}
+) {
 	const targetDir = process.cwd();
 	log('info', `Initializing project in ${targetDir}`);
 
@@ -512,6 +518,59 @@ function createProjectStructure(addAliases, dryRun, jiraProjectKey = '') {
 		year: new Date().getFullYear()
 	};
 
+	// Add ticketing system configuration to replacements
+	const configReplacements = {
+		...replacements,
+		// Default to no ticketing system if not specified
+		ticketingSystem: ticketingOptions.type || 'none',
+		// Jira configuration
+		jiraProjectKey:
+			ticketingOptions.type === 'jira'
+				? ticketingOptions.jiraProjectKey || jiraProjectKey
+				: '',
+		jiraBaseUrl:
+			ticketingOptions.type === 'jira'
+				? ticketingOptions.jiraBaseUrl || ''
+				: '',
+		jiraEmail:
+			ticketingOptions.type === 'jira' ? ticketingOptions.jiraEmail || '' : '',
+		jiraApiToken:
+			ticketingOptions.type === 'jira'
+				? ticketingOptions.jiraApiToken || ''
+				: '',
+		jiraIntegrationEnabled: ticketingOptions.type === 'jira' ? true : false,
+		// Azure DevOps configuration
+		azureOrganization:
+			ticketingOptions.type === 'azure'
+				? ticketingOptions.azureOrganization || ''
+				: '',
+		azurePersonalAccessToken:
+			ticketingOptions.type === 'azure'
+				? ticketingOptions.azurePersonalAccessToken || ''
+				: '',
+		azureProjectName:
+			ticketingOptions.type === 'azure'
+				? ticketingOptions.azureProjectName || ''
+				: '',
+		// GitHub Projects configuration
+		githubToken:
+			ticketingOptions.type === 'github'
+				? ticketingOptions.githubToken || ''
+				: '',
+		githubOwner:
+			ticketingOptions.type === 'github'
+				? ticketingOptions.githubOwner || ''
+				: '',
+		githubRepository:
+			ticketingOptions.type === 'github'
+				? ticketingOptions.githubRepository || ''
+				: '',
+		githubProjectNumber:
+			ticketingOptions.type === 'github'
+				? ticketingOptions.githubProjectNumber || ''
+				: ''
+	};
+
 	// Copy .env.example
 	copyTemplateFile(
 		'env.example',
@@ -523,10 +582,7 @@ function createProjectStructure(addAliases, dryRun, jiraProjectKey = '') {
 	copyTemplateFile(
 		'.taskmasterconfig',
 		path.join(targetDir, '.taskmasterconfig'),
-		{
-			...replacements,
-			jiraProjectKey: jiraProjectKey
-		}
+		configReplacements
 	);
 
 	// Copy .gitignore
