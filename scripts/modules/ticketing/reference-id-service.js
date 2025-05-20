@@ -3,8 +3,8 @@
  * Service for generating and managing reference IDs for tasks and subtasks
  */
 
-import { log } from './utils.js';
-import { getJiraIntegrationEnabled } from './config-manager.js';
+// Will be dynamically imported to avoid circular dependencies
+// import { getJiraIntegrationEnabled } from '../config-manager.js';
 
 // Prefix for user stories
 const USER_STORY_PREFIX = 'US';
@@ -17,7 +17,10 @@ const TASK_PREFIX = 'T';
  * @param {string|null} explicitRoot - Optional explicit path to the project root
  * @returns {string} Reference ID for the user story (e.g., US-001)
  */
-function generateUserStoryRefId(taskId, explicitRoot = null) {
+async function generateUserStoryRefId(taskId, explicitRoot = null) {
+	// Dynamically import to avoid circular dependencies
+	const { getJiraIntegrationEnabled } = await import('../config-manager.js');
+
 	if (!getJiraIntegrationEnabled(explicitRoot)) {
 		return null;
 	}
@@ -34,7 +37,14 @@ function generateUserStoryRefId(taskId, explicitRoot = null) {
  * @param {string|null} explicitRoot - Optional explicit path to the project root
  * @returns {string} Reference ID for the subtask (e.g., T001-01)
  */
-function generateSubtaskRefId(parentTaskId, subtaskId, explicitRoot = null) {
+async function generateSubtaskRefId(
+	parentTaskId,
+	subtaskId,
+	explicitRoot = null
+) {
+	// Dynamically import to avoid circular dependencies
+	const { getJiraIntegrationEnabled } = await import('../config-manager.js');
+
 	if (!getJiraIntegrationEnabled(explicitRoot)) {
 		return null;
 	}
@@ -105,6 +115,17 @@ function formatTitleForJira(task) {
 }
 
 /**
+ * Format task title with reference ID for any ticketing system
+ * @param {Object} task - Task object
+ * @returns {string} Formatted title with reference ID
+ */
+function formatTitleForTicket(task) {
+	// Currently this just uses the Jira formatter, but could be made to select
+	// the appropriate formatter based on the configured ticketing system in the future
+	return formatTitleForJira(task);
+}
+
+/**
  * Find a task by reference ID in the tasks array
  * @param {Array} tasks - Array of tasks
  * @param {string} refId - Reference ID to search for
@@ -163,5 +184,6 @@ export {
 	storeRefId,
 	getRefId,
 	formatTitleForJira,
+	formatTitleForTicket,
 	findTaskByRefId
 };
