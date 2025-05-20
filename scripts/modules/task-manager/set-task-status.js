@@ -59,10 +59,13 @@ async function setTaskStatus(tasksPath, taskIdInput, newStatus, options = {}) {
 		for (const id of taskIds) {
 			await updateSingleTaskStatus(tasksPath, id, newStatus, data, !isMcpMode);
 			updatedTasks.push(id);
-			
+
 			// Update Jira issues if integration is enabled
 			// Pass the writeJSON function to enable updating metadata
-			await updateJiraTaskStatus(id, newStatus, data, tasksPath, { ...options, writeJSON });
+			await updateJiraTaskStatus(id, newStatus, data, tasksPath, {
+				...options,
+				writeJSON
+			});
 		}
 
 		// Write the updated tasks to the file

@@ -13,8 +13,15 @@ import {
 } from '../ui.js';
 import { readJSON, writeJSON, log as consoleLog, truncate } from '../utils.js';
 import { generateObjectService } from '../ai-services-unified.js';
-import { getDefaultPriority, getJiraIntegrationEnabled } from '../config-manager.js';
-import { createUserStory, storeJiraKey, isJiraConfigured } from '../jira-integration.js';
+import {
+	getDefaultPriority,
+	getJiraIntegrationEnabled
+} from '../config-manager.js';
+import {
+	createUserStory,
+	storeJiraKey,
+	isJiraConfigured
+} from '../jira-integration.js';
 import { generateUserStoryRefId, storeRefId } from '../reference-id-service.js';
 import generateTaskFiles from './generate-task-files.js';
 
@@ -293,7 +300,7 @@ async function addTask(
 			priority: effectivePriority,
 			subtasks: [] // Initialize with empty subtasks array
 		};
-		
+
 		// Store reference ID in task metadata if Jira integration is enabled
 		if (getJiraIntegrationEnabled(projectRoot)) {
 			const refId = generateUserStoryRefId(newTaskId, projectRoot);
@@ -304,8 +311,14 @@ async function addTask(
 		}
 
 		// Check if Jira integration is enabled and configured
-		if (getJiraIntegrationEnabled(projectRoot) && isJiraConfigured(projectRoot)) {
-			report('Jira integration is enabled. Creating user story in Jira...', 'info');
+		if (
+			getJiraIntegrationEnabled(projectRoot) &&
+			isJiraConfigured(projectRoot)
+		) {
+			report(
+				'Jira integration is enabled. Creating user story in Jira...',
+				'info'
+			);
 			try {
 				// Create user story in Jira
 				const jiraIssue = await createUserStory(taskData, projectRoot);

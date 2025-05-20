@@ -12,9 +12,21 @@ import {
 
 import { generateTextService } from '../ai-services-unified.js';
 
-import { getDefaultSubtasks, getDebugFlag, getJiraIntegrationEnabled } from '../config-manager.js';
-import { createTask, getJiraKey, isJiraConfigured } from '../jira-integration.js';
-import { generateSubtaskRefId, storeRefId, getRefId } from '../reference-id-service.js';
+import {
+	getDefaultSubtasks,
+	getDebugFlag,
+	getJiraIntegrationEnabled
+} from '../config-manager.js';
+import {
+	createTask,
+	getJiraKey,
+	isJiraConfigured
+} from '../jira-integration.js';
+import {
+	generateSubtaskRefId,
+	storeRefId,
+	getRefId
+} from '../reference-id-service.js';
 import generateTaskFiles from './generate-task-files.js';
 
 // --- Zod Schemas (Keep from previous step) ---
@@ -626,7 +638,7 @@ async function expandTask(
 		if (!Array.isArray(task.subtasks)) {
 			task.subtasks = [];
 		}
-		
+
 		// Store reference IDs in subtask metadata if Jira integration is enabled
 		if (getJiraIntegrationEnabled(projectRoot)) {
 			for (let i = 0; i < generatedSubtasks.length; i++) {
@@ -634,18 +646,23 @@ async function expandTask(
 				const refId = generateSubtaskRefId(task.id, subtask.id, projectRoot);
 				if (refId) {
 					generatedSubtasks[i] = storeRefId(subtask, refId);
-					logger.info(`Stored reference ID ${refId} in subtask ${subtask.id} metadata`);
+					logger.info(
+						`Stored reference ID ${refId} in subtask ${subtask.id} metadata`
+					);
 				}
 			}
 		}
 
 		// Check if Jira integration is enabled and configured
-		if (getJiraIntegrationEnabled(projectRoot) && isJiraConfigured(projectRoot)) {
+		if (
+			getJiraIntegrationEnabled(projectRoot) &&
+			isJiraConfigured(projectRoot)
+		) {
 			logger.info('Jira integration is enabled. Creating tasks in Jira...');
-			
+
 			// Get the parent task's Jira key
 			const parentJiraKey = getJiraKey(task);
-			
+
 			if (parentJiraKey) {
 				// Create Jira tasks for each subtask
 				for (const subtask of generatedSubtasks) {
@@ -667,19 +684,27 @@ async function expandTask(
 							if (!subtask.metadata) {
 								subtask.metadata = {};
 							}
-							
+
 							// Store Jira issue key in subtask metadata
 							subtask.metadata.jiraKey = jiraIssue.key;
-							logger.info(`Created Jira task: ${jiraIssue.key} for subtask ${subtask.id}`);
+							logger.info(
+								`Created Jira task: ${jiraIssue.key} for subtask ${subtask.id}`
+							);
 						} else {
-							logger.warn(`Failed to create Jira task for subtask ${subtask.id}`);
+							logger.warn(
+								`Failed to create Jira task for subtask ${subtask.id}`
+							);
 						}
 					} catch (jiraError) {
-						logger.error(`Error creating Jira task for subtask ${subtask.id}: ${jiraError.message}`);
+						logger.error(
+							`Error creating Jira task for subtask ${subtask.id}: ${jiraError.message}`
+						);
 					}
 				}
 			} else {
-				logger.warn('Parent task does not have a Jira key. Skipping Jira task creation for subtasks.');
+				logger.warn(
+					'Parent task does not have a Jira key. Skipping Jira task creation for subtasks.'
+				);
 			}
 		}
 

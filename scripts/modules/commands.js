@@ -1279,15 +1279,16 @@ function registerCommands(programInstance) {
 		.command('sync-jira')
 		.description('Synchronize tasks with Jira')
 		.option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
-		.option('--force', 'Force synchronization even if Jira integration is not enabled')
+		.option(
+			'--force',
+			'Force synchronization even if Jira integration is not enabled'
+		)
 		.action(async (options) => {
 			const tasksPath = path.resolve(options.file);
 
 			// Check if tasks.json exists
 			if (!fs.existsSync(tasksPath)) {
-				console.error(
-					chalk.red(`Error: Tasks file not found at ${tasksPath}`)
-				);
+				console.error(chalk.red(`Error: Tasks file not found at ${tasksPath}`));
 				process.exit(1);
 			}
 
@@ -1295,7 +1296,7 @@ function registerCommands(programInstance) {
 				const results = await syncJira(tasksPath, {
 					force: options.force
 				});
-				
+
 				displayJiraSyncResults(results);
 			} catch (error) {
 				console.error(chalk.red(`Error: ${error.message}`));
