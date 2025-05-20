@@ -90,7 +90,15 @@ const DEFAULT_CONFIG = {
 		jiraBaseUrl: '',
 		jiraEmail: '',
 		jiraApiToken: '',
-		jiraIntegrationEnabled: false
+		jiraIntegrationEnabled: false,
+		ticketingSystem: 'none',
+		azureOrganization: '',
+		azureProjectName: '',
+		azurePersonalAccessToken: '',
+		githubOwner: '',
+		githubRepository: '',
+		githubProjectNumber: '',
+		githubToken: ''
 	}
 };
 

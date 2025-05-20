@@ -14,18 +14,14 @@ import {
 	findTaskById
 } from '../utils.js';
 
+import { getTicketingInstance } from '../ticketing/ticketing-factory.js';
 import { generateObjectService } from '../ai-services-unified.js';
 import { getDebugFlag, getJiraIntegrationEnabled } from '../config-manager.js';
-import {
-	createUserStory,
-	isJiraConfigured,
-	storeJiraKey
-} from '../jira-integration.js';
 import {
 	generateUserStoryRefId,
 	storeRefId,
 	getRefId
-} from '../reference-id-service.js';
+} from '../ticketing/reference-id-service.js';
 import generateTaskFiles from './generate-task-files.js';
 import { displayAiUsageSummary } from '../ui.js';
 
@@ -339,7 +335,14 @@ Guidelines:
 				let task = processedNewTasks[i];
 				try {
 					// Create user story in Jira with reference ID in metadata
-					const jiraIssue = await createUserStory(
+					const ticketingInstance = await getTicketingInstance(
+						null,
+						projectRoot
+					);
+					if (!ticketingInstance) {
+						throw new Error('No ticketing system configured');
+					}
+					const jiraIssue = await ticketingInstance.createStory(
 						{
 							...task, // Pass the entire task object including metadata with refId
 							title: task.title,
@@ -389,7 +392,14 @@ Guidelines:
 				let task = processedNewTasks[i];
 				try {
 					// Create user story in Jira with reference ID in metadata
-					const jiraIssue = await createUserStory(
+					const ticketingInstance = await getTicketingInstance(
+						null,
+						projectRoot
+					);
+					if (!ticketingInstance) {
+						throw new Error('No ticketing system configured');
+					}
+					const jiraIssue = await ticketingInstance.createStory(
 						{
 							...task, // Pass the entire task object including metadata with refId
 							title: task.title,

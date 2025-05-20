@@ -27,6 +27,18 @@
 		"projectName": "Taskmaster",
 		"ollamaBaseUrl": "http://localhost:11434/api",
 		"azureOpenaiBaseUrl": "https://your-endpoint.openai.azure.com/",
-		"jiraProjectKey": "{{jiraProjectKey}}"
+		"ticketingSystem": "{{ticketingSystem}}",
+		"jiraProjectKey": "{{jiraProjectKey}}",
+		"jiraBaseUrl": "{{jiraBaseUrl}}",
+		"jiraEmail": "{{jiraEmail}}",
+		"jiraApiToken": "{{jiraApiToken}}",
+		"jiraIntegrationEnabled": false,
+		"azureOrganization": "{{azureOrganization}}",
+		"azurePersonalAccessToken": "{{azurePersonalAccessToken}}",
+		"azureProjectName": "{{azureProjectName}}",
+		"githubToken": "{{githubToken}}",
+		"githubOwner": "{{githubOwner}}",
+		"githubRepository": "{{githubRepository}}",
+		"githubProjectNumber": "{{githubProjectNumber}}"
 	}
 }
