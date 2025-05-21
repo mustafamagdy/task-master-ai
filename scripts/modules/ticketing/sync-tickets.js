@@ -611,8 +611,11 @@ async function syncTickets(tasksPath, options = {}) {
 		// Save the final data
 		options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
 
-		// Generate or update individual task files if tasks were added or updated
-		if (stats.tasksCreated > 0 || stats.tasksUpdated > 0 || stats.subtasksCreated > 0 || stats.subtasksUpdated > 0) {
+		// Always generate task files after a sync operation, particularly when tasks are added from Jira
+		// This ensures even tasks that were added via two-way sync get their text files
+		// Using direct generation instead of relying on stats counters
+		debugLog('Generating task files regardless of stat counters to ensure all tasks have text files');
+		{
 			customLog.info('Generating individual task files...');
 			debugLog('Calling generateTaskFiles to update task text files');
 			try {
