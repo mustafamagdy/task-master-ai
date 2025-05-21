@@ -19,7 +19,9 @@ const TASK_PREFIX = 'T';
  */
 async function generateUserStoryRefId(taskId, explicitRoot = null) {
 	// Dynamically import to avoid circular dependencies
-	const { getTicketingIntegrationEnabled } = await import('../config-manager.js');
+	const { getTicketingIntegrationEnabled } = await import(
+		'../config-manager.js'
+	);
 
 	if (!getTicketingIntegrationEnabled(explicitRoot)) {
 		return null;
@@ -43,7 +45,9 @@ async function generateSubtaskRefId(
 	explicitRoot = null
 ) {
 	// Dynamically import to avoid circular dependencies
-	const { getTicketingIntegrationEnabled } = await import('../config-manager.js');
+	const { getTicketingIntegrationEnabled } = await import(
+		'../config-manager.js'
+	);
 
 	if (!getTicketingIntegrationEnabled(explicitRoot)) {
 		return null;

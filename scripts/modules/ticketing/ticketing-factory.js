@@ -59,15 +59,18 @@ class TicketingSystemFactory {
 async function getTicketingInstance(explicitType = null, explicitRoot = null) {
 	try {
 		// Dynamically import to avoid circular dependencies
-		const { getTicketingSystemType, getTicketingSystem } = await import(
+		const { getTicketingSystem, getTicketingIntegrationEnabled } = await import(
 			'../config-manager.js'
 		);
 
-		// Get the ticketing system type from config or use the explicitly provided type
-		const type = explicitType || getTicketingSystemType(explicitRoot);
+		// Check if ticketing integration is enabled
+		if (!getTicketingIntegrationEnabled(explicitRoot) && !explicitType) {
+			return null;
+		}
 
-		// Get the ticketing system configuration
+		// Get the ticketing system type and config
 		const config = getTicketingSystem(explicitRoot);
+		const type = explicitType || (config?.type || 'none');
 
 		// Create and return the appropriate implementation
 		return TicketingSystemFactory.create(type, config);
