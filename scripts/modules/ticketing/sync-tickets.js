@@ -288,16 +288,19 @@ async function syncTickets(tasksPath, options = {}) {
 						log('info', `Creating story with title: ${title}`);
 						customLog.info(`Creating story with title: ${title}`);
 
-						// FORCE CREATE A TICKET REGARDLESS OF API RESULT
-						// Skip actual API call for testing
-						const fakeResult = {
-							key: `JIRA-${Math.floor(Math.random() * 1000)}`,
-							id: '12345'
-						};
-						log('info', `Created fake ticket with ID: ${fakeResult.key}`);
+						// Actually call the Jira API to create the ticket
+						debugLog(`Calling createStory for task ${task.id} with title: ${title}`);
 						
-						// Use the fake result
-						ticketId = fakeResult.key;
+						// Use the API to create the ticket in Jira
+						const result = await ticketingSystem.createStory(task, projectRoot);
+						debugLog(`createStory result: ${JSON.stringify(result)}`);
+						
+						if (!result) {
+							throw new Error('Failed to create ticket in Jira. API call returned no result.');
+						}
+						
+						// Extract ticket ID from result
+						ticketId = result.key || result.id;
 						customLog.success(`Created ticket ${ticketId} for task ${task.id}`);
 
 						// Store the ticket ID in task metadata
