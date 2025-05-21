@@ -364,7 +364,7 @@ async function initializeProject(options = {}) {
 
 		try {
 			// Prompt for ticketing system using arrow key navigation
-			const ticketingOptions = [
+			const ticketingChoices = [
 				'None',
 				'Jira',
 				'Azure DevOps',
@@ -374,7 +374,7 @@ async function initializeProject(options = {}) {
 			const ticketingChoice = await promptSelectionMenu(
 				rl,
 				'Select ticketing system to use:',
-				ticketingOptions
+				ticketingChoices
 			);
 
 			// Process ticketing system choice
