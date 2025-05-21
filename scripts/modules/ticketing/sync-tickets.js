@@ -243,21 +243,82 @@ async function syncTickets(tasksPath, options = {}) {
 						} else {
 							debugLog(`Ticket ${ticketId} verified to exist in Jira.`);
 							
+							// Helper function to determine status priority for conflict resolution
+							function getStatusPriority(status) {
+								// Convert to lowercase for case-insensitive comparison
+								const s = (status || '').toLowerCase();
+								// Priority is based on workflow progression (higher number = further along)
+								if (s === 'done') return 5; // Highest priority - work is complete
+								if (s === 'in review' || s === 'review') return 4;
+								if (s === 'in progress') return 3;
+								if (s === 'to do') return 2;
+								if (s === 'backlog') return 1;
+								if (s === 'cancelled') return 6; // Special case - cancelled overrides everything
+								return 0; // Default/unknown status
+							}
+
+							// Get current Jira status before updating
+							let currentJiraStatus = null;
+							try {
+								currentJiraStatus = await ticketingSystem.getTicketStatus(ticketId, projectRoot);
+								debugLog(`Current Jira status for ticket ${ticketId}: ${currentJiraStatus}`);
+							} catch (error) {
+								debugLog(`Could not get current Jira status: ${error.message}`);
+							}
+							
 							// Sync status from TaskMaster to Jira if the ticket exists
 							if (task.status) {
 								try {
-									debugLog(`Syncing status for task ${task.id} (${ticketId}) from TaskMaster to Jira: ${task.status}`);
-									const updateResult = await ticketingSystem.updateTicketStatus(
-										ticketId,
-										task.status,
-										projectRoot,
-										task
-									);
-									if (updateResult) {
-										debugLog(`Successfully updated status for ticket ${ticketId} in Jira to ${task.status}`);
-										stats.tasksUpdated++;
+									const taskMasterStatus = task.status;
+									const jiraEquivalentStatus = ticketingSystem.mapStatusToTicket(taskMasterStatus);
+									
+									// Apply conflict resolution
+									let statusToUse = null;
+									if (currentJiraStatus && currentJiraStatus !== jiraEquivalentStatus) {
+										// We have a conflict - Jira status is different from TaskMaster's status
+										const jiraStatusPriority = getStatusPriority(currentJiraStatus);
+										const taskMasterStatusPriority = getStatusPriority(jiraEquivalentStatus);
+										
+										if (jiraStatusPriority > taskMasterStatusPriority) {
+											// Jira has higher priority status - update TaskMaster
+											debugLog(`Status conflict! Jira status (${currentJiraStatus}) has higher priority than TaskMaster status (${taskMasterStatus})`);
+											customLog.info(`Status conflict resolved: Using Jira's status (${currentJiraStatus}) which has higher priority`);
+											
+											// Update TaskMaster with Jira's status
+											const newTaskMasterStatus = ticketingSystem.mapTicketStatusToTaskmaster(currentJiraStatus);
+											task.status = newTaskMasterStatus;
+											debugLog(`Updated TaskMaster status to ${newTaskMasterStatus} from Jira`);
+											customLog.success(`Updated task ${task.id} status to ${newTaskMasterStatus} from Jira`);
+											stats.tasksUpdated++;
+											
+											// No need to update Jira since we're keeping its status
+											return;
+										} else {
+											// TaskMaster has higher or equal priority - update Jira
+											debugLog(`Status conflict! TaskMaster status (${taskMasterStatus}) has higher priority than Jira status (${currentJiraStatus})`);
+											customLog.info(`Status conflict resolved: Using TaskMaster's status (${taskMasterStatus}) which has higher priority`);
+											statusToUse = taskMasterStatus;
+										}
 									} else {
-										debugLog(`Failed to update status for ticket ${ticketId} in Jira`);
+										// No conflict or couldn't determine Jira status - use TaskMaster status
+										statusToUse = taskMasterStatus;
+									}
+									
+										// Update Jira if needed
+									if (statusToUse) {
+										debugLog(`Syncing status for task ${task.id} (${ticketId}) from TaskMaster to Jira: ${statusToUse}`);
+										const updateResult = await ticketingSystem.updateTicketStatus(
+											ticketId,
+											statusToUse,
+											projectRoot,
+											task
+										);
+										if (updateResult) {
+											debugLog(`Successfully updated status for ticket ${ticketId} in Jira to ${statusToUse}`);
+											stats.tasksUpdated++;
+										} else {
+											debugLog(`Failed to update status for ticket ${ticketId} in Jira`);
+										}
 									}
 								} catch (error) {
 									debugLog(`Error updating status for ticket ${ticketId} in Jira: ${error.message}`);

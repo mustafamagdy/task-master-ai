@@ -721,6 +721,50 @@ ${subtaskData.details}`
 	}
 
 	/**
+	 * Get current status of a Jira ticket
+	 * @param {string} ticketId - The Jira ticket ID
+	 * @param {string|null} explicitRoot - Optional explicit path to the project root
+	 * @returns {Promise<string|null>} - The status of the ticket or null if it couldn't be fetched
+	 */
+	async getTicketStatus(ticketId, explicitRoot = null) {
+		if (!ticketId) return null;
+		
+		// Validate configuration
+		const config = this.validateConfig(explicitRoot);
+		if (!config) return null;
+		
+		const { baseUrl, email, apiToken } = config;
+		const url = `${baseUrl}/rest/api/3/issue/${ticketId}`;
+		
+		try {
+			log('debug', `Fetching status for ticket ${ticketId}`);
+			
+			const response = await fetch(url, {
+				method: 'GET',
+				headers: {
+					'Authorization': `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`,
+					'Accept': 'application/json'
+				}
+			});
+			
+			if (!response.ok) {
+				log('error', `Failed to fetch ticket status: ${response.status} ${response.statusText}`);
+				return null;
+			}
+			
+			const data = await response.json();
+			if (data && data.fields && data.fields.status && data.fields.status.name) {
+				return data.fields.status.name;
+			}
+			
+			return null;
+		} catch (error) {
+			log('error', `Error fetching ticket status: ${error.message}`);
+			return null;
+		}
+	}
+	
+	/**
 	 * Map Jira status to TaskMaster status
 	 * @param {string} jiraStatus - Jira status
 	 * @returns {string} TaskMaster status
