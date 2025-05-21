@@ -478,6 +478,35 @@ async function runInteractiveSetup(projectRoot) {
 }
 
 /**
+ * Display the results of ticket synchronization
+ * @param {Object} results - Results from the syncTickets function
+ */
+function displayTicketSyncResults(results) {
+	if (!results.success) {
+		console.log(chalk.yellow(`Ticket synchronization skipped: ${results.message}`));
+		return;
+	}
+
+	// Create a nice summary box
+	console.log(
+		boxen(
+			`${chalk.bold.green('Ticket Synchronization Complete')}\n\n` +
+			`${chalk.cyan('Tasks created:')} ${results.stats?.tasksCreated || 0}\n` +
+			`${chalk.cyan('Subtasks created:')} ${results.stats?.subtasksCreated || 0}\n` +
+			`${chalk.cyan('Tasks updated:')} ${results.stats?.tasksUpdated || 0}\n` +
+			`${chalk.cyan('Subtasks updated:')} ${results.stats?.subtasksUpdated || 0}\n` +
+			`${chalk.cyan('Errors:')} ${results.stats?.errors || 0}`,
+			{ padding: 1, borderColor: 'green', borderStyle: 'round' }
+		)
+	);
+
+	// Show warning if there were errors
+	if (results.stats?.errors > 0) {
+		console.log(chalk.yellow('Some operations failed. Check the logs for details.'));
+	}
+}
+
+/**
  * Configure and register CLI commands
  * @param {Object} program - Commander program instance
  */
@@ -1273,7 +1302,7 @@ function registerCommands(programInstance) {
 			}
 		});
 
-	// sync-t	ickets command
+	// sync-tickets command
 	programInstance
 		.command('sync-tickets')
 		.description('Synchronize tasks with ticketing system')
@@ -1317,10 +1346,7 @@ function registerCommands(programInstance) {
 			'-d, --description <description>',
 			'Task description (for manual task creation)'
 		)
-		.option(
-			'--details <details>',
-			'Implementation details (for manual task creation)'
-		)
+		.option('--details <details>', 'Implementation details (for manual task creation)')
 		.option(
 			'--dependencies <dependencies>',
 			'Comma-separated list of task IDs this task depends on'
