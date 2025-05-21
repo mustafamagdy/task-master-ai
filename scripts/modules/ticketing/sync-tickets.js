@@ -174,23 +174,39 @@ async function syncTickets(tasksPath, options = {}) {
 
 				// If no ticket ID in metadata, try to find it by reference ID
 				if (!ticketId) {
+					debugLog(`No ticket ID found in metadata for task ${task.id}, searching by reference ID ${refId}...`);
 					customLog.info(
 						`No ticket ID found in metadata for task ${task.id}. Searching by reference ID ${refId}...`
 					);
-					ticketId = await ticketingSystem.findTicketByRefId(
-						refId,
-						projectRoot
-					);
-
-					if (ticketId) {
-						customLog.success(
-							`Found ticket ${ticketId} by reference ID ${refId}`
+					try {
+						debugLog(`About to call findTicketByRefId with refId ${refId}...`);
+						// DEBUG: Log state right before the call
+						console.log(`CRITICAL DEBUG: About to search for ticket with refId ${refId}`);
+						console.log(`CRITICAL DEBUG: Current ticketId before search: ${ticketId}`);
+						
+						ticketId = await ticketingSystem.findTicketByRefId(
+							refId,
+							projectRoot
 						);
-						// Store the ticket ID in task metadata
-						ticketingSystem.storeTicketId(task, ticketId);
-						// Save the updated metadata
-						options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
-						stats.tasksUpdated++;
+						debugLog(`findTicketByRefId returned: ${ticketId || 'NONE'}`);
+						// DEBUG: Log state right after the call
+						console.log(`CRITICAL DEBUG: findTicketByRefId returned: ${ticketId || 'NONE'}`);
+
+						if (ticketId) {
+							customLog.success(
+								`Found ticket ${ticketId} by reference ID ${refId}`
+							);
+							// Store the ticket ID in task metadata
+							ticketingSystem.storeTicketId(task, ticketId);
+							// Save the updated metadata
+							options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
+							stats.tasksUpdated++;
+						}
+					} catch (error) {
+						customLog.error(
+							`Error finding ticket by reference ID ${refId}: ${error.message}`
+						);
+						stats.errors++;
 					}
 				}
 
@@ -255,24 +271,40 @@ async function syncTickets(tasksPath, options = {}) {
 
 							// If no ticket ID in metadata, try to find it by reference ID
 							if (!subtaskTicketId) {
+								debugLog(`No ticket ID found in metadata for subtask ${subtask.id}, searching by reference ID ${subtaskRefId}...`);
 								customLog.info(
 									`No ticket ID found in metadata for subtask ${subtask.id}. Searching by reference ID ${subtaskRefId}...`
 								);
-								subtaskTicketId = await ticketingSystem.findTicketByRefId(
-									subtaskRefId,
-									projectRoot
-								);
-
-								if (subtaskTicketId) {
-									customLog.success(
-										`Found ticket ${subtaskTicketId} by reference ID ${subtaskRefId}`
+								try {
+									debugLog(`About to call findTicketByRefId with refId ${subtaskRefId}...`);
+									// DEBUG: Log state right before the call
+									console.log(`CRITICAL DEBUG: About to search for ticket with refId ${subtaskRefId}`);
+									console.log(`CRITICAL DEBUG: Current ticketId before search: ${subtaskTicketId}`);
+									
+									subtaskTicketId = await ticketingSystem.findTicketByRefId(
+										subtaskRefId,
+										projectRoot
 									);
-									// Store the ticket ID in subtask metadata
-									ticketingSystem.storeTicketId(subtask, subtaskTicketId);
-									// Save the updated metadata
-									options.writeJSON?.(tasksPath, data) ||
-										writeJSON(tasksPath, data);
-									stats.subtasksUpdated++;
+									debugLog(`findTicketByRefId returned: ${subtaskTicketId || 'NONE'}`);
+									// DEBUG: Log state right after the call
+									console.log(`CRITICAL DEBUG: findTicketByRefId returned: ${subtaskTicketId || 'NONE'}`);
+
+									if (subtaskTicketId) {
+										customLog.success(
+											`Found ticket ${subtaskTicketId} by reference ID ${subtaskRefId}`
+										);
+										// Store the ticket ID in subtask metadata
+										ticketingSystem.storeTicketId(subtask, subtaskTicketId);
+										// Save the updated metadata
+										options.writeJSON?.(tasksPath, data) ||
+											writeJSON(tasksPath, data);
+										stats.subtasksUpdated++;
+									}
+								} catch (error) {
+									customLog.error(
+										`Error finding ticket by reference ID ${subtaskRefId}: ${error.message}`
+									);
+									stats.errors++;
 								}
 							}
 
