@@ -16,6 +16,7 @@ import {
 	getTicketingSystemType
 } from '../config-manager.js';
 import { getRefId, formatTitleForTicket } from './reference-id-service.js';
+import generateTaskFiles from '../task-manager/generate-task-files.js';
 
 // Add DEBUG constant at the top of the file
 const DEBUG = true; // Set to true to enable debug logs
@@ -609,6 +610,21 @@ async function syncTickets(tasksPath, options = {}) {
 
 		// Save the final data
 		options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
+
+		// Generate or update individual task files if tasks were added or updated
+		if (stats.tasksCreated > 0 || stats.tasksUpdated > 0 || stats.subtasksCreated > 0 || stats.subtasksUpdated > 0) {
+			customLog.info('Generating individual task files...');
+			debugLog('Calling generateTaskFiles to update task text files');
+			try {
+				// The outputDir is the directory containing the tasks.json file
+				const outputDir = path.dirname(tasksPath);
+				await generateTaskFiles(tasksPath, outputDir, { mcpLog: customLog });
+				customLog.success('Successfully generated individual task files');
+			} catch (error) {
+				debugLog(`Error generating task files: ${error.message}`);
+				customLog.error(`Failed to generate task files: ${error.message}`);
+			}
+		}
 
 		// Return success with statistics
 		const message = `Synchronization complete: ${stats.tasksCreated} tasks created, ${stats.subtasksCreated} subtasks created, ${stats.tasksUpdated} tasks updated, ${stats.subtasksUpdated} subtasks updated, ${stats.errors} errors`;
