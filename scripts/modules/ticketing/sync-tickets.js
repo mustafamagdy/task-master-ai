@@ -238,6 +238,30 @@ async function syncTickets(tasksPath, options = {}) {
 
 				debugLog(`Ticket ID for task ${task.id}: ${ticketId || 'NONE'}`);
 
+				// If ticket ID exists, verify it actually exists in Jira
+				if (ticketId) {
+					try {
+						debugLog(`Verifying ticket ${ticketId} exists in Jira...`);
+						const ticketExists = await ticketingSystem.ticketExists(ticketId, projectRoot);
+						if (!ticketExists) {
+							debugLog(`Ticket ${ticketId} does not exist in Jira! Clearing ID to recreate.`);
+							customLog.warn(`Ticket ${ticketId} referenced in task ${task.id} does not exist in Jira. Will recreate.`);
+							task.metadata = task.metadata || {};
+							delete task.metadata.jiraKey;
+							ticketId = null;
+						} else {
+							debugLog(`Ticket ${ticketId} verified to exist in Jira.`);
+						}
+					} catch (error) {
+						debugLog(`Error verifying ticket ${ticketId}: ${error.message}`);
+						customLog.error(`Error verifying ticket ${ticketId}: ${error.message}`);
+						// For safety, assume ticket doesn't exist and try to recreate
+						task.metadata = task.metadata || {};
+						delete task.metadata.jiraKey;
+						ticketId = null;
+					}
+				}
+
 				// If no ticket ID in metadata, try to find it by reference ID
 				if (!ticketId) {
 					debugLog(`No ticket ID found in metadata for task ${task.id}, searching by reference ID ${refId}...`);
