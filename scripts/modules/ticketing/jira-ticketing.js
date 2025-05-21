@@ -180,11 +180,14 @@ ${taskData.details}`
 
 			if (!response.ok) {
 				const errorText = await response.text();
+				console.log(`====== DEBUG: Response error: ${response.status} ${errorText} ======`);
 				// If the error is specifically about priority, retry without priority field
 				if (errorText.includes('priority') && fields.priority) {
+					console.log('====== DEBUG: Priority field error detected, retrying without priority ======');
 					log('warn', 'Priority field error detected. Retrying without priority field.');
 					delete fields.priority;
 					
+					console.log('====== DEBUG: Sending retry request without priority field ======');
 					const retryResponse = await fetch(
 						`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
 						{
@@ -196,24 +199,31 @@ ${taskData.details}`
 							body: JSON.stringify({ fields })
 						}
 					);
+					console.log(`====== DEBUG: Retry response status: ${retryResponse.status} ======`);
 					
 					if (!retryResponse.ok) {
 						const retryErrorText = await retryResponse.text();
+						console.log(`====== DEBUG: Retry failed with error: ${retryResponse.status} ${retryErrorText} ======`);
 						throw new Error(`Jira API error: ${retryResponse.status} ${retryErrorText}`);
 					}
 					
 					const data = await retryResponse.json();
+					console.log(`====== DEBUG: Retry succeeded, created story ${data.key} ======`);
 					log('success', `Created Jira story ${data.key} for task ${taskData.id} without priority field`);
 					return data;
 				}
 				
+				console.log(`====== DEBUG: Throwing error for failed request ======`);
 				throw new Error(`Jira API error: ${response.status} ${errorText}`);
 			}
 
 			const data = await response.json();
+			console.log(`====== DEBUG: Successfully created story ${data.key} ======`);
 			log('success', `Created Jira story ${data.key} for task ${taskData.id}`);
 			return data;
 		} catch (error) {
+			console.log(`====== DEBUG: Error in createStory: ${error.message} ======`);
+			console.log(`====== DEBUG: Error stack: ${error.stack} ======`);
 			log('error', `Error creating Jira story: ${error.message}`);
 			throw error;
 		}
