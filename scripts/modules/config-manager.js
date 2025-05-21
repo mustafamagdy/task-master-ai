@@ -895,6 +895,16 @@ function getGitHubProjectNumber(explicitRoot = null) {
 	return config?.global?.githubProjectNumber || '';
 }
 
+/**
+ * Gets the type of ticketing system configured.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {string} The ticketing system type ('jira', 'azure', 'github', 'none').
+ */
+function getTicketingSystemType(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.global?.ticketingSystem || 'none';
+}
+
 export {
 	// Core config access
 	getConfig,
@@ -941,6 +951,7 @@ export {
 	// New ticketing system getters
 	getTicketingSystem,
 	getTicketingSystemEnabled,
+	getTicketingSystemType,
 	// Azure DevOps getters
 	getAzureOrganization,
 	getAzurePersonalAccessToken,
