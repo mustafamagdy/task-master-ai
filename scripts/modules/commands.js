@@ -33,7 +33,8 @@ import {
 	removeTask,
 	findTaskById,
 	taskExists,
-	isTaskDependentOn
+	isTaskDependentOn,
+	syncTickets
 } from './task-manager.js';
 
 import {
