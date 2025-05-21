@@ -1311,6 +1311,7 @@ function registerCommands(programInstance) {
 			'--force',
 			'Force synchronization even if ticketing system integration is not enabled'
 		)
+		.option('--debug', 'Enable debug logging for troubleshooting')
 		.action(async (options) => {
 			const tasksPath = path.resolve(options.file);
 
@@ -1322,12 +1323,16 @@ function registerCommands(programInstance) {
 
 			try {
 				const results = await syncTickets(tasksPath, {
-					force: options.force
+					force: options.force,
+					debug: options.debug
 				});
 
 				displayTicketSyncResults(results);
 			} catch (error) {
 				console.error(chalk.red(`Error: ${error.message}`));
+				if (options.debug) {
+					console.error(`Stack trace: ${error.stack}`);
+				}
 				process.exit(1);
 			}
 		});
