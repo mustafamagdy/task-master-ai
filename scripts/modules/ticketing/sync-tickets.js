@@ -129,7 +129,13 @@ async function syncTickets(tasksPath, options = {}) {
 						const title = formatTitleForTicket(task);
 						customLog.info(`Creating story with title: ${title}`);
 
+						// Add debug logging for ticketing system
+						customLog.info(`Using ticketing system: ${ticketingSystem.constructor.name}`);
+						customLog.info(`Ticketing system configured: ${ticketingSystem.isConfigured(projectRoot)}`);
+						
 						const result = await ticketingSystem.createStory(task, projectRoot);
+						customLog.info(`Create story result: ${JSON.stringify(result)}`);
+						
 						if (result) {
 							ticketId = result.key || result.id;
 							customLog.success(
