@@ -172,6 +172,8 @@ async function syncTickets(tasksPath, options = {}) {
 				// Check if task already has a ticket ID
 				let ticketId = ticketingSystem.getTicketId(task);
 
+				debugLog(`Ticket ID for task ${task.id}: ${ticketId || 'NONE'}`);
+
 				// If no ticket ID in metadata, try to find it by reference ID
 				if (!ticketId) {
 					debugLog(`No ticket ID found in metadata for task ${task.id}, searching by reference ID ${refId}...`);
@@ -250,6 +252,8 @@ async function syncTickets(tasksPath, options = {}) {
 					}
 				}
 
+				debugLog('checking subtasks...');
+				
 				// Process subtasks if present
 				if (task.subtasks && task.subtasks.length > 0 && ticketId) {
 					customLog.info(
