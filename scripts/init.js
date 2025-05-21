@@ -281,7 +281,7 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 			content = content.replace(/\s*"jiraBaseUrl":\s*"\{\{jiraBaseUrl\}\}",?/g, '');
 			content = content.replace(/\s*"jiraEmail":\s*"\{\{jiraEmail\}\}",?/g, '');
 			content = content.replace(/\s*"jiraApiToken":\s*"\{\{jiraApiToken\}\}",?/g, '');
-			content = content.replace(/\s*"ticketingIntegrationEnabled":\s*(true|false),?/g, '');
+			// Keep ticketingIntegrationEnabled for all ticketing systems
 		}
 		
 		if (ticketingSystem !== 'azure') {
