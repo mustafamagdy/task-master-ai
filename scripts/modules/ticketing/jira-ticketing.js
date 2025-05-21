@@ -329,37 +329,53 @@ ${subtaskData.details}`
 	 * @returns {Promise<string|null>} Issue key if found, null otherwise
 	 */
 	async findTicketByRefId(refId, explicitRoot = null) {
+		console.log(`===== DEBUG: findTicketByRefId called with refId: ${refId} =====`);
+
 		// Validate configuration
 		const config = this.validateConfig(explicitRoot);
-		if (!config) return null;
-		if (!refId) return null;
+		
+		if (!config) {
+			console.log(`===== DEBUG: Config validation failed in findTicketByRefId =====`);
+			return null;
+		}
+		if (!refId) {
+			console.log(`===== DEBUG: No refId provided to findTicketByRefId =====`);
+			return null;
+		}
 
+		console.log(`===== DEBUG: findTicketByRefId config validated, searching for ticket =====`);
 		const { projectKey, baseUrl, email, apiToken } = config;
 
 		try {
 			// Search for issues with the reference ID in the title
 			const jql = `project = ${projectKey} AND summary ~ "${refId}" ORDER BY created DESC`;
-			const response = await fetch(
-				`${baseUrl}/rest/api/${JIRA_API_VERSION}/search?jql=${encodeURIComponent(jql)}`,
-				{
-					method: 'GET',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-					}
-				}
-			);
-
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(`Jira API error: ${response.status} ${errorText}`);
-			}
-
-			const data = await response.json();
-			if (data.issues && data.issues.length > 0) {
-				return data.issues[0].key;
-			}
+			console.log(`===== DEBUG: Searching with JQL: ${jql} =====`);
+			
+			// FOR DEBUG ONLY: Force this method to return null to test ticket creation
+			console.log(`===== DEBUG: FORCING null return to test ticket creation =====`);
 			return null;
+
+			// const response = await fetch(
+			// 	`${baseUrl}/rest/api/${JIRA_API_VERSION}/search?jql=${encodeURIComponent(jql)}`,
+			// 	{
+			// 		method: 'GET',
+			// 		headers: {
+			// 			'Content-Type': 'application/json',
+			// 			Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
+			// 		}
+			// 	}
+			// );
+
+			// if (!response.ok) {
+			// 	const errorText = await response.text();
+			// 	throw new Error(`Jira API error: ${response.status} ${errorText}`);
+			// }
+
+			// const data = await response.json();
+			// if (data.issues && data.issues.length > 0) {
+			// 	return data.issues[0].key;
+			// }
+			// return null;
 		} catch (error) {
 			log(
 				'error',
