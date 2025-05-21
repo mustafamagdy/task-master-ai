@@ -120,6 +120,28 @@ ${taskData.details}`
 
 			// Format title with reference ID for Jira if available
 			const summary = this.formatTitleForTicket(taskData);
+			
+			// Build the fields object without priority first
+			const fields = {
+				project: {
+					key: projectKey
+				},
+				summary,
+				description,
+				issuetype: {
+					name: 'Story'
+				}
+			};
+			
+			// Only add priority if provided and needed
+			try {
+				fields.priority = {
+					name: this.mapPriorityToTicket(taskData.priority || 'medium')
+				};
+			} catch (priorityError) {
+				// Ignore priority field if it causes issues
+				log('warn', `Skipping priority field for Jira story: ${priorityError.message}`);
+			}
 
 			const response = await fetch(
 				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
@@ -129,26 +151,39 @@ ${taskData.details}`
 						'Content-Type': 'application/json',
 						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
 					},
-					body: JSON.stringify({
-						fields: {
-							project: {
-								key: projectKey
-							},
-							summary,
-							description,
-							issuetype: {
-								name: 'Story'
-							},
-							priority: {
-								name: this.mapPriorityToTicket(taskData.priority || 'medium')
-							}
-						}
-					})
+					body: JSON.stringify({ fields })
 				}
 			);
 
 			if (!response.ok) {
 				const errorText = await response.text();
+				// If the error is specifically about priority, retry without priority field
+				if (errorText.includes('priority') && fields.priority) {
+					log('warn', 'Priority field error detected. Retrying without priority field.');
+					delete fields.priority;
+					
+					const retryResponse = await fetch(
+						`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
+						{
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
+							},
+							body: JSON.stringify({ fields })
+						}
+					);
+					
+					if (!retryResponse.ok) {
+						const retryErrorText = await retryResponse.text();
+						throw new Error(`Jira API error: ${retryResponse.status} ${retryErrorText}`);
+					}
+					
+					const data = await retryResponse.json();
+					log('success', `Created Jira story ${data.key} for task ${taskData.id} without priority field`);
+					return data;
+				}
+				
 				throw new Error(`Jira API error: ${response.status} ${errorText}`);
 			}
 
@@ -186,6 +221,28 @@ ${taskData.details}`
 ${subtaskData.details}`
 				: subtaskData.description;
 
+			// Build the fields object without priority first
+			const fields = {
+				parent: {
+					key: parentTicketId
+				},
+				summary,
+				description,
+				issuetype: {
+					name: 'Sub-task'
+				}
+			};
+			
+			// Only add priority if provided and needed
+			try {
+				fields.priority = {
+					name: this.mapPriorityToTicket(subtaskData.priority || 'medium')
+				};
+			} catch (priorityError) {
+				// Ignore priority field if it causes issues
+				log('warn', `Skipping priority field for Jira subtask: ${priorityError.message}`);
+			}
+
 			const response = await fetch(
 				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
 				{
@@ -194,26 +251,39 @@ ${subtaskData.details}`
 						'Content-Type': 'application/json',
 						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
 					},
-					body: JSON.stringify({
-						fields: {
-							parent: {
-								key: parentTicketId
-							},
-							summary,
-							description,
-							issuetype: {
-								name: 'Sub-task'
-							},
-							priority: {
-								name: this.mapPriorityToTicket(subtaskData.priority || 'medium')
-							}
-						}
-					})
+					body: JSON.stringify({ fields })
 				}
 			);
 
 			if (!response.ok) {
 				const errorText = await response.text();
+				// If the error is specifically about priority, retry without priority field
+				if (errorText.includes('priority') && fields.priority) {
+					log('warn', 'Priority field error detected. Retrying without priority field.');
+					delete fields.priority;
+					
+					const retryResponse = await fetch(
+						`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
+						{
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
+							},
+							body: JSON.stringify({ fields })
+						}
+					);
+					
+					if (!retryResponse.ok) {
+						const retryErrorText = await retryResponse.text();
+						throw new Error(`Jira API error: ${retryResponse.status} ${retryErrorText}`);
+					}
+					
+					const data = await retryResponse.json();
+					log('success', `Created Jira subtask ${data.key} for task ${subtaskData.id} without priority field`);
+					return data;
+				}
+				
 				throw new Error(`Jira API error: ${response.status} ${errorText}`);
 			}
 
