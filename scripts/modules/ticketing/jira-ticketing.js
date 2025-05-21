@@ -136,7 +136,7 @@ class JiraTicketing extends TicketingSystemInterface {
 			// For API version 2, use plain text description instead of ADF
 			// Combine description and details with a separator if both exist
 			const description = taskData.details
-				? `${taskData.description}
+				? `${taskData.description} 
 
 ${taskData.details}`
 				: taskData.description;
@@ -657,6 +657,114 @@ ${subtaskData.details}`
 				return 'Backlog';
 			default:
 				return 'To Do';
+		}
+	}
+
+	/**
+	 * Get all tickets from Jira for the configured project
+	 * @param {string|null} explicitRoot - Optional explicit path to the project root
+	 * @returns {Promise<Array>} Array of Jira tickets
+	 */
+	async getAllTickets(explicitRoot = null) {
+		// Validate configuration
+		const config = this.validateConfig(explicitRoot);
+		if (!config) return [];
+
+		const { projectKey, baseUrl, email, apiToken } = config;
+
+		try {
+			// JQL query to get all issues for the project
+			const jql = `project = ${projectKey} ORDER BY created DESC`;
+			log('info', `Fetching all issues with JQL: ${jql}`);
+			
+			// Make the API request
+			const response = await fetch(
+				`${baseUrl}/rest/api/${JIRA_API_VERSION}/search?jql=${encodeURIComponent(jql)}&maxResults=100`,
+				{
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json',
+						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
+					}
+				}
+			);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(`Jira API error: ${response.status} ${errorText}`);
+			}
+
+			const data = await response.json();
+			
+			// Process the results
+			if (data.issues && Array.isArray(data.issues)) {
+				log('success', `Found ${data.issues.length} tickets in Jira`);
+				return data.issues.map(issue => ({
+					id: issue.id,
+					key: issue.key,
+					summary: issue.fields.summary,
+					description: issue.fields.description || '',
+					status: issue.fields.status?.name || 'To Do',
+					priority: issue.fields.priority?.name || 'Medium',
+					isSubtask: issue.fields.issuetype?.subtask || false,
+					parentKey: issue.fields.parent?.key, // Will be set for subtasks
+					created: issue.fields.created,
+					updated: issue.fields.updated
+				}));
+			}
+			
+			return [];
+		} catch (error) {
+			log('error', `Error fetching tickets from Jira: ${error.message}`);
+			return [];
+		}
+	}
+
+	/**
+	 * Map Jira status to TaskMaster status
+	 * @param {string} jiraStatus - Jira status
+	 * @returns {string} TaskMaster status
+	 */
+	mapTicketStatusToTaskmaster(jiraStatus) {
+		if (!jiraStatus) return 'pending';
+		
+		switch (jiraStatus.toLowerCase()) {
+			case 'to do':
+			case 'open':
+			case 'backlog':
+				return 'pending';
+			case 'in progress':
+				return 'in-progress';
+			case 'in review':
+				return 'review';
+			case 'done':
+				return 'done';
+			case 'cancelled':
+				return 'cancelled';
+			default:
+				return 'pending';
+		}
+	}
+
+	/**
+	 * Map Jira priority to TaskMaster priority
+	 * @param {string} jiraPriority - Jira priority
+	 * @returns {string} TaskMaster priority
+	 */
+	mapTicketPriorityToTaskmaster(jiraPriority) {
+		if (!jiraPriority) return 'medium';
+		
+		switch (jiraPriority.toLowerCase()) {
+			case 'highest':
+			case 'high':
+				return 'high';
+			case 'medium':
+				return 'medium';
+			case 'low':
+			case 'lowest':
+				return 'low';
+			default:
+				return 'medium';
 		}
 	}
 }

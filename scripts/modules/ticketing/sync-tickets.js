@@ -21,6 +21,70 @@ import { getRefId, formatTitleForTicket } from './reference-id-service.js';
 const DEBUG = true; // Set to true to enable debug logs
 
 /**
+ * Fetch all tickets from the ticketing system
+ * @param {Object} ticketingSystem - Ticketing system implementation
+ * @param {string} projectRoot - Project root
+ * @param {Object} logger - Custom logger
+ * @param {Function} debugLog - Debug logger
+ * @returns {Promise<Array>} Array of tickets
+ */
+async function fetchAllTicketsFromSystem(ticketingSystem, projectRoot, logger, debugLog) {
+	try {
+		if (!ticketingSystem.getAllTickets) {
+			logger.warn('Ticketing system does not support fetching all tickets');
+			return [];
+		}
+
+		logger.info('Fetching all tickets from ticketing system...');
+		debugLog('About to call getAllTickets...');
+		const tickets = await ticketingSystem.getAllTickets(projectRoot);
+		logger.success(`Fetched ${tickets.length} tickets from ticketing system`);
+		return tickets;
+	} catch (error) {
+		logger.error(`Error fetching tickets: ${error.message}`);
+		return [];
+	}
+}
+
+/**
+ * Convert a ticket from the ticketing system to a TaskMaster task
+ * @param {Object} ticket - Ticket data
+ * @param {Object} ticketingSystem - Ticketing system implementation
+ * @returns {Object|null} Task data or null if conversion failed
+ */
+function convertTicketToTask(ticket, ticketingSystem) {
+	try {
+		// Basic task structure
+		const task = {
+			id: String(Math.floor(Math.random() * 1000) + 1000), // Temporary ID
+			title: ticket.summary || ticket.title || 'Imported Task',
+			description: ticket.description || '',
+			details: ticket.details || '',
+			status: ticketingSystem.mapTicketStatusToTaskmaster ? 
+				ticketingSystem.mapTicketStatusToTaskmaster(ticket.status) : 'pending',
+			priority: ticketingSystem.mapTicketPriorityToTaskmaster ? 
+				ticketingSystem.mapTicketPriorityToTaskmaster(ticket.priority) : 'medium',
+			metadata: {
+				jiraKey: ticket.key || ticket.id, // Store the ticket ID
+				importedAt: new Date().toISOString(), // Mark as imported
+				source: 'ticketing-system'
+			}
+		};
+
+		// If this is a subtask, set parentId if available
+		if (ticket.isSubtask && ticket.parentKey) {
+			task.isSubtask = true;
+			task.parentKey = ticket.parentKey;
+		}
+
+		return task;
+	} catch (error) {
+		console.error(`Error converting ticket to task: ${error.message}`);
+		return null;
+	}
+}
+
+/**
  * Synchronize tasks with the configured ticketing system
  * @param {string} tasksPath - Path to tasks.json file
  * @param {Object} options - Options object
@@ -212,6 +276,7 @@ async function syncTickets(tasksPath, options = {}) {
 					}
 				}
 
+
 				// Create a new ticket if not found
 				if (!ticketId) {
 					log('info', `ATTEMPTING TO CREATE TICKET for task ${task.id} with reference ID ${refId}`);
@@ -253,7 +318,7 @@ async function syncTickets(tasksPath, options = {}) {
 				}
 
 				debugLog('checking subtasks...');
-				
+
 				// Process subtasks if present
 				if (task.subtasks && task.subtasks.length > 0 && ticketId) {
 					customLog.info(
@@ -367,6 +432,8 @@ async function syncTickets(tasksPath, options = {}) {
 									stats.errors++;
 								}
 							}
+
+							
 						} catch (subtaskError) {
 							customLog.error(
 								`Error processing subtask ${subtask.id}: ${subtaskError.message}`
@@ -380,6 +447,136 @@ async function syncTickets(tasksPath, options = {}) {
 					`Error processing task ${task.id || 'unknown'}: ${taskError.message}`
 				);
 				stats.errors++;
+			}
+		}
+
+		// After processing existing tasks, fetch tickets from ticketing system for two-way sync
+		debugLog('Starting two-way sync by fetching tickets from ticketing system');
+		customLog.info('Starting two-way sync with ticketing system...');
+
+		// Fetch all tickets from the ticketing system
+		const allTickets = await fetchAllTicketsFromSystem(ticketingSystem, projectRoot, customLog, debugLog);
+		debugLog(`Fetched ${allTickets.length} tickets from system`);
+
+		// Build maps for quick lookup
+		const existingTasksMap = new Map();
+		const existingTicketIds = new Set();
+
+		// Map tasks by ID and collect existing ticket IDs
+		for (const task of data.tasks) {
+			existingTasksMap.set(task.id, task);
+			const ticketId = ticketingSystem.getTicketId(task);
+			if (ticketId) {
+				existingTicketIds.add(ticketId);
+			}
+			
+			// Also check subtasks
+			if (task.subtasks && Array.isArray(task.subtasks)) {
+				for (const subtask of task.subtasks) {
+					const subtaskTicketId = ticketingSystem.getTicketId(subtask);
+					if (subtaskTicketId) {
+						existingTicketIds.add(subtaskTicketId);
+					}
+				}
+			}
+		}
+
+		// New arrays for tasks to be added
+		const tasksToAdd = [];
+		const subtasksToAdd = new Map(); // Map of parent ID to array of subtasks
+
+		// Process tickets not in tasks.json
+		for (const ticket of allTickets) {
+			const ticketId = ticket.key || ticket.id;
+			debugLog(`Processing ticket ${ticketId} from ticketing system`);
+			
+			// Skip if ticket already exists in tasks.json
+			if (existingTicketIds.has(ticketId)) {
+				debugLog(`Ticket ${ticketId} already exists in tasks.json, skipping`);
+				continue;
+			}
+			
+			// Convert ticket to task
+			const newTask = convertTicketToTask(ticket, ticketingSystem);
+			if (!newTask) {
+				debugLog(`Failed to convert ticket ${ticketId} to task`);
+				continue;
+			}
+			
+			// Handle subtasks separately
+			if (newTask.isSubtask && newTask.parentKey) {
+				// Find the parent task ID by its ticket ID
+				let parentTaskId = null;
+				for (const task of data.tasks) {
+					if (ticketingSystem.getTicketId(task) === newTask.parentKey) {
+						parentTaskId = task.id;
+						break;
+					}
+				}
+				
+				if (parentTaskId) {
+					// Store subtask for later addition to parent
+					if (!subtasksToAdd.has(parentTaskId)) {
+						subtasksToAdd.set(parentTaskId, []);
+					}
+					
+					// Format subtask ID to follow parent.subtask format
+					const subtaskId = `${parentTaskId}.${subtasksToAdd.get(parentTaskId).length + 1}`;
+					newTask.id = subtaskId;
+					subtasksToAdd.get(parentTaskId).push(newTask);
+					customLog.info(`Adding new subtask ${subtaskId} from ticket ${ticketId} to task ${parentTaskId}`);
+					stats.subtasksUpdated++;
+				} else {
+					// Can't find parent, treat as regular task
+					debugLog(`Could not find parent task for subtask ${ticketId}, adding as normal task`);
+					delete newTask.isSubtask;
+					delete newTask.parentKey;
+					tasksToAdd.push(newTask);
+					customLog.info(`Adding new task from ticket ${ticketId}`);
+					stats.tasksUpdated++;
+				}
+			} else {
+				// Add regular task
+				tasksToAdd.push(newTask);
+				customLog.info(`Adding new task from ticket ${ticketId}`);
+				stats.tasksUpdated++;
+			}
+		}
+
+		// Add new tasks to data.tasks
+		if (tasksToAdd.length > 0) {
+			// Generate proper sequential IDs
+			let maxId = 0;
+			for (const task of data.tasks) {
+				const taskId = parseInt(task.id, 10);
+				if (!isNaN(taskId) && taskId > maxId) {
+					maxId = taskId;
+				}
+			}
+			
+			// Assign sequential IDs
+			for (let i = 0; i < tasksToAdd.length; i++) {
+				tasksToAdd[i].id = String(maxId + i + 1);
+			}
+			
+			// Add the new tasks
+			data.tasks = [...data.tasks, ...tasksToAdd];
+			customLog.success(`Added ${tasksToAdd.length} new tasks from ticketing system`);
+		}
+
+		// Add subtasks to their parent tasks
+		for (const [parentId, subtasks] of subtasksToAdd.entries()) {
+			// Find the parent task
+			const parentTask = data.tasks.find(task => task.id === parentId);
+			if (parentTask) {
+				// Initialize subtasks array if it doesn't exist
+				if (!parentTask.subtasks) {
+					parentTask.subtasks = [];
+				}
+				
+				// Add the subtasks
+				parentTask.subtasks = [...parentTask.subtasks, ...subtasks];
+				customLog.success(`Added ${subtasks.length} subtasks to task ${parentId}`);
 			}
 		}
 
