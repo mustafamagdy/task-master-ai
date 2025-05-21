@@ -12,7 +12,8 @@ import {
 	getJiraProjectKey,
 	getJiraBaseUrl,
 	getJiraEmail,
-	getJiraApiToken
+	getJiraApiToken,
+	getTicketingSystemType
 } from '../config-manager.js';
 import { getRefId, formatTitleForTicket } from './reference-id-service.js';
 
@@ -55,7 +56,45 @@ async function syncTickets(tasksPath, options = {}) {
 	customLog.info(`Starting task synchronization with ticketing system...`);
 
 	// Get the configured ticketing system
-	const ticketingSystem = await getTicketingSystem(projectRoot);
+	debugLog('About to get ticketing system implementation...');
+	let ticketingSystem;
+	try {
+		ticketingSystem = await getTicketingSystem(projectRoot);
+		debugLog(`Ticketing system result: ${ticketingSystem ? ticketingSystem.constructor.name : 'NONE'}`);
+		
+		if (ticketingSystem) {
+			// Check if getTicketId method exists
+			const hasGetTicketId = typeof ticketingSystem.getTicketId === 'function';
+			debugLog(`ticketingSystem.getTicketId exists: ${hasGetTicketId}`);
+			
+			// Check if createStory method exists
+			const hasCreateStory = typeof ticketingSystem.createStory === 'function';
+			debugLog(`ticketingSystem.createStory exists: ${hasCreateStory}`);
+			
+			// Check config
+			const isConfigured = ticketingSystem.isConfigured ? ticketingSystem.isConfigured(projectRoot) : false;
+			debugLog(`ticketingSystem.isConfigured result: ${isConfigured}`);
+			
+			// Check ticketing system type directly
+			const ticketingType = getTicketingSystemType(projectRoot);
+			debugLog(`Ticketing system type from config: ${ticketingType}`);
+			
+			// Check Jira configuration
+			if (ticketingType === 'jira') {
+				const jiraConfig = {
+					projectKey: getJiraProjectKey(projectRoot),
+					baseUrl: getJiraBaseUrl(projectRoot),
+					email: getJiraEmail(projectRoot),
+					apiToken: getJiraApiToken(projectRoot) ? 'SET' : 'NOT SET'
+				};
+				debugLog(`Jira configuration: ${JSON.stringify(jiraConfig)}`);
+			}
+		}
+	} catch (error) {
+		debugLog(`Error getting ticketing system: ${error.message}`);
+		customLog.error(`Error getting ticketing system: ${error.message}`);
+		return { success: false, message: `Error getting ticketing system: ${error.message}` };
+	}
 
 	// Exit if no ticketing system or not enabled (unless force=true)
 	if (!ticketingSystem) {
