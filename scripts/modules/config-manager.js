@@ -810,7 +810,9 @@ async function _getTicketingFactory() {
  * @returns {Promise<Object|null>} The ticketing system implementation or null if none configured.
  */
 async function getTicketingSystem(explicitRoot = null) {
-	const type = getTicketingSystemType(explicitRoot);
+	const config = getConfig(explicitRoot);
+	const type = config?.global?.ticketingSystem || 'none';
+
 	if (type === 'none') {
 		return null;
 	}
@@ -820,7 +822,6 @@ async function getTicketingSystem(explicitRoot = null) {
 		return null;
 	}
 
-	const config = getConfig(explicitRoot);
 	return factory.create(type, config);
 }
 
