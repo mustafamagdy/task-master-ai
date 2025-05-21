@@ -25,6 +25,8 @@ import gradient from 'gradient-string';
 import { isSilentMode } from './modules/utils.js';
 import { convertAllCursorRulesToRooRules } from './modules/rule-transformer.js';
 import { execSync } from 'child_process';
+import inquirerSelect from '@inquirer/select';
+import inquirerInput from '@inquirer/input';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -511,7 +513,6 @@ async function initializeProject(options = {}) {
 				};
 			}
 
-
 			try {
 				// Get ticketing configuration from user at the end of the process
 				log('info', 'Setting up ticketing system integration (final step)...');
@@ -588,9 +589,9 @@ function promptQuestion(rl, question) {
 
 // Function to prompt for ticketing system configuration
 async function promptForTicketingSystem() {
-	// Dynamically import inquirer modules
-	const { default: select } = await import('@inquirer/select');
-	const { default: input } = await import('@inquirer/input');
+	// Use the preloaded inquirer modules instead of dynamic imports
+	const select = inquirerSelect;
+	const input = inquirerInput;
 
 	let ticketingOptions = {
 		type: 'none' // Default to no ticketing system
@@ -850,13 +851,18 @@ function createProjectStructure(addAliases, dryRun) {
 			'Running interactive model setup. Please select your preferred AI models.'
 		);
 		try {
-			execSync('npx task-master models --setup', {
+			// Use the full path to the bin directory
+			const packagePath = path.resolve(path.join(__dirname, '..'));
+			const cliPath = path.join(packagePath, 'bin', 'task-master.js');
+			
+			// Execute with proper shell escaping and quoted paths
+			execSync(`node "${cliPath}" models --setup`, {
 				stdio: 'inherit',
 				cwd: targetDir
 			});
 			log('success', 'AI Models configured.');
 		} catch (error) {
-			log('error', 'Failed to configure AI models:', error.message);
+			log('error', `Failed to configure AI models: ${error.message}`);
 			log('warn', 'You may need to run "task-master models --setup" manually.');
 		}
 	} else if (isSilentMode() && !dryRun) {
