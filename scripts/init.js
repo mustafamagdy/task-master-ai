@@ -271,72 +271,6 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 		content = content.replace(regex, value);
 	});
 
-	// Special handling for .taskmasterconfig
-	if (path.basename(targetPath) === '.taskmasterconfig') {
-		// Get the selected ticketing system
-		const ticketingSystem = replacements.ticketingSystem || 'none';
-
-		// Remove all placeholder sections for unwanted ticketing systems from the config
-		if (ticketingSystem !== 'jira') {
-			// Remove Jira configuration if we're not using Jira
-			content = content.replace(
-				/\s*"jiraProjectKey":\s*"\{\{jiraProjectKey\}\}",?/g,
-				''
-			);
-			content = content.replace(
-				/\s*"jiraBaseUrl":\s*"\{\{jiraBaseUrl\}\}",?/g,
-				''
-			);
-			content = content.replace(/\s*"jiraEmail":\s*"\{\{jiraEmail\}\}",?/g, '');
-			content = content.replace(
-				/\s*"jiraApiToken":\s*"\{\{jiraApiToken\}\}",?/g,
-				''
-			);
-			// Keep ticketingIntegrationEnabled for all ticketing systems
-		}
-
-		if (ticketingSystem !== 'azure') {
-			// Remove Azure DevOps configuration if we're not using Azure
-			content = content.replace(
-				/\s*"azureOrganization":\s*"\{\{azureOrganization\}\}",?/g,
-				''
-			);
-			content = content.replace(
-				/\s*"azurePersonalAccessToken":\s*"\{\{azurePersonalAccessToken\}\}",?/g,
-				''
-			);
-			content = content.replace(
-				/\s*"azureProjectName":\s*"\{\{azureProjectName\}\}",?/g,
-				''
-			);
-		}
-
-		if (ticketingSystem !== 'github') {
-			// Remove GitHub configuration if we're not using GitHub
-			content = content.replace(
-				/\s*"githubToken":\s*"\{\{githubToken\}\}",?/g,
-				''
-			);
-			content = content.replace(
-				/\s*"githubOwner":\s*"\{\{githubOwner\}\}",?/g,
-				''
-			);
-			content = content.replace(
-				/\s*"githubRepository":\s*"\{\{githubRepository\}\}",?/g,
-				''
-			);
-			content = content.replace(
-				/\s*"githubProjectNumber":\s*"\{\{githubProjectNumber\}\}",?/g,
-				''
-			);
-		}
-
-		// Clean up any trailing commas in JSON objects
-		content = content.replace(/,\s*}/g, '\n}');
-		content = content.replace(/,\s*\n\s*}/g, '\n}');
-		content = content.replace(/,\s*\n\s*\n\s*}/g, '\n}');
-	}
-
 	// Handle special files that should be merged instead of overwritten
 	if (fs.existsSync(targetPath)) {
 		const filename = path.basename(targetPath);
@@ -381,6 +315,64 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 				content;
 			fs.writeFileSync(targetPath, updatedContent);
 			log('success', `Updated ${targetPath} with additional rules`);
+			return;
+		}
+
+		// Handle .taskmasterconfig - merge or update JSON configuration
+		if (filename === '.taskmasterconfig') {
+			log('info', `${targetPath} already exists, updating configuration...`);
+			try {
+				// Read existing config
+				const existingContent = fs.readFileSync(targetPath, 'utf8');
+				const existingConfig = JSON.parse(existingContent);
+				
+				// Parse new config
+				const newConfig = JSON.parse(content);
+				
+				// Create merged config (this preserves existing values not in new config)
+				const mergedConfig = { ...existingConfig };
+				
+				// Merge ticketing configuration if present
+				if (newConfig.ticketing) {
+					mergedConfig.ticketing = newConfig.ticketing;
+					mergedConfig.ticketingIntegrationEnabled = newConfig.ticketingIntegrationEnabled || false;
+				}
+				
+				// For Jira
+				if (newConfig.jiraProjectKey) {
+					mergedConfig.jiraProjectKey = newConfig.jiraProjectKey;
+					mergedConfig.jiraBaseUrl = newConfig.jiraBaseUrl;
+					mergedConfig.jiraEmail = newConfig.jiraEmail;
+					mergedConfig.jiraApiToken = newConfig.jiraApiToken;
+					mergedConfig.ticketingIntegrationEnabled = true;
+				}
+				
+				// For Azure
+				if (newConfig.azureOrganization) {
+					mergedConfig.azureOrganization = newConfig.azureOrganization;
+					mergedConfig.azurePersonalAccessToken = newConfig.azurePersonalAccessToken;
+					mergedConfig.azureProjectName = newConfig.azureProjectName;
+					mergedConfig.ticketingIntegrationEnabled = true;
+				}
+				
+				// For GitHub
+				if (newConfig.githubToken) {
+					mergedConfig.githubToken = newConfig.githubToken;
+					mergedConfig.githubOwner = newConfig.githubOwner;
+					mergedConfig.githubRepository = newConfig.githubRepository;
+					mergedConfig.githubProjectNumber = newConfig.githubProjectNumber;
+					mergedConfig.ticketingIntegrationEnabled = true;
+				}
+				
+				// Write the merged configuration
+				fs.writeFileSync(targetPath, JSON.stringify(mergedConfig, null, 2));
+				log('success', `Updated ${targetPath} with new configuration`);
+			} catch (error) {
+				log('error', `Error updating ${targetPath}: ${error.message}`);
+				// If parsing fails, overwrite the file
+				fs.writeFileSync(targetPath, content);
+				log('warn', `Overwrote ${targetPath} due to parsing error`);
+			}
 			return;
 		}
 
