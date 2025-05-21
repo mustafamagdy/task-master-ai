@@ -16,22 +16,38 @@ import {
 } from '../config-manager.js';
 import { getRefId, formatTitleForTicket } from './reference-id-service.js';
 
+// Add DEBUG constant at the top of the file
+const DEBUG = true; // Set to true to enable debug logs
+
 /**
  * Synchronize tasks with the configured ticketing system
  * @param {string} tasksPath - Path to tasks.json file
  * @param {Object} options - Options object
  * @param {boolean} options.force - Force synchronization even if not enabled
+ * @param {boolean} options.debug - Enable debug logging for troubleshooting
  * @param {Object} options.mcpLog - MCP logger functions
  * @returns {Promise<Object>} Synchronization result
  */
 async function syncTickets(tasksPath, options = {}) {
-	const { force = false, mcpLog = null } = options;
+	const { force = false, debug = DEBUG, mcpLog = null } = options;
+
+	// Create custom logger
 	const customLog = mcpLog || {
 		info: log.bind(null, 'info'),
-		error: log.bind(null, 'error'),
 		warn: log.bind(null, 'warn'),
+		error: log.bind(null, 'error'),
 		success: log.bind(null, 'success')
 	};
+
+	// Debug console logger that bypasses the customLog
+	const debugLog = (message) => {
+		if (debug) {
+			console.log(`\n===== SYNC-TICKETS DEBUG: ${message} =====\n`);
+		}
+	};
+
+	debugLog('Function started');
+	customLog.info('Starting task synchronization with ticketing system...');
 
 	// Extract project root from the tasks path
 	const projectRoot = tasksPath.replace(/[\\/]tasks[\\/]tasks\.json$/, '');
@@ -152,7 +168,9 @@ async function syncTickets(tasksPath, options = {}) {
 						customLog.info(`Using ticketing system: ${ticketingSystem.constructor.name}`);
 						customLog.info(`Ticketing system configured: ${ticketingSystem.isConfigured(projectRoot)}`);
 						
+						debugLog('Calling createStory...');
 						const result = await ticketingSystem.createStory(task, projectRoot);
+						debugLog('createStory returned...');
 						customLog.info(`Create story result: ${JSON.stringify(result)}`);
 						
 						if (result) {
