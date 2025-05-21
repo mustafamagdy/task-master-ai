@@ -702,10 +702,7 @@ async function promptForTicketingSystem() {
 async function promptSelectionMenu(rl, message, choices) {
     // Dynamically import inquirer select
     const { default: select } = await import('@inquirer/select');
-    
-    // Close the provided readline interface since we'll use inquirer
-    rl.close();
-    
+   
     // Create formatted choices for the select prompt
     const formattedChoices = choices.map((choice, index) => ({
         name: choice,
