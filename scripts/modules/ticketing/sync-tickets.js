@@ -33,7 +33,7 @@ async function syncTickets(tasksPath, options = {}) {
 	customLog.info(`Starting task synchronization with ticketing system...`);
 
 	// Get the configured ticketing system
-	const ticketingSystem = getTicketingSystem(projectRoot);
+	const ticketingSystem = await getTicketingSystem(projectRoot);
 
 	// Exit if no ticketing system or not enabled (unless force=true)
 	if (!ticketingSystem) {
