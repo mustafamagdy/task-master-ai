@@ -269,6 +269,42 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 		content = content.replace(regex, value);
 	});
 
+	// Special handling for .taskmasterconfig
+	if (path.basename(targetPath) === '.taskmasterconfig') {
+		// Get the selected ticketing system
+		const ticketingSystem = replacements.ticketingSystem || 'none';
+		
+		// Remove all placeholder sections for unwanted ticketing systems from the config
+		if (ticketingSystem !== 'jira') {
+			// Remove Jira configuration if we're not using Jira
+			content = content.replace(/\s*"jiraProjectKey":\s*"\{\{jiraProjectKey\}\}",?/g, '');
+			content = content.replace(/\s*"jiraBaseUrl":\s*"\{\{jiraBaseUrl\}\}",?/g, '');
+			content = content.replace(/\s*"jiraEmail":\s*"\{\{jiraEmail\}\}",?/g, '');
+			content = content.replace(/\s*"jiraApiToken":\s*"\{\{jiraApiToken\}\}",?/g, '');
+			content = content.replace(/\s*"jiraIntegrationEnabled":\s*(true|false),?/g, '');
+		}
+		
+		if (ticketingSystem !== 'azure') {
+			// Remove Azure DevOps configuration if we're not using Azure
+			content = content.replace(/\s*"azureOrganization":\s*"\{\{azureOrganization\}\}",?/g, '');
+			content = content.replace(/\s*"azurePersonalAccessToken":\s*"\{\{azurePersonalAccessToken\}\}",?/g, '');
+			content = content.replace(/\s*"azureProjectName":\s*"\{\{azureProjectName\}\}",?/g, '');
+		}
+		
+		if (ticketingSystem !== 'github') {
+			// Remove GitHub configuration if we're not using GitHub
+			content = content.replace(/\s*"githubToken":\s*"\{\{githubToken\}\}",?/g, '');
+			content = content.replace(/\s*"githubOwner":\s*"\{\{githubOwner\}\}",?/g, '');
+			content = content.replace(/\s*"githubRepository":\s*"\{\{githubRepository\}\}",?/g, '');
+			content = content.replace(/\s*"githubProjectNumber":\s*"\{\{githubProjectNumber\}\}",?/g, '');
+		}
+		
+		// Clean up any trailing commas in JSON objects
+		content = content.replace(/,\s*}/g, '\n}');
+		content = content.replace(/,\s*\n\s*}/g, '\n}');
+		content = content.replace(/,\s*\n\s*\n\s*}/g, '\n}');
+	}
+
 	// Handle special files that should be merged instead of overwritten
 	if (fs.existsSync(targetPath)) {
 		const filename = path.basename(targetPath);
@@ -384,20 +420,10 @@ async function initializeProject(options = {}) {
 					log('info', 'You selected Jira as your ticketing system.');
 
 					// Prompt for Jira configuration
-					log('info', 'Enter Jira project key:');
-					ticketingOptions.jiraProjectKey = await promptQuestion(rl, '');
-
-					log(
-						'info',
-						'Enter Jira base URL (e.g., https://yourcompany.atlassian.net):'
-					);
-					ticketingOptions.jiraBaseUrl = await promptQuestion(rl, '');
-
-					log('info', 'Enter Jira email:');
-					ticketingOptions.jiraEmail = await promptQuestion(rl, '');
-
-					log('info', 'Enter Jira API token:');
-					ticketingOptions.jiraApiToken = await promptQuestion(rl, '');
+					ticketingOptions.jiraProjectKey = await promptQuestion(rl, 'Enter Jira project key: ');
+					ticketingOptions.jiraBaseUrl = await promptQuestion(rl, 'Enter Jira base URL (e.g., https://yourcompany.atlassian.net): ');
+					ticketingOptions.jiraEmail = await promptQuestion(rl, 'Enter Jira email: ');
+					ticketingOptions.jiraApiToken = await promptQuestion(rl, 'Enter Jira API token: ');
 
 					log('success', 'Jira configuration complete!');
 					break;
@@ -407,17 +433,9 @@ async function initializeProject(options = {}) {
 					log('info', 'You selected Azure DevOps as your ticketing system.');
 
 					// Prompt for Azure DevOps configuration
-					log('info', 'Enter Azure DevOps organization:');
-					ticketingOptions.azureOrganization = await promptQuestion(rl, '');
-
-					log('info', 'Enter Azure DevOps project name:');
-					ticketingOptions.azureProjectName = await promptQuestion(rl, '');
-
-					log('info', 'Enter Azure DevOps personal access token:');
-					ticketingOptions.azurePersonalAccessToken = await promptQuestion(
-						rl,
-						''
-					);
+					ticketingOptions.azureOrganization = await promptQuestion(rl, 'Enter Azure DevOps organization: ');
+					ticketingOptions.azureProjectName = await promptQuestion(rl, 'Enter Azure DevOps project name: ');
+					ticketingOptions.azurePersonalAccessToken = await promptQuestion(rl, 'Enter Azure DevOps personal access token: ');
 
 					log('success', 'Azure DevOps configuration complete!');
 					break;
@@ -427,17 +445,10 @@ async function initializeProject(options = {}) {
 					log('info', 'You selected GitHub Projects as your ticketing system.');
 
 					// Prompt for GitHub Projects configuration
-					log('info', 'Enter GitHub access token:');
-					ticketingOptions.githubToken = await promptQuestion(rl, '');
-
-					log('info', 'Enter GitHub owner (user or organization):');
-					ticketingOptions.githubOwner = await promptQuestion(rl, '');
-
-					log('info', 'Enter GitHub repository name:');
-					ticketingOptions.githubRepository = await promptQuestion(rl, '');
-
-					log('info', 'Enter GitHub project number:');
-					ticketingOptions.githubProjectNumber = await promptQuestion(rl, '');
+					ticketingOptions.githubToken = await promptQuestion(rl, 'Enter GitHub access token: ');
+					ticketingOptions.githubOwner = await promptQuestion(rl, 'Enter GitHub owner (user or organization): ');
+					ticketingOptions.githubRepository = await promptQuestion(rl, 'Enter GitHub repository name: ');
+					ticketingOptions.githubProjectNumber = await promptQuestion(rl, 'Enter GitHub project number: ');
 
 					log('success', 'GitHub Projects configuration complete!');
 					break;
@@ -512,7 +523,7 @@ async function promptSelectionMenu(rl, message, options) {
     const renderMenu = () => {
         // Clear previous output
         console.clear();
-        console.log(chalk.blue('ℹ️ ') + message);
+        console.log(message);
         console.log(); // Empty line for spacing
         
         // Display options with selection indicator
