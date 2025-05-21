@@ -15,7 +15,7 @@ import { generateTextService } from '../ai-services-unified.js';
 import {
 	getDefaultSubtasks,
 	getDebugFlag,
-	getJiraIntegrationEnabled
+	getTicketingIntegrationEnabled
 } from '../config-manager.js';
 import {
 	generateSubtaskRefId,
@@ -635,7 +635,7 @@ async function expandTask(
 		}
 
 		// Store reference IDs in subtask metadata if Jira integration is enabled
-		if (getJiraIntegrationEnabled(projectRoot)) {
+		if (getTicketingIntegrationEnabled(projectRoot)) {
 			for (let i = 0; i < generatedSubtasks.length; i++) {
 				const subtask = generatedSubtasks[i];
 				const refId = generateSubtaskRefId(task.id, subtask.id, projectRoot);
@@ -650,7 +650,7 @@ async function expandTask(
 
 		// Check if Jira integration is enabled and configured
 		if (
-			getJiraIntegrationEnabled(projectRoot) &&
+			getTicketingIntegrationEnabled(projectRoot) &&
 			isJiraConfigured(projectRoot)
 		) {
 			logger.info('Jira integration is enabled. Creating tasks in Jira...');

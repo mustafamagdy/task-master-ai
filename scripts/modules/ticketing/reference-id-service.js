@@ -4,7 +4,7 @@
  */
 
 // Will be dynamically imported to avoid circular dependencies
-// import { getJiraIntegrationEnabled } from '../config-manager.js';
+// import { getTicketingIntegrationEnabled } from '../config-manager.js';
 
 // Prefix for user stories
 const USER_STORY_PREFIX = 'US';
@@ -19,9 +19,9 @@ const TASK_PREFIX = 'T';
  */
 async function generateUserStoryRefId(taskId, explicitRoot = null) {
 	// Dynamically import to avoid circular dependencies
-	const { getJiraIntegrationEnabled } = await import('../config-manager.js');
+	const { getTicketingIntegrationEnabled } = await import('../config-manager.js');
 
-	if (!getJiraIntegrationEnabled(explicitRoot)) {
+	if (!getTicketingIntegrationEnabled(explicitRoot)) {
 		return null;
 	}
 
@@ -43,9 +43,9 @@ async function generateSubtaskRefId(
 	explicitRoot = null
 ) {
 	// Dynamically import to avoid circular dependencies
-	const { getJiraIntegrationEnabled } = await import('../config-manager.js');
+	const { getTicketingIntegrationEnabled } = await import('../config-manager.js');
 
-	if (!getJiraIntegrationEnabled(explicitRoot)) {
+	if (!getTicketingIntegrationEnabled(explicitRoot)) {
 		return null;
 	}
 

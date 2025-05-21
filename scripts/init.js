@@ -281,7 +281,7 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 			content = content.replace(/\s*"jiraBaseUrl":\s*"\{\{jiraBaseUrl\}\}",?/g, '');
 			content = content.replace(/\s*"jiraEmail":\s*"\{\{jiraEmail\}\}",?/g, '');
 			content = content.replace(/\s*"jiraApiToken":\s*"\{\{jiraApiToken\}\}",?/g, '');
-			content = content.replace(/\s*"jiraIntegrationEnabled":\s*(true|false),?/g, '');
+			content = content.replace(/\s*"ticketingIntegrationEnabled":\s*(true|false),?/g, '');
 		}
 		
 		if (ticketingSystem !== 'azure') {
@@ -630,7 +630,7 @@ function createProjectStructure(
 			configReplacements.jiraBaseUrl = ticketingOptions.jiraBaseUrl || '';
 			configReplacements.jiraEmail = ticketingOptions.jiraEmail || '';
 			configReplacements.jiraApiToken = ticketingOptions.jiraApiToken || '';
-			configReplacements.jiraIntegrationEnabled = true;
+			configReplacements.ticketingIntegrationEnabled = true;
 			break;
 
 		case 'azure':
@@ -638,6 +638,7 @@ function createProjectStructure(
 			configReplacements.azureOrganization = ticketingOptions.azureOrganization || '';
 			configReplacements.azurePersonalAccessToken = ticketingOptions.azurePersonalAccessToken || '';
 			configReplacements.azureProjectName = ticketingOptions.azureProjectName || '';
+			configReplacements.ticketingIntegrationEnabled = true;
 			break;
 
 		case 'github':
@@ -646,6 +647,7 @@ function createProjectStructure(
 			configReplacements.githubOwner = ticketingOptions.githubOwner || '';
 			configReplacements.githubRepository = ticketingOptions.githubRepository || '';
 			configReplacements.githubProjectNumber = ticketingOptions.githubProjectNumber || '';
+			configReplacements.ticketingIntegrationEnabled = true;
 			break;
 
 		default:

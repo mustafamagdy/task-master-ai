@@ -5,7 +5,7 @@ import boxen from 'boxen';
 import { log, readJSON, writeJSON, findTaskById } from '../utils.js';
 import { displayBanner } from '../ui.js';
 import { validateTaskDependencies } from '../dependency-manager.js';
-import { getDebugFlag, getJiraIntegrationEnabled } from '../config-manager.js';
+import { getDebugFlag, getTicketingIntegrationEnabled } from '../config-manager.js';
 import { getTicketingInstance } from '../ticketing/ticketing-factory.js';
 import updateSingleTaskStatus from './update-single-task-status.js';
 import generateTaskFiles from './generate-task-files.js';
@@ -171,7 +171,7 @@ async function setTaskStatus(tasksPath, taskIdInput, newStatus, options = {}) {
 
 			// Update ticketing system issues if integration is enabled
 			// Check if Jira is enabled (will be replaced with more generic check in the future)
-			if (getJiraIntegrationEnabled()) {
+			if (getTicketingIntegrationEnabled()) {
 				await updateTicketStatus(id, newStatus, data, tasksPath, {
 					...options,
 					writeJSON

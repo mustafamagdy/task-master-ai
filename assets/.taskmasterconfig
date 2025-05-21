@@ -32,7 +32,7 @@
 		"jiraBaseUrl": "{{jiraBaseUrl}}",
 		"jiraEmail": "{{jiraEmail}}",
 		"jiraApiToken": "{{jiraApiToken}}",
-		"jiraIntegrationEnabled": false,
+		"ticketingIntegrationEnabled": false,
 		"azureOrganization": "{{azureOrganization}}",
 		"azurePersonalAccessToken": "{{azurePersonalAccessToken}}",
 		"azureProjectName": "{{azureProjectName}}",

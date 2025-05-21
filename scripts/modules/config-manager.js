@@ -69,7 +69,7 @@ const DEFAULTS = {
 		jiraBaseUrl: '',
 		jiraEmail: '',
 		jiraApiToken: '',
-		jiraIntegrationEnabled: false,
+		ticketingIntegrationEnabled: false,
 		// Azure DevOps configuration
 		azureOrganization: '',
 		azurePersonalAccessToken: '',
@@ -424,13 +424,13 @@ function getJiraApiToken(explicitRoot = null) {
 }
 
 /**
- * Gets whether Jira integration is enabled in the configuration.
+ * Gets whether ticketing system integration is enabled in the configuration.
  * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {boolean} Whether Jira integration is enabled.
+ * @returns {boolean} Whether ticketing integration is enabled.
  */
-function getJiraIntegrationEnabled(explicitRoot = null) {
+function getTicketingIntegrationEnabled(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.jiraIntegrationEnabled || false;
+	return config?.global?.ticketingIntegrationEnabled || false;
 }
 
 /**
@@ -936,7 +936,7 @@ export {
 	getJiraBaseUrl,
 	getJiraEmail,
 	getJiraApiToken,
-	getJiraIntegrationEnabled,
+	getTicketingIntegrationEnabled,
 	// New ticketing system getters
 	getTicketingSystem,
 	getTicketingSystemEnabled,

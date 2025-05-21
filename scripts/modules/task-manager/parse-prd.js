@@ -16,7 +16,7 @@ import {
 
 import { getTicketingInstance } from '../ticketing/ticketing-factory.js';
 import { generateObjectService } from '../ai-services-unified.js';
-import { getDebugFlag, getJiraIntegrationEnabled } from '../config-manager.js';
+import { getDebugFlag, getTicketingIntegrationEnabled } from '../config-manager.js';
 import {
 	generateUserStoryRefId,
 	storeRefId,
@@ -293,7 +293,7 @@ Guidelines:
 			};
 
 			// Store reference ID in task metadata if Jira integration is enabled
-			if (getJiraIntegrationEnabled(projectRoot)) {
+			if (getTicketingIntegrationEnabled(projectRoot)) {
 				const refId = generateUserStoryRefId(newId, projectRoot);
 				if (refId) {
 					newTask = storeRefId(newTask, refId);
@@ -322,7 +322,7 @@ Guidelines:
 
 		// Check if Jira integration is enabled and configured
 		if (
-			getJiraIntegrationEnabled(projectRoot) &&
+			getTicketingIntegrationEnabled(projectRoot) &&
 			isJiraConfigured(projectRoot)
 		) {
 			report(
@@ -379,7 +379,7 @@ Guidelines:
 
 		// Check if Jira integration is enabled and configured
 		if (
-			getJiraIntegrationEnabled(projectRoot) &&
+			getTicketingIntegrationEnabled(projectRoot) &&
 			isJiraConfigured(projectRoot)
 		) {
 			report(
