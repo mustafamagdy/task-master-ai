@@ -698,6 +698,36 @@ async function promptForTicketingSystem() {
 	return ticketingOptions;
 }
 
+// Function to prompt for selection using arrow keys
+async function promptSelectionMenu(rl, message, choices) {
+    // Dynamically import inquirer select
+    const { default: select } = await import('@inquirer/select');
+    
+    // Close the provided readline interface since we'll use inquirer
+    rl.close();
+    
+    // Create formatted choices for the select prompt
+    const formattedChoices = choices.map((choice, index) => ({
+        name: choice,
+        value: (index + 1).toString() // Return string value to match existing code
+    }));
+    
+    try {
+        // Display the selection prompt and get response
+        const response = await select({
+            message,
+            choices: formattedChoices
+        });
+        
+        log('info', `Selected: ${choices[parseInt(response) - 1]}`);
+        return response;
+    } catch (error) {
+        log('error', `Error during selection menu: ${error.message}`);
+        // Return the first option as default
+        return '1';
+    }
+}
+
 // Function to create the project structure
 function createProjectStructure(addAliases, dryRun) {
 	const targetDir = process.cwd();
