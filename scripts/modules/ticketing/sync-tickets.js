@@ -292,7 +292,7 @@ async function syncTickets(tasksPath, options = {}) {
 											stats.tasksUpdated++;
 											
 											// No need to update Jira since we're keeping its status
-											return;
+											statusToUse = null;  // Ensure we don't update Jira
 										} else {
 											// TaskMaster has higher or equal priority - update Jira
 											debugLog(`Status conflict! TaskMaster status (${taskMasterStatus}) has higher priority than Jira status (${currentJiraStatus})`);
@@ -761,6 +761,6 @@ async function syncTickets(tasksPath, options = {}) {
 			message: `Error: ${error.message}`
 		};
 	}
-}
+};
 
 export { syncTickets };
