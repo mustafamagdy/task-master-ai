@@ -77,11 +77,17 @@ async function syncTickets(tasksPath, options = {}) {
 			return { success: false, message: 'Error: Invalid tasks data' };
 		}
 
+		customLog.info(`Processing ${data.tasks.length} tasks from ${tasksPath}...`);
+		
 		// Process each task
 		for (const task of data.tasks) {
 			try {
+				customLog.info(`Processing task ${task.id}: ${task.title}`);
+				
 				// Get reference ID for the task
 				const refId = getRefId(task);
+				customLog.info(`Reference ID for task ${task.id}: ${refId || 'NONE'}`);
+				
 				if (!refId) {
 					customLog.warn(
 						`Task ${task.id || 'unknown'} has no reference ID, skipping`
