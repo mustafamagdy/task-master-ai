@@ -144,16 +144,6 @@ async function syncTickets(tasksPath, options = {}) {
 			const ticketingType = getTicketingSystemType(projectRoot);
 			debugLog(`Ticketing system type from config: ${ticketingType}`);
 			
-			// Check Jira configuration
-			if (ticketingType === 'jira') {
-				const jiraConfig = {
-					projectKey: getJiraProjectKey(projectRoot),
-					baseUrl: getJiraBaseUrl(projectRoot),
-					email: getJiraEmail(projectRoot),
-					apiToken: getJiraApiToken(projectRoot) ? 'SET' : 'NOT SET'
-				};
-				debugLog(`Jira configuration: ${JSON.stringify(jiraConfig)}`);
-			}
 		}
 	} catch (error) {
 		debugLog(`Error getting ticketing system: ${error.message}`);
@@ -252,6 +242,28 @@ async function syncTickets(tasksPath, options = {}) {
 							ticketId = null;
 						} else {
 							debugLog(`Ticket ${ticketId} verified to exist in Jira.`);
+							
+							// Sync status from TaskMaster to Jira if the ticket exists
+							if (task.status) {
+								try {
+									debugLog(`Syncing status for task ${task.id} (${ticketId}) from TaskMaster to Jira: ${task.status}`);
+									const updateResult = await ticketingSystem.updateTicketStatus(
+										ticketId,
+										task.status,
+										projectRoot,
+										task
+									);
+									if (updateResult) {
+										debugLog(`Successfully updated status for ticket ${ticketId} in Jira to ${task.status}`);
+										stats.tasksUpdated++;
+									} else {
+										debugLog(`Failed to update status for ticket ${ticketId} in Jira`);
+									}
+								} catch (error) {
+									debugLog(`Error updating status for ticket ${ticketId} in Jira: ${error.message}`);
+									customLog.error(`Error updating status for ticket ${ticketId}: ${error.message}`);
+								}
+							}
 						}
 					} catch (error) {
 						debugLog(`Error verifying ticket ${ticketId}: ${error.message}`);
@@ -518,9 +530,51 @@ async function syncTickets(tasksPath, options = {}) {
 			const ticketId = ticket.key || ticket.id;
 			debugLog(`Processing ticket ${ticketId} from ticketing system`);
 			
-			// Skip if ticket already exists in tasks.json
+			// Check if ticket exists in tasks.json
 			if (existingTicketIds.has(ticketId)) {
-				debugLog(`Ticket ${ticketId} already exists in tasks.json, skipping`);
+				debugLog(`Ticket ${ticketId} exists in tasks.json, checking for status updates`);
+				
+				// Find the corresponding task to update its status
+				let taskToUpdate = null;
+				let isSubtask = false;
+				
+				// Search in main tasks
+				for (const task of data.tasks) {
+					if (ticketingSystem.getTicketId(task) === ticketId) {
+						taskToUpdate = task;
+						break;
+					}
+					
+					// Search in subtasks
+					if (!taskToUpdate && task.subtasks && Array.isArray(task.subtasks)) {
+						for (const subtask of task.subtasks) {
+							if (ticketingSystem.getTicketId(subtask) === ticketId) {
+								taskToUpdate = subtask;
+								isSubtask = true;
+								break;
+							}
+						}
+					}
+				}
+				
+				// If task found, update its status from Jira if different
+				if (taskToUpdate) {
+					const jiraStatus = ticket.status;
+					const taskmasterStatus = ticketingSystem.mapTicketStatusToTaskmaster(jiraStatus);
+					
+					if (taskToUpdate.status !== taskmasterStatus) {
+						debugLog(`Updating status for ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id} from ${taskToUpdate.status || 'undefined'} to ${taskmasterStatus} (Jira: ${jiraStatus})`);
+						taskToUpdate.status = taskmasterStatus;
+						
+						if (isSubtask) {
+							customLog.success(`Updated subtask ${taskToUpdate.id} status to ${taskmasterStatus} from Jira ticket ${ticketId}`);
+							stats.subtasksUpdated++;
+						} else {
+							customLog.success(`Updated task ${taskToUpdate.id} status to ${taskmasterStatus} from Jira ticket ${ticketId}`);
+							stats.tasksUpdated++;
+						}
+					}
+				}
 				continue;
 			}
 			
