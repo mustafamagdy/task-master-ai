@@ -513,62 +513,6 @@ async function initializeProject(options = {}) {
 				};
 			}
 
-			try {
-				// Get ticketing configuration from user at the end of the process
-				log('info', 'Setting up ticketing system integration (final step)...');
-				const ticketingOptions = await promptForTicketingSystem();
-				
-				// If user selected a ticketing system, update the configuration file
-				if (ticketingOptions.type !== 'none') {
-					log('info', 'Updating configuration with ticketing system settings...');
-					
-					// Set up ticketing configuration replacements
-					const configReplacements = {
-						year: new Date().getFullYear(),
-						ticketingSystem: ticketingOptions.type
-					};
-					
-					// Add configuration for the selected ticketing system
-					switch (ticketingOptions.type) {
-						case 'jira':
-							configReplacements.jiraProjectKey = ticketingOptions.jiraProjectKey || '';
-							configReplacements.jiraBaseUrl = ticketingOptions.jiraBaseUrl || '';
-							configReplacements.jiraEmail = ticketingOptions.jiraEmail || '';
-							configReplacements.jiraApiToken = ticketingOptions.jiraApiToken || '';
-							configReplacements.ticketingIntegrationEnabled = true;
-							break;
-	
-						case 'azure':
-							configReplacements.azureOrganization = ticketingOptions.azureOrganization || '';
-							configReplacements.azurePersonalAccessToken = ticketingOptions.azurePersonalAccessToken || '';
-							configReplacements.azureProjectName = ticketingOptions.azureProjectName || '';
-							configReplacements.ticketingIntegrationEnabled = true;
-							break;
-	
-						case 'github':
-							configReplacements.githubToken = ticketingOptions.githubToken || '';
-							configReplacements.githubOwner = ticketingOptions.githubOwner || '';
-							configReplacements.githubRepository = ticketingOptions.githubRepository || '';
-							configReplacements.githubProjectNumber = ticketingOptions.githubProjectNumber || '';
-							configReplacements.ticketingIntegrationEnabled = true;
-							break;
-					}
-	
-					// Update the .taskmasterconfig file with the new settings
-					copyTemplateFile(
-						'.taskmasterconfig',
-						path.join(targetDir, '.taskmasterconfig'),
-						configReplacements
-					);
-					
-					log('success', 'Configuration updated with ticketing system settings.');
-				}
-			} catch (error) {
-				log('error', `Error during final ticketing configuration: ${error.message}`);
-				log('warn', 'Continuing with default configuration (no ticketing system).');
-			}
-
-			// Create structure using only necessary values
 			createProjectStructure(addAliasesPrompted, dryRun);
 		} catch (error) {
 			rl.close();
@@ -695,7 +639,7 @@ async function promptForTicketingSystem() {
 }
 
 // Function to create the project structure
-function createProjectStructure(addAliases, dryRun) {
+async function createProjectStructure(addAliases, dryRun) {
 	const targetDir = process.cwd();
 	log('info', `Initializing project in ${targetDir}`);
 
@@ -873,6 +817,62 @@ function createProjectStructure(addAliases, dryRun) {
 		);
 	} else if (dryRun) {
 		log('info', 'DRY RUN: Skipping interactive model setup.');
+	}
+	// ====================================
+
+	// === Add Ticketing System Configuration Step ===
+	if (!isSilentMode() && !dryRun) {
+		// Get ticketing configuration from user after model setup
+		log('info', 'Setting up ticketing system integration (final step)...');
+		const ticketingOptions = await promptForTicketingSystem();
+		
+		// If user selected a ticketing system, update the configuration file
+		if (ticketingOptions.type !== 'none') {
+			log('info', 'Updating configuration with ticketing system settings...');
+			
+			// Set up ticketing configuration replacements
+			const configReplacements = {
+				year: new Date().getFullYear(),
+				ticketingSystem: ticketingOptions.type
+			};
+			
+			// Add configuration for the selected ticketing system
+			switch (ticketingOptions.type) {
+				case 'jira':
+					configReplacements.jiraProjectKey = ticketingOptions.jiraProjectKey || '';
+					configReplacements.jiraBaseUrl = ticketingOptions.jiraBaseUrl || '';
+					configReplacements.jiraEmail = ticketingOptions.jiraEmail || '';
+					configReplacements.jiraApiToken = ticketingOptions.jiraApiToken || '';
+					configReplacements.ticketingIntegrationEnabled = true;
+					break;
+
+				case 'azure':
+					configReplacements.azureOrganization = ticketingOptions.azureOrganization || '';
+					configReplacements.azurePersonalAccessToken = ticketingOptions.azurePersonalAccessToken || '';
+					configReplacements.azureProjectName = ticketingOptions.azureProjectName || '';
+					configReplacements.ticketingIntegrationEnabled = true;
+					break;
+
+				case 'github':
+					configReplacements.githubToken = ticketingOptions.githubToken || '';
+					configReplacements.githubOwner = ticketingOptions.githubOwner || '';
+					configReplacements.githubRepository = ticketingOptions.githubRepository || '';
+					configReplacements.githubProjectNumber = ticketingOptions.githubProjectNumber || '';
+					configReplacements.ticketingIntegrationEnabled = true;
+					break;
+			}
+
+			// Update the .taskmasterconfig file with the new settings
+			copyTemplateFile(
+				'.taskmasterconfig',
+				path.join(targetDir, '.taskmasterconfig'),
+				configReplacements
+			);
+			
+			log('success', 'Configuration updated with ticketing system settings.');
+		}
+	} else if (isSilentMode() && !dryRun) {
+		log('info', 'Skipping interactive ticketing setup in silent (MCP) mode.');
 	}
 	// ====================================
 
