@@ -279,22 +279,37 @@ async function syncTickets(tasksPath, options = {}) {
 							// Create a new subtask ticket if not found
 							if (!subtaskTicketId) {
 								customLog.info(
-									`Creating new ticket for subtask ${subtask.id} (${subtaskRefId})...`
+									`Creating subtask for ${subtask.id} (${subtaskRefId})...`
 								);
 								try {
-									// Add parent info to subtask data
+									debugLog(`About to format title for subtask ${subtask.id}`);
+									const subtaskTitle = formatTitleForTicket(subtask);
+									debugLog(`Formatted title: ${subtaskTitle}`);
+									customLog.info(`Creating subtask with title: ${subtaskTitle}`);
+									
+									// Prepare subtask data for createStory
 									const subtaskData = {
 										...subtask,
+										// Ensure these fields are present
+										id: subtask.id,
+										title: subtask.title || `Subtask ${subtask.id}`,
+										description: subtask.description || '',
+										details: subtask.details || '',
+										priority: subtask.priority || task.priority || 'medium',
+										status: subtask.status || 'pending',
+										metadata: subtask.metadata || { refId: subtaskRefId },
+										// Add parent info for subtasks
 										parentId: task.id,
-										parentTicketId: ticketId,
+										parentTicketId: ticketId, // This is crucial for linking as subtask
 										parentRefId: refId
 									};
-
-									const result = await ticketingSystem.createTask(
-										subtaskData,
-										ticketId,
-										projectRoot
-									);
+									debugLog(`Subtask data: ${JSON.stringify(subtaskData, null, 2)}`);
+									debugLog(`Parent ticket ID for linking: ${ticketId || 'NONE'}`);
+									
+									debugLog('=== CALLING createStory for subtask... ===');
+									const result = await ticketingSystem.createStory(subtaskData, projectRoot);
+									debugLog(`=== createStory returned: ${JSON.stringify(result)} ===`);
+									
 									if (result) {
 										subtaskTicketId = result.key || result.id;
 										customLog.success(
