@@ -324,48 +324,55 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 			try {
 				// Read existing config
 				const existingContent = fs.readFileSync(targetPath, 'utf8');
-				const existingConfig = JSON.parse(existingContent);
+				let existingConfig = JSON.parse(existingContent);
 				
-				// Parse new config
-				const newConfig = JSON.parse(content);
+				// Update with replacements directly
+				Object.entries(replacements).forEach(([key, value]) => {
+					// For the specific keys we care about, update them directly
+					if (['ticketingSystem', 'jiraProjectKey', 'jiraBaseUrl', 'jiraEmail', 'jiraApiToken',
+						'azureOrganization', 'azurePersonalAccessToken', 'azureProjectName',
+						'githubToken', 'githubOwner', 'githubRepository', 'githubProjectNumber',
+						'ticketingIntegrationEnabled'].includes(key)) {
+						// Update the config directly with the replacement value
+						existingConfig[key] = value;
+					}
+				});
 				
-				// Create merged config (this preserves existing values not in new config)
-				const mergedConfig = { ...existingConfig };
+				// Remove configuration for ticketing systems that weren't selected
+				const selectedTicketing = replacements.ticketingSystem || 'none';
 				
-				// Merge ticketing configuration if present
-				if (newConfig.ticketing) {
-					mergedConfig.ticketing = newConfig.ticketing;
-					mergedConfig.ticketingIntegrationEnabled = newConfig.ticketingIntegrationEnabled || false;
+				// Remove Jira configuration if not selected
+				if (selectedTicketing !== 'jira') {
+					delete existingConfig.jiraProjectKey;
+					delete existingConfig.jiraBaseUrl;
+					delete existingConfig.jiraEmail;
+					delete existingConfig.jiraApiToken;
 				}
 				
-				// For Jira
-				if (newConfig.jiraProjectKey) {
-					mergedConfig.jiraProjectKey = newConfig.jiraProjectKey;
-					mergedConfig.jiraBaseUrl = newConfig.jiraBaseUrl;
-					mergedConfig.jiraEmail = newConfig.jiraEmail;
-					mergedConfig.jiraApiToken = newConfig.jiraApiToken;
-					mergedConfig.ticketingIntegrationEnabled = true;
+				// Remove Azure DevOps configuration if not selected
+				if (selectedTicketing !== 'azure') {
+					delete existingConfig.azureOrganization;
+					delete existingConfig.azurePersonalAccessToken;
+					delete existingConfig.azureProjectName;
 				}
 				
-				// For Azure
-				if (newConfig.azureOrganization) {
-					mergedConfig.azureOrganization = newConfig.azureOrganization;
-					mergedConfig.azurePersonalAccessToken = newConfig.azurePersonalAccessToken;
-					mergedConfig.azureProjectName = newConfig.azureProjectName;
-					mergedConfig.ticketingIntegrationEnabled = true;
+				// Remove GitHub configuration if not selected
+				if (selectedTicketing !== 'github') {
+					delete existingConfig.githubToken;
+					delete existingConfig.githubOwner;
+					delete existingConfig.githubRepository;
+					delete existingConfig.githubProjectNumber;
 				}
 				
-				// For GitHub
-				if (newConfig.githubToken) {
-					mergedConfig.githubToken = newConfig.githubToken;
-					mergedConfig.githubOwner = newConfig.githubOwner;
-					mergedConfig.githubRepository = newConfig.githubRepository;
-					mergedConfig.githubProjectNumber = newConfig.githubProjectNumber;
-					mergedConfig.ticketingIntegrationEnabled = true;
+				// Set ticketingIntegrationEnabled to false for 'none' selection
+				if (selectedTicketing === 'none') {
+					existingConfig.ticketingIntegrationEnabled = false;
+				} else {
+					existingConfig.ticketingIntegrationEnabled = true;
 				}
 				
-				// Write the merged configuration
-				fs.writeFileSync(targetPath, JSON.stringify(mergedConfig, null, 2));
+				// Write the updated configuration
+				fs.writeFileSync(targetPath, JSON.stringify(existingConfig, null, 2));
 				log('success', `Updated ${targetPath} with new configuration`);
 			} catch (error) {
 				log('error', `Error updating ${targetPath}: ${error.message}`);
