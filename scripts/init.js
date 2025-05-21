@@ -604,58 +604,43 @@ function createProjectStructure(
 		year: new Date().getFullYear()
 	};
 
-	// Add ticketing system configuration to replacements
+	// Set up base configuration replacements
 	const configReplacements = {
 		...replacements,
 		// Default to no ticketing system if not specified
-		ticketingSystem: ticketingOptions.type || 'none',
-		// Jira configuration
-		jiraProjectKey:
-			ticketingOptions.type === 'jira'
-				? ticketingOptions.jiraProjectKey || jiraProjectKey
-				: '',
-		jiraBaseUrl:
-			ticketingOptions.type === 'jira'
-				? ticketingOptions.jiraBaseUrl || ''
-				: '',
-		jiraEmail:
-			ticketingOptions.type === 'jira' ? ticketingOptions.jiraEmail || '' : '',
-		jiraApiToken:
-			ticketingOptions.type === 'jira'
-				? ticketingOptions.jiraApiToken || ''
-				: '',
-		jiraIntegrationEnabled: ticketingOptions.type === 'jira' ? true : false,
-		// Azure DevOps configuration
-		azureOrganization:
-			ticketingOptions.type === 'azure'
-				? ticketingOptions.azureOrganization || ''
-				: '',
-		azurePersonalAccessToken:
-			ticketingOptions.type === 'azure'
-				? ticketingOptions.azurePersonalAccessToken || ''
-				: '',
-		azureProjectName:
-			ticketingOptions.type === 'azure'
-				? ticketingOptions.azureProjectName || ''
-				: '',
-		// GitHub Projects configuration
-		githubToken:
-			ticketingOptions.type === 'github'
-				? ticketingOptions.githubToken || ''
-				: '',
-		githubOwner:
-			ticketingOptions.type === 'github'
-				? ticketingOptions.githubOwner || ''
-				: '',
-		githubRepository:
-			ticketingOptions.type === 'github'
-				? ticketingOptions.githubRepository || ''
-				: '',
-		githubProjectNumber:
-			ticketingOptions.type === 'github'
-				? ticketingOptions.githubProjectNumber || ''
-				: ''
+		ticketingSystem: ticketingOptions.type || 'none'
 	};
+
+	// Add only the configuration for the selected ticketing system
+	switch (ticketingOptions.type) {
+		case 'jira':
+			// Add Jira-specific configuration
+			configReplacements.jiraProjectKey = ticketingOptions.jiraProjectKey || jiraProjectKey;
+			configReplacements.jiraBaseUrl = ticketingOptions.jiraBaseUrl || '';
+			configReplacements.jiraEmail = ticketingOptions.jiraEmail || '';
+			configReplacements.jiraApiToken = ticketingOptions.jiraApiToken || '';
+			configReplacements.jiraIntegrationEnabled = true;
+			break;
+
+		case 'azure':
+			// Add Azure DevOps-specific configuration
+			configReplacements.azureOrganization = ticketingOptions.azureOrganization || '';
+			configReplacements.azurePersonalAccessToken = ticketingOptions.azurePersonalAccessToken || '';
+			configReplacements.azureProjectName = ticketingOptions.azureProjectName || '';
+			break;
+
+		case 'github':
+			// Add GitHub Projects-specific configuration
+			configReplacements.githubToken = ticketingOptions.githubToken || '';
+			configReplacements.githubOwner = ticketingOptions.githubOwner || '';
+			configReplacements.githubRepository = ticketingOptions.githubRepository || '';
+			configReplacements.githubProjectNumber = ticketingOptions.githubProjectNumber || '';
+			break;
+
+		default:
+			// No ticketing system selected, no additional config needed
+			break;
+	}
 
 	// Copy .env.example
 	copyTemplateFile(
