@@ -588,11 +588,9 @@ function promptQuestion(rl, question) {
 
 // Function to prompt for ticketing system configuration
 async function promptForTicketingSystem() {
-	// Create readline interface for user input
-	const rl = readline.createInterface({
-		input: process.stdin,
-		output: process.stdout
-	});
+	// Dynamically import inquirer modules
+	const { default: select } = await import('@inquirer/select');
+	const { default: input } = await import('@inquirer/input');
 
 	let ticketingOptions = {
 		type: 'none' // Default to no ticketing system
@@ -607,11 +605,19 @@ async function promptForTicketingSystem() {
 			'GitHub Projects'
 		];
 
-		const ticketingChoice = await promptSelectionMenu(
-			rl,
-			'Select ticketing system to use:',
-			ticketingChoices
-		);
+		// Create formatted choices for the select prompt
+		const formattedChoices = ticketingChoices.map((choice, index) => ({
+			name: choice,
+			value: (index + 1).toString() // Return string value to match existing code
+		}));
+
+		// Display the selection prompt and get response
+		const ticketingChoice = await select({
+			message: 'Select ticketing system to use:',
+			choices: formattedChoices
+		});
+
+		log('info', `Selected: ${ticketingChoices[parseInt(ticketingChoice) - 1]}`);
 
 		// Process ticketing system choice
 		switch (ticketingChoice.toString()) {
@@ -620,22 +626,18 @@ async function promptForTicketingSystem() {
 				log('info', 'You selected Jira as your ticketing system.');
 
 				// Prompt for Jira configuration
-				ticketingOptions.jiraProjectKey = await promptQuestion(
-					rl,
-					'Enter Jira project key: '
-				);
-				ticketingOptions.jiraBaseUrl = await promptQuestion(
-					rl,
-					'Enter Jira base URL (e.g., https://yourcompany.atlassian.net): '
-				);
-				ticketingOptions.jiraEmail = await promptQuestion(
-					rl,
-					'Enter Jira email: '
-				);
-				ticketingOptions.jiraApiToken = await promptQuestion(
-					rl,
-					'Enter Jira API token: '
-				);
+				ticketingOptions.jiraProjectKey = await input({
+					message: 'Enter Jira project key:'
+				});
+				ticketingOptions.jiraBaseUrl = await input({
+					message: 'Enter Jira base URL (e.g., https://yourcompany.atlassian.net):'
+				});
+				ticketingOptions.jiraEmail = await input({
+					message: 'Enter Jira email:'
+				});
+				ticketingOptions.jiraApiToken = await input({
+					message: 'Enter Jira API token:'
+				});
 
 				log('success', 'Jira configuration complete!');
 				break;
@@ -645,18 +647,15 @@ async function promptForTicketingSystem() {
 				log('info', 'You selected Azure DevOps as your ticketing system.');
 
 				// Prompt for Azure DevOps configuration
-				ticketingOptions.azureOrganization = await promptQuestion(
-					rl,
-					'Enter Azure DevOps organization: '
-				);
-				ticketingOptions.azureProjectName = await promptQuestion(
-					rl,
-					'Enter Azure DevOps project name: '
-				);
-				ticketingOptions.azurePersonalAccessToken = await promptQuestion(
-					rl,
-					'Enter Azure DevOps personal access token: '
-				);
+				ticketingOptions.azureOrganization = await input({
+					message: 'Enter Azure DevOps organization:'
+				});
+				ticketingOptions.azureProjectName = await input({
+					message: 'Enter Azure DevOps project name:'
+				});
+				ticketingOptions.azurePersonalAccessToken = await input({
+					message: 'Enter Azure DevOps personal access token:'
+				});
 
 				log('success', 'Azure DevOps configuration complete!');
 				break;
@@ -666,22 +665,18 @@ async function promptForTicketingSystem() {
 				log('info', 'You selected GitHub Projects as your ticketing system.');
 
 				// Prompt for GitHub Projects configuration
-				ticketingOptions.githubToken = await promptQuestion(
-					rl,
-					'Enter GitHub access token: '
-				);
-				ticketingOptions.githubOwner = await promptQuestion(
-					rl,
-					'Enter GitHub owner (user or organization): '
-				);
-				ticketingOptions.githubRepository = await promptQuestion(
-					rl,
-					'Enter GitHub repository name: '
-				);
-				ticketingOptions.githubProjectNumber = await promptQuestion(
-					rl,
-					'Enter GitHub project number: '
-				);
+				ticketingOptions.githubToken = await input({
+					message: 'Enter GitHub access token:'
+				});
+				ticketingOptions.githubOwner = await input({
+					message: 'Enter GitHub owner (user or organization):'
+				});
+				ticketingOptions.githubRepository = await input({
+					message: 'Enter GitHub repository name:'
+				});
+				ticketingOptions.githubProjectNumber = await input({
+					message: 'Enter GitHub project number:'
+				});
 
 				log('success', 'GitHub Projects configuration complete!');
 				break;
@@ -690,39 +685,12 @@ async function promptForTicketingSystem() {
 				log('info', 'No ticketing system will be configured.');
 				break;
 		}
-	} finally {
-		// Close the readline interface
-		rl.close();
+	} catch (error) {
+		log('error', `Error during ticketing configuration: ${error.message}`);
+		log('warn', 'Continuing with default configuration (no ticketing system).');
 	}
 
 	return ticketingOptions;
-}
-
-// Function to prompt for selection using arrow keys
-async function promptSelectionMenu(rl, message, choices) {
-    // Dynamically import inquirer select
-    const { default: select } = await import('@inquirer/select');
-   
-    // Create formatted choices for the select prompt
-    const formattedChoices = choices.map((choice, index) => ({
-        name: choice,
-        value: (index + 1).toString() // Return string value to match existing code
-    }));
-    
-    try {
-        // Display the selection prompt and get response
-        const response = await select({
-            message,
-            choices: formattedChoices
-        });
-        
-        log('info', `Selected: ${choices[parseInt(response) - 1]}`);
-        return response;
-    } catch (error) {
-        log('error', `Error during selection menu: ${error.message}`);
-        // Return the first option as default
-        return '1';
-    }
 }
 
 // Function to create the project structure
