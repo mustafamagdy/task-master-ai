@@ -279,7 +279,7 @@ Guidelines:
 		});
 
 		// Second pass: Process each task with proper IDs and reference IDs
-		const processedNewTasks = generatedData.tasks.map((task, index) => {
+		const processPromises = generatedData.tasks.map(async (task, index) => {
 			const newId = currentId + index;
 
 			// Create new task object with proper ID
@@ -298,7 +298,7 @@ Guidelines:
 
 			// Store reference ID in task metadata if Jira integration is enabled
 			if (getTicketingIntegrationEnabled(projectRoot)) {
-				const refId = generateUserStoryRefId(newId, projectRoot);
+				const refId = await generateUserStoryRefId(newId, projectRoot);
 				if (refId) {
 					newTask = storeRefId(newTask, refId);
 					report(
@@ -310,6 +310,9 @@ Guidelines:
 
 			return newTask;
 		});
+
+		// Wait for all tasks to be processed with their reference IDs
+		const processedNewTasks = await Promise.all(processPromises);
 
 		// Remap dependencies for the NEWLY processed tasks
 		processedNewTasks.forEach((task) => {
