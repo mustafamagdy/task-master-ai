@@ -41,11 +41,24 @@ async function syncTickets(tasksPath, options = {}) {
 		return { success: false, message: 'No ticketing system configured' };
 	}
 
-	if (!force && !getTicketingSystemEnabled(projectRoot)) {
-		customLog.warn(`Ticketing system integration is not enabled.`);
+	// Check if ticketing is enabled
+	customLog.info('Checking if ticketing system integration is enabled...');
+	let enabled;
+	try {
+		enabled = getTicketingSystemEnabled(projectRoot);
+		customLog.info(`Ticketing integration enabled: ${enabled}`);
+	} catch (error) {
+		customLog.error(`Error checking if ticketing is enabled: ${error.message}`);
+		return { success: false, message: `Ticketing system error: ${error.message}` };
+	}
+
+	// Return if not enabled and not forced
+	if (!force && !enabled) {
+		customLog.info('Ticketing system integration is not enabled and not forced');
+		customLog.warn('Ticketing system integration is not enabled.');
 		return {
 			success: false,
-			message: 'Ticketing system integration is not enabled'
+			message: 'Ticketing system integration is not enabled. Use --force to override or update your .taskmasterconfig file to enable ticketing integration.'
 		};
 	}
 
