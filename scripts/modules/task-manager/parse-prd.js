@@ -15,8 +15,12 @@ import {
 } from '../utils.js';
 
 import { getTicketingInstance } from '../ticketing/ticketing-factory.js';
+import { isTicketingSystemConfigured } from '../ticketing/ticketing-interface.js';
 import { generateObjectService } from '../ai-services-unified.js';
-import { getDebugFlag, getTicketingIntegrationEnabled } from '../config-manager.js';
+import {
+	getDebugFlag,
+	getTicketingIntegrationEnabled
+} from '../config-manager.js';
 import {
 	generateUserStoryRefId,
 	storeRefId,
@@ -323,7 +327,7 @@ Guidelines:
 		// Check if Jira integration is enabled and configured
 		if (
 			getTicketingIntegrationEnabled(projectRoot) &&
-			isJiraConfigured(projectRoot)
+			isTicketingSystemConfigured(projectRoot)
 		) {
 			report(
 				'Jira integration is enabled. Creating user stories in Jira...',
@@ -380,7 +384,7 @@ Guidelines:
 		// Check if Jira integration is enabled and configured
 		if (
 			getTicketingIntegrationEnabled(projectRoot) &&
-			isJiraConfigured(projectRoot)
+			isTicketingSystemConfigured(projectRoot)
 		) {
 			report(
 				'Jira integration is enabled. Creating user stories in Jira...',

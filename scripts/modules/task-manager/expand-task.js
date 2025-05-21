@@ -11,6 +11,7 @@ import {
 } from '../ui.js';
 
 import { generateTextService } from '../ai-services-unified.js';
+import { isTicketingSystemConfigured } from '../ticketing/ticketing-interface.js';
 
 import {
 	getDefaultSubtasks,
@@ -651,7 +652,7 @@ async function expandTask(
 		// Check if Jira integration is enabled and configured
 		if (
 			getTicketingIntegrationEnabled(projectRoot) &&
-			isJiraConfigured(projectRoot)
+			isTicketingSystemConfigured(projectRoot)
 		) {
 			logger.info('Jira integration is enabled. Creating tasks in Jira...');
 
