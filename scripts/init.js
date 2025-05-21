@@ -363,16 +363,22 @@ async function initializeProject(options = {}) {
 		});
 
 		try {
-			// Prompt for ticketing system
-			log('info', 'Select ticketing system to use:');
-			log('info', '1) None');
-			log('info', '2) Jira');
-			log('info', '3) Azure DevOps (Coming Soon)');
-			log('info', '4) GitHub Projects (Coming Soon)');
-			const ticketingChoice = await promptQuestion(rl, 'Enter choice (1-4): ');
+			// Prompt for ticketing system using arrow key navigation
+			const ticketingOptions = [
+				'None',
+				'Jira',
+				'Azure DevOps',
+				'GitHub Projects'
+			];
+			
+			const ticketingChoice = await promptSelectionMenu(
+				rl,
+				'Select ticketing system to use:',
+				ticketingOptions
+			);
 
 			// Process ticketing system choice
-			switch (ticketingChoice.trim()) {
+			switch (ticketingChoice.toString()) {
 				case '2': // Jira
 					ticketingOptions = { type: 'jira' };
 					log('info', 'You selected Jira as your ticketing system.');
@@ -399,10 +405,6 @@ async function initializeProject(options = {}) {
 				case '3': // Azure DevOps
 					ticketingOptions = { type: 'azure' };
 					log('info', 'You selected Azure DevOps as your ticketing system.');
-					log(
-						'warn',
-						'Azure DevOps integration is coming soon. Basic configuration will be set up.'
-					);
 
 					// Prompt for Azure DevOps configuration
 					log('info', 'Enter Azure DevOps organization:');
@@ -423,10 +425,6 @@ async function initializeProject(options = {}) {
 				case '4': // GitHub Projects
 					ticketingOptions = { type: 'github' };
 					log('info', 'You selected GitHub Projects as your ticketing system.');
-					log(
-						'warn',
-						'GitHub Projects integration is coming soon. Basic configuration will be set up.'
-					);
 
 					// Prompt for GitHub Projects configuration
 					log('info', 'Enter GitHub access token:');
@@ -471,6 +469,23 @@ async function initializeProject(options = {}) {
 	);
 }
 
+// Utility function to prompt a yes/no question
+function promptYesNoQuestion(rl, question, defaultYes = true) {
+	return promptQuestion(
+		rl,
+		`${question} ${defaultYes ? '[Y/n]' : '[y/N]'} `
+	).then((answer) => {
+		answer = answer.trim().toLowerCase();
+		if (answer === '' || answer === 'y' || answer === 'yes') {
+			return true;
+		} else if (answer === 'n' || answer === 'no') {
+			return false;
+		} else {
+			return defaultYes;
+		}
+	});
+}
+
 // Helper function to promisify readline question
 function promptQuestion(rl, question) {
 	return new Promise((resolve) => {
@@ -478,6 +493,77 @@ function promptQuestion(rl, question) {
 			resolve(answer);
 		});
 	});
+}
+
+// Custom selection menu with arrow key navigation
+async function promptSelectionMenu(rl, message, options) {
+    // Store current state of stdin
+    const originalStdinRawMode = process.stdin.isRaw;
+    
+    // Configure readline for raw mode (to capture keypresses)
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) {
+        process.stdin.setRawMode(true);
+    }
+    
+    let selectedIndex = 0;
+    
+    // Function to render the menu options
+    const renderMenu = () => {
+        // Clear previous output
+        console.clear();
+        console.log(chalk.blue('ℹ️ ') + message);
+        console.log(); // Empty line for spacing
+        
+        // Display options with selection indicator
+        options.forEach((option, index) => {
+            if (index === selectedIndex) {
+                console.log(chalk.cyan(`> ${option}`));
+            } else {
+                console.log(`  ${option}`);
+            }
+        });
+        
+        console.log(); // Empty line for spacing
+        console.log(chalk.dim('Use arrow keys ↑↓ to navigate, Enter to select'));
+    };
+    
+    // Initial render
+    renderMenu();
+    
+    // Return a new Promise that will resolve when the user makes a selection
+    return new Promise((resolve) => {
+        // Handle keypress events
+        const keypressHandler = (str, key) => {
+            if (key.ctrl && key.name === 'c') {
+                // Ctrl+C - exit
+                process.exit();
+            } else if (key.name === 'up' && selectedIndex > 0) {
+                // Up arrow - move selection up
+                selectedIndex--;
+                renderMenu();
+            } else if (key.name === 'down' && selectedIndex < options.length - 1) {
+                // Down arrow - move selection down
+                selectedIndex++;
+                renderMenu();
+            } else if (key.name === 'return') {
+                // Enter - make selection
+                // Clean up event listener
+                process.stdin.removeListener('keypress', keypressHandler);
+                
+                // Restore stdin to original state
+                if (process.stdin.isTTY) {
+                    process.stdin.setRawMode(originalStdinRawMode);
+                }
+                
+                // Return 1-based index to match existing code conventions
+                resolve(selectedIndex + 1);
+            }
+        };
+        
+        // Register keypress handler
+        process.stdin.on('keypress', keypressHandler);
+    });
 }
 
 // Function to create the project structure
