@@ -72,13 +72,13 @@ async function syncTickets(tasksPath, options = {}) {
 		customLog.info(`Reading tasks from ${tasksPath}...`);
 		const data = options.readJSON?.(tasksPath) || readJSON(tasksPath);
 
-		if (!data || !Array.isArray(data)) {
+		if (!data || !data.tasks || !Array.isArray(data.tasks)) {
 			customLog.error(`Invalid tasks data in ${tasksPath}`);
 			return { success: false, message: 'Error: Invalid tasks data' };
 		}
 
 		// Process each task
-		for (const task of data) {
+		for (const task of data.tasks) {
 			try {
 				// Get reference ID for the task
 				const refId = getRefId(task);
