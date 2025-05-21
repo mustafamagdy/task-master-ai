@@ -3,10 +3,16 @@
  * Generic task synchronization with ticketing systems
  */
 
-import { readJSON, writeJSON, log } from '../utils.js';
+import fs from 'fs';
+import path from 'path';
+import { log, readJSON, writeJSON } from '../utils.js';
 import {
 	getTicketingSystem,
-	getTicketingSystemEnabled
+	getTicketingSystemEnabled,
+	getJiraProjectKey,
+	getJiraBaseUrl,
+	getJiraEmail,
+	getJiraApiToken
 } from '../config-manager.js';
 import { getRefId, formatTitleForTicket } from './reference-id-service.js';
 

@@ -55,30 +55,53 @@ class JiraTicketing extends TicketingSystemInterface {
 	 * @returns {Object|null} Configuration object or null if invalid
 	 */
 	validateConfig(explicitRoot = null) {
-		if (!this.isConfigured(explicitRoot)) {
-			log('warn', 'Jira is not configured. Skipping Jira operation.');
+		log('info', 'Validating Jira configuration...');
+		const projectKey = getJiraProjectKey(explicitRoot);
+		const baseUrl = getJiraBaseUrl(explicitRoot);
+		const email = getJiraEmail(explicitRoot);
+		const apiToken = getJiraApiToken(explicitRoot);
+
+		log('info', `Jira configuration: projectKey=${projectKey || 'NOT SET'}, baseUrl=${baseUrl || 'NOT SET'}, email=${email || 'NOT SET'}, apiToken=${apiToken ? 'SET' : 'NOT SET'}`);
+
+		// Check if all required fields are present
+		if (!projectKey) {
+			log('error', 'Jira project key is not configured. Please set jiraProjectKey in your .taskmasterconfig file.');
 			return null;
 		}
 
-		const config = this.getConfig(explicitRoot);
-		const { projectKey, baseUrl, email, apiToken } = config;
-
-		if (
-			!baseUrl ||
-			baseUrl.includes('{{') ||
-			!email ||
-			email.includes('{{') ||
-			!apiToken ||
-			apiToken.includes('{{')
-		) {
-			log(
-				'warn',
-				'Jira configuration contains placeholder values. Please update your .taskmasterconfig file.'
-			);
+		if (!baseUrl) {
+			log('error', 'Jira base URL is not configured. Please set jiraBaseUrl in your .taskmasterconfig file.');
 			return null;
 		}
 
-		return config;
+		if (!email) {
+			log('error', 'Jira email is not configured. Please set jiraEmail in your .taskmasterconfig file.');
+			return null;
+		}
+
+		if (!apiToken) {
+			log('error', 'Jira API token is not configured. Please set jiraApiToken in your .taskmasterconfig file.');
+			return null;
+		}
+
+		// Check for placeholder values
+		if (baseUrl.includes('{{') || baseUrl.includes('}}')) {
+			log('error', 'Jira base URL contains placeholder values. Please update your .taskmasterconfig file.');
+			return null;
+		}
+
+		if (email.includes('{{') || email.includes('}}')) {
+			log('error', 'Jira email contains placeholder values. Please update your .taskmasterconfig file.');
+			return null;
+		}
+
+		if (apiToken.includes('{{') || apiToken.includes('}}')) {
+			log('error', 'Jira API token contains placeholder values. Please update your .taskmasterconfig file.');
+			return null;
+		}
+
+		log('success', 'Jira configuration is valid!');
+		return { projectKey, baseUrl, email, apiToken };
 	}
 
 	/**
