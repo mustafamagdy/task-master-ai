@@ -25,8 +25,8 @@ import {
 	initializeDefaultMappings
 } from './mapping-manager.js';
 
-// API version to use
-const JIRA_API_VERSION = '2';
+// API version to use consistently across all endpoints
+const JIRA_API_VERSION = '3';
 
 /**
  * Jira implementation of the ticketing system interface
@@ -117,13 +117,8 @@ class JiraTicketing extends TicketingSystemInterface {
 	 * @returns {Object} Configuration object
 	 */
 	getConfig(explicitRoot = null) {
-		const config = getConfig(explicitRoot);
-		const projectKey = getJiraProjectKey(explicitRoot);
-		const baseUrl = getJiraBaseUrl(explicitRoot);
-		const email = getJiraEmail(explicitRoot);
-		const apiToken = getJiraApiToken(explicitRoot);
-
-		return { projectKey, baseUrl, email, apiToken };
+		// Use validateConfig since it already pulls all these values
+		return this.validateConfig(explicitRoot);
 	}
 
 	/**
@@ -185,10 +180,7 @@ ${taskData.details}`
 				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
 				{
 					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-					},
+					headers: this._getAuthHeaders(email, apiToken),
 					body: JSON.stringify({ fields })
 				}
 			);
@@ -204,10 +196,7 @@ ${taskData.details}`
 						`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
 						{
 							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json',
-								Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-							},
+							headers: this._getAuthHeaders(email, apiToken),
 							body: JSON.stringify({ fields })
 						}
 					);
@@ -325,10 +314,7 @@ ${taskData.details}`
 				`${baseUrl}/rest/api/${JIRA_API_VERSION}/search?jql=${encodeURIComponent(jql)}&maxResults=100`,
 				{
 					method: 'GET',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-					}
+					headers: this._getAuthHeaders(email, apiToken)
 				}
 			);
 
@@ -384,10 +370,7 @@ ${taskData.details}`
 			
 			const response = await fetch(url, {
 				method: 'GET',
-				headers: {
-					'Authorization': `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`,
-					'Accept': 'application/json'
-				}
+				headers: this._getAuthHeaders(email, apiToken)
 			});
 			
 			if (!response.ok) {
@@ -491,57 +474,7 @@ ${taskData.details}`
 		}
 	}
 
-	/**
-	 * Find a ticket ID by reference ID
-	 * @param {string} refId - Reference ID to search for
-	 * @param {string|null} explicitRoot - Optional explicit path to the project root
-	 * @returns {Promise<string|null>} Ticket ID if found, null otherwise
-	 */
-	async findTicketByRefId(refId, explicitRoot = null) {
-		if (!refId) return null;
-		
-		// Validate configuration
-		const config = this.validateConfig(explicitRoot);
-		if (!config) return null;
-		
-		const { baseUrl, email, apiToken, projectKey } = config;
-		
-		try {
-			// Search for issues with the reference ID in the summary using JQL
-			const jql = `project = ${projectKey} AND summary ~ "${refId}" ORDER BY created DESC`;
-			const url = `${baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}`;
-			
-			const response = await fetch(url, {
-				method: 'GET',
-				headers: {
-					'Authorization': `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`,
-					'Accept': 'application/json'
-				}
-			});
-			
-			if (!response.ok) {
-				log('error', `Failed to search for ticket by reference ID: ${response.status} ${response.statusText}`);
-				return null;
-			}
-			
-			const data = await response.json();
-			
-			if (data.issues && data.issues.length > 0) {
-				for (const issue of data.issues) {
-					// Verify that the reference ID appears at the beginning of the summary
-					const summary = issue.fields.summary || '';
-					if (summary.startsWith(refId) || summary.includes(`[${refId}]`)) {
-						return issue.key;
-					}
-				}
-			}
-			
-			return null;
-		} catch (error) {
-			log('error', `Error finding ticket by reference ID: ${error.message}`);
-			return null;
-		}
-	}
+
 
 	/**
 	 * Check if a ticket exists in the Jira system
@@ -564,10 +497,7 @@ ${taskData.details}`
 			
 			const response = await fetch(url, {
 				method: 'GET',
-				headers: {
-					'Authorization': `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`,
-					'Accept': 'application/json'
-				}
+				headers: this._getAuthHeaders(email, apiToken)
 			});
 			
 			// If we get a 200 OK response, the ticket exists
@@ -587,6 +517,20 @@ ${taskData.details}`
 			log('error', `Error checking if ticket exists: ${error.message}`);
 			return false;
 		}
+	}
+	/**
+	 * Helper method to create auth headers for Jira API requests
+	 * @param {string} email - Jira email
+	 * @param {string} apiToken - Jira API token
+	 * @returns {Object} Headers object with Authorization and Content-Type
+	 * @private
+	 */
+	_getAuthHeaders(email, apiToken) {
+		return {
+			'Content-Type': 'application/json',
+			'Accept': 'application/json',
+			'Authorization': `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
+		};
 	}
 }
 
