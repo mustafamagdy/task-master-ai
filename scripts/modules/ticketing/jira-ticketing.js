@@ -147,13 +147,30 @@ class JiraTicketing extends TicketingSystemInterface {
 				throw new Error('Invalid task data: missing required fields (title, description)');
 			}
 
-			// For API version 3, use plain text description 
-			// Combine description and details with a separator if both exist
-			const description = taskData.details
+			// For API version 3, we need to use the Atlassian Document Format (ADF)
+			// Convert plain text to ADF format
+			const plainTextDescription = taskData.details
 				? `${taskData.description}
 
 ${taskData.details}`
 				: taskData.description;
+			
+			// Create an ADF document structure
+			const description = {
+				"version": 1,
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"content": [
+							{
+								"type": "text",
+								"text": plainTextDescription
+							}
+						]
+					}
+				]
+			};
 
 			console.log('DEBUG - Formatting title for Jira');
 			// Format title with reference ID for Jira if available
@@ -261,14 +278,22 @@ ${taskData.details}`
 	/**
 	 * Map TaskMaster priority to Jira priority
 	 * @param {string} priority - TaskMaster priority (high, medium, low)
-	 * @returns {string} Jira priority
+	 * @returns {string|null} Jira priority or null if disabled
 	 */
 	mapPriorityToTicket(priority) {
 		const mappedField = getFieldMapping('priority', priority.toLowerCase());
+		console.log(`DEBUG - Priority mapping: ${JSON.stringify(mappedField)}`);
 		
 		// If the field is disabled, return null to exclude it
-		if (!mappedField.enabled) {
+		if (!mappedField || !mappedField.enabled) {
+			console.log('DEBUG - Priority field is disabled or not configured');
 			return null;
+		}
+		
+		// Return default priority if the mapping doesn't have a value
+		if (!mappedField.value) {
+			console.log('DEBUG - Using default priority Medium');
+			return 'Medium';
 		}
 		
 		return mappedField.value;
