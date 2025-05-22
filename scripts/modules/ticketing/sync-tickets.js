@@ -630,6 +630,13 @@ async function syncTickets(tasksPath, options = {}) {
 							`Synchronizing status for ${task.subtasks.length} subtasks of task ${task.id}...`
 						);
 
+						// Check if we have a valid parent ticketId before proceeding
+						if (!parentTicketId) {
+							customLog.error(`Synchronization error: ticketId is not defined`);
+							customLog.warn(`Ticket synchronization skipped: Error: ticketId is not defined`);
+							break; // Skip all subtasks if parent ticket ID is missing
+						}
+
 						for (const subtask of task.subtasks) {
 							try {
 								// Get the ticket ID for this subtask
