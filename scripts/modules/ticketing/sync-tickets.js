@@ -18,8 +18,8 @@ import {
 import { getRefId, formatTitleForTicket } from './reference-id-service.js';
 import generateTaskFiles from '../task-manager/generate-task-files.js';
 
-// Add DEBUG constant at the top of the file
-const DEBUG = true; // Set to true to enable debug logs
+// Default debug mode - set to false in production
+const DEBUG = false;
 
 /**
  * Fetch all tickets from the ticketing system
@@ -108,45 +108,22 @@ async function syncTickets(tasksPath, options = {}) {
 	// Debug console logger that bypasses the customLog
 	const debugLog = (message) => {
 		if (debug) {
-			console.log(`\n===== SYNC-TICKETS DEBUG: ${message} =====\n`);
+			console.log(`[SYNC-TICKETS DEBUG] ${message}`);
 		}
 	};
 
 	debugLog('Function started');
-	customLog.info('Starting task synchronization with ticketing system...');
 
 	// Extract project root from the tasks path
-	const projectRoot = tasksPath.replace(/[\\/]tasks[\\/]tasks\.json$/, '');
+	const projectRoot = tasksPath.replace(/[\/]tasks[\/]tasks\.json$/, '');
 
-	customLog.info(`Starting task synchronization with ticketing system...`);
+	customLog.info('Starting task synchronization with ticketing system...');
 
 	// Get the configured ticketing system
-	debugLog('About to get ticketing system implementation...');
 	let ticketingSystem;
 	try {
 		ticketingSystem = await getTicketingSystem(projectRoot);
-		debugLog(`Ticketing system result: ${ticketingSystem ? ticketingSystem.constructor.name : 'NONE'}`);
-		
-		if (ticketingSystem) {
-			// Check if getTicketId method exists
-			const hasGetTicketId = typeof ticketingSystem.getTicketId === 'function';
-			debugLog(`ticketingSystem.getTicketId exists: ${hasGetTicketId}`);
-			
-			// Check if createStory method exists
-			const hasCreateStory = typeof ticketingSystem.createStory === 'function';
-			debugLog(`ticketingSystem.createStory exists: ${hasCreateStory}`);
-			
-			// Check config
-			const isConfigured = ticketingSystem.isConfigured ? ticketingSystem.isConfigured(projectRoot) : false;
-			debugLog(`ticketingSystem.isConfigured result: ${isConfigured}`);
-			
-			// Check ticketing system type directly
-			const ticketingType = getTicketingSystemType(projectRoot);
-			debugLog(`Ticketing system type from config: ${ticketingType}`);
-			
-		}
 	} catch (error) {
-		debugLog(`Error getting ticketing system: ${error.message}`);
 		customLog.error(`Error getting ticketing system: ${error.message}`);
 		return { success: false, message: `Error getting ticketing system: ${error.message}` };
 	}
@@ -158,11 +135,9 @@ async function syncTickets(tasksPath, options = {}) {
 	}
 
 	// Check if ticketing is enabled
-	customLog.info('Checking if ticketing system integration is enabled...');
 	let enabled;
 	try {
 		enabled = getTicketingSystemEnabled(projectRoot);
-		customLog.info(`Ticketing integration enabled: ${enabled}`);
 	} catch (error) {
 		customLog.error(`Error checking if ticketing is enabled: ${error.message}`);
 		return { success: false, message: `Ticketing system error: ${error.message}` };
@@ -215,8 +190,6 @@ async function syncTickets(tasksPath, options = {}) {
 				
 				// Get reference ID for the task
 				const refId = getRefId(task);
-				customLog.info(`Reference ID for task ${task.id}: ${refId || 'NONE'}`);
-				
 				if (!refId) {
 					customLog.warn(
 						`Task ${task.id || 'unknown'} has no reference ID, skipping`
@@ -227,108 +200,20 @@ async function syncTickets(tasksPath, options = {}) {
 				// Check if task already has a ticket ID
 				let ticketId = ticketingSystem.getTicketId(task);
 
-				debugLog(`Ticket ID for task ${task.id}: ${ticketId || 'NONE'}`);
-
 				// If ticket ID exists, verify it actually exists in Jira
 				if (ticketId) {
 					try {
-						debugLog(`Verifying ticket ${ticketId} exists in Jira...`);
 						const ticketExists = await ticketingSystem.ticketExists(ticketId, projectRoot);
 						if (!ticketExists) {
-							debugLog(`Ticket ${ticketId} does not exist in Jira! Clearing ID to recreate.`);
 							customLog.warn(`Ticket ${ticketId} referenced in task ${task.id} does not exist in Jira. Will recreate.`);
 							task.metadata = task.metadata || {};
 							delete task.metadata.jiraKey;
 							ticketId = null;
-						} else {
-							debugLog(`Ticket ${ticketId} verified to exist in Jira.`);
-							
-							// Helper function to determine status priority for conflict resolution
-							function getStatusPriority(status) {
-								// Convert to lowercase for case-insensitive comparison
-								const s = (status || '').toLowerCase();
-								// Priority is based on workflow progression (higher number = further along)
-								if (s === 'done') return 5; // Highest priority - work is complete
-								if (s === 'in review' || s === 'review') return 4;
-								if (s === 'in progress') return 3;
-								if (s === 'to do') return 2;
-								if (s === 'backlog') return 1;
-								if (s === 'cancelled') return 6; // Special case - cancelled overrides everything
-								return 0; // Default/unknown status
-							}
-
-							// Get current Jira status before updating
-							let currentJiraStatus = null;
-							try {
-								currentJiraStatus = await ticketingSystem.getTicketStatus(ticketId, projectRoot);
-								debugLog(`Current Jira status for ticket ${ticketId}: ${currentJiraStatus}`);
-							} catch (error) {
-								debugLog(`Could not get current Jira status: ${error.message}`);
-							}
-							
-							// Sync status from TaskMaster to Jira if the ticket exists
-							if (task.status) {
-								try {
-									const taskMasterStatus = task.status;
-									const jiraEquivalentStatus = ticketingSystem.mapStatusToTicket(taskMasterStatus);
-									
-									// Apply conflict resolution
-									let statusToUse = null;
-									if (currentJiraStatus && currentJiraStatus !== jiraEquivalentStatus) {
-										// We have a conflict - Jira status is different from TaskMaster's status
-										const jiraStatusPriority = getStatusPriority(currentJiraStatus);
-										const taskMasterStatusPriority = getStatusPriority(jiraEquivalentStatus);
-										
-										if (jiraStatusPriority > taskMasterStatusPriority) {
-											// Jira has higher priority status - update TaskMaster
-											debugLog(`Status conflict! Jira status (${currentJiraStatus}) has higher priority than TaskMaster status (${taskMasterStatus})`);
-											customLog.info(`Status conflict resolved: Using Jira's status (${currentJiraStatus}) which has higher priority`);
-											
-											// Update TaskMaster with Jira's status
-											const newTaskMasterStatus = ticketingSystem.mapTicketStatusToTaskmaster(currentJiraStatus);
-											task.status = newTaskMasterStatus;
-											debugLog(`Updated TaskMaster status to ${newTaskMasterStatus} from Jira`);
-											customLog.success(`Updated task ${task.id} status to ${newTaskMasterStatus} from Jira`);
-											stats.tasksUpdated++;
-											
-											// No need to update Jira since we're keeping its status
-											statusToUse = null;  // Ensure we don't update Jira
-										} else {
-											// TaskMaster has higher or equal priority - update Jira
-											debugLog(`Status conflict! TaskMaster status (${taskMasterStatus}) has higher priority than Jira status (${currentJiraStatus})`);
-											customLog.info(`Status conflict resolved: Using TaskMaster's status (${taskMasterStatus}) which has higher priority`);
-											statusToUse = taskMasterStatus;
-										}
-									} else {
-										// No conflict or couldn't determine Jira status - use TaskMaster status
-										statusToUse = taskMasterStatus;
-									}
-									
-										// Update Jira if needed
-									if (statusToUse) {
-										debugLog(`Syncing status for task ${task.id} (${ticketId}) from TaskMaster to Jira: ${statusToUse}`);
-										const updateResult = await ticketingSystem.updateTicketStatus(
-											ticketId,
-											statusToUse,
-											projectRoot,
-											task
-										);
-										if (updateResult) {
-											debugLog(`Successfully updated status for ticket ${ticketId} in Jira to ${statusToUse}`);
-											stats.tasksUpdated++;
-										} else {
-											debugLog(`Failed to update status for ticket ${ticketId} in Jira`);
-										}
-									}
-								} catch (error) {
-									debugLog(`Error updating status for ticket ${ticketId} in Jira: ${error.message}`);
-									customLog.error(`Error updating status for ticket ${ticketId}: ${error.message}`);
-								}
-							}
 						}
 					} catch (error) {
-						debugLog(`Error verifying ticket ${ticketId}: ${error.message}`);
-						customLog.error(`Error verifying ticket ${ticketId}: ${error.message}`);
+						customLog.error(
+							`Error verifying ticket ${ticketId}: ${error.message}`
+						);
 						// For safety, assume ticket doesn't exist and try to recreate
 						task.metadata = task.metadata || {};
 						delete task.metadata.jiraKey;
@@ -338,24 +223,11 @@ async function syncTickets(tasksPath, options = {}) {
 
 				// If no ticket ID in metadata, try to find it by reference ID
 				if (!ticketId) {
-					debugLog(`No ticket ID found in metadata for task ${task.id}, searching by reference ID ${refId}...`);
 					customLog.info(
 						`No ticket ID found in metadata for task ${task.id}. Searching by reference ID ${refId}...`
 					);
 					try {
-						debugLog(`About to call findTicketByRefId with refId ${refId}...`);
-						// DEBUG: Log state right before the call
-						console.log(`CRITICAL DEBUG: About to search for ticket with refId ${refId}`);
-						console.log(`CRITICAL DEBUG: Current ticketId before search: ${ticketId}`);
-						
-						ticketId = await ticketingSystem.findTicketByRefId(
-							refId,
-							projectRoot
-						);
-						debugLog(`findTicketByRefId returned: ${ticketId || 'NONE'}`);
-						// DEBUG: Log state right after the call
-						console.log(`CRITICAL DEBUG: findTicketByRefId returned: ${ticketId || 'NONE'}`);
-
+						ticketId = await ticketingSystem.findTicketByRefId(refId, projectRoot);
 						if (ticketId) {
 							customLog.success(
 								`Found ticket ${ticketId} by reference ID ${refId}`
@@ -374,21 +246,14 @@ async function syncTickets(tasksPath, options = {}) {
 					}
 				}
 
-
 				// Create a new ticket if not found
 				if (!ticketId) {
-					log('info', `ATTEMPTING TO CREATE TICKET for task ${task.id} with reference ID ${refId}`);
-					customLog.info(
-						`Creating new ticket for task ${task.id} (${refId})...`
-					);
+					customLog.info(`Creating new ticket for task ${task.id} (${refId})...`);
 					try {
 						const title = formatTitleForTicket(task);
-						log('info', `Creating story with title: ${title}`);
 						customLog.info(`Creating story with title: ${title}`);
 
 						// Actually call the Jira API to create the ticket
-						debugLog(`Calling createStory for task ${task.id} with title: ${title}`);
-						
 						// Use the API to create the ticket in Jira
 						const result = await ticketingSystem.createStory(task, projectRoot);
 						debugLog(`createStory result: ${JSON.stringify(result)}`);
@@ -402,15 +267,15 @@ async function syncTickets(tasksPath, options = {}) {
 						customLog.success(`Created ticket ${ticketId} for task ${task.id}`);
 
 						// Store the ticket ID in task metadata
-						log('info', `Storing ticket ID ${ticketId} in task ${task.id} metadata`);
+						debugLog(`Storing ticket ID ${ticketId} in task ${task.id} metadata`);
 						ticketingSystem.storeTicketId(task, ticketId);
 						
 						// Save the updated metadata
-						log('info', 'Saving updated metadata to tasks.json');
+						debugLog('Saving updated metadata to tasks.json');
 						options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
 						stats.tasksCreated++;
 					} catch (error) {
-						log('error', `Failed to create ticket for task ${task.id}: ${error.message}`);
+						
 						customLog.error(
 							`Failed to create ticket for task ${task.id}: ${error.message}`
 						);
@@ -422,9 +287,7 @@ async function syncTickets(tasksPath, options = {}) {
 
 				// Process subtasks if present
 				if (task.subtasks && task.subtasks.length > 0 && ticketId) {
-					customLog.info(
-						`Processing ${task.subtasks.length} subtasks for task ${task.id}...`
-					);
+					customLog.info(`Processing ${task.subtasks.length} subtasks for task ${task.id}...`);
 
 					for (const subtask of task.subtasks) {
 						try {
@@ -442,23 +305,10 @@ async function syncTickets(tasksPath, options = {}) {
 
 							// If no ticket ID in metadata, try to find it by reference ID
 							if (!subtaskTicketId) {
-								debugLog(`No ticket ID found in metadata for subtask ${subtask.id}, searching by reference ID ${subtaskRefId}...`);
-								customLog.info(
-									`No ticket ID found in metadata for subtask ${subtask.id}. Searching by reference ID ${subtaskRefId}...`
-								);
+								customLog.info(`No ticket ID found in metadata for subtask ${subtask.id}. Searching by reference ID ${subtaskRefId}...`);
 								try {
-									debugLog(`About to call findTicketByRefId with refId ${subtaskRefId}...`);
-									// DEBUG: Log state right before the call
-									console.log(`CRITICAL DEBUG: About to search for ticket with refId ${subtaskRefId}`);
-									console.log(`CRITICAL DEBUG: Current ticketId before search: ${subtaskTicketId}`);
 									
-									subtaskTicketId = await ticketingSystem.findTicketByRefId(
-										subtaskRefId,
-										projectRoot
-									);
-									debugLog(`findTicketByRefId returned: ${subtaskTicketId || 'NONE'}`);
-									// DEBUG: Log state right after the call
-									console.log(`CRITICAL DEBUG: findTicketByRefId returned: ${subtaskTicketId || 'NONE'}`);
+									subtaskTicketId = await ticketingSystem.findTicketByRefId(subtaskRefId, projectRoot);
 
 									if (subtaskTicketId) {
 										customLog.success(
@@ -485,9 +335,7 @@ async function syncTickets(tasksPath, options = {}) {
 									`Creating subtask for ${subtask.id} (${subtaskRefId})...`
 								);
 								try {
-									debugLog(`About to format title for subtask ${subtask.id}`);
 									const subtaskTitle = formatTitleForTicket(subtask);
-									debugLog(`Formatted title: ${subtaskTitle}`);
 									customLog.info(`Creating subtask with title: ${subtaskTitle}`);
 									
 									// Prepare subtask data for createStory
@@ -506,12 +354,7 @@ async function syncTickets(tasksPath, options = {}) {
 										parentTicketId: ticketId, // This is crucial for linking as subtask
 										parentRefId: refId
 									};
-									debugLog(`Subtask data: ${JSON.stringify(subtaskData, null, 2)}`);
-									debugLog(`Parent ticket ID for linking: ${ticketId || 'NONE'}`);
-									
-									debugLog('=== CALLING createStory for subtask... ===');
 									const result = await ticketingSystem.createStory(subtaskData, projectRoot);
-									debugLog(`=== createStory returned: ${JSON.stringify(result)} ===`);
 									
 									if (result) {
 										subtaskTicketId = result.key || result.id;
@@ -552,12 +395,10 @@ async function syncTickets(tasksPath, options = {}) {
 		}
 
 		// After processing existing tasks, fetch tickets from ticketing system for two-way sync
-		debugLog('Starting two-way sync by fetching tickets from ticketing system');
 		customLog.info('Starting two-way sync with ticketing system...');
 
 		// Fetch all tickets from the ticketing system
 		const allTickets = await fetchAllTicketsFromSystem(ticketingSystem, projectRoot, customLog, debugLog);
-		debugLog(`Fetched ${allTickets.length} tickets from system`);
 
 		// Build maps for quick lookup
 		const existingTasksMap = new Map();
@@ -589,11 +430,8 @@ async function syncTickets(tasksPath, options = {}) {
 		// Process tickets not in tasks.json
 		for (const ticket of allTickets) {
 			const ticketId = ticket.key || ticket.id;
-			debugLog(`Processing ticket ${ticketId} from ticketing system`);
-			
 			// Check if ticket exists in tasks.json
 			if (existingTicketIds.has(ticketId)) {
-				debugLog(`Ticket ${ticketId} exists in tasks.json, checking for status updates`);
 				
 				// Find the corresponding task to update its status
 				let taskToUpdate = null;
@@ -671,7 +509,6 @@ async function syncTickets(tasksPath, options = {}) {
 					stats.subtasksUpdated++;
 				} else {
 					// Can't find parent, treat as regular task
-					debugLog(`Could not find parent task for subtask ${ticketId}, adding as normal task`);
 					delete newTask.isSubtask;
 					delete newTask.parentKey;
 					tasksToAdd.push(newTask);
@@ -728,18 +565,14 @@ async function syncTickets(tasksPath, options = {}) {
 
 		// Always generate task files after a sync operation, particularly when tasks are added from Jira
 		// This ensures even tasks that were added via two-way sync get their text files
-		// Using direct generation instead of relying on stats counters
-		debugLog('Generating task files regardless of stat counters to ensure all tasks have text files');
 		{
 			customLog.info('Generating individual task files...');
-			debugLog('Calling generateTaskFiles to update task text files');
 			try {
 				// The outputDir is the directory containing the tasks.json file
 				const outputDir = path.dirname(tasksPath);
 				await generateTaskFiles(tasksPath, outputDir, { mcpLog: customLog });
 				customLog.success('Successfully generated individual task files');
 			} catch (error) {
-				debugLog(`Error generating task files: ${error.message}`);
 				customLog.error(`Failed to generate task files: ${error.message}`);
 			}
 		}
@@ -763,4 +596,7 @@ async function syncTickets(tasksPath, options = {}) {
 	}
 };
 
+/**
+ * Export the syncTickets function
+ */
 export { syncTickets };
