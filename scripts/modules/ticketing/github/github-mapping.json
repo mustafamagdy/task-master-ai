@@ -1,0 +1,52 @@
+{
+	"issueTypes": {
+		"task": "issue",
+		"subtask": "issue",
+		"epic": "issue"
+	},
+	"fields": {
+		"priority": {
+			"enabled": true,
+			"mapping": {
+				"high": "high",
+				"medium": "medium",
+				"low": "low",
+				"default": "medium"
+			}
+		},
+		"status": {
+			"enabled": true,
+			"mapping": {
+				"pending": "open",
+				"in-progress": "open",
+				"review": "open",
+				"done": "closed",
+				"cancelled": "closed",
+				"deferred": "open",
+				"default": "open"
+			}
+		},
+		"assignee": {
+			"enabled": true
+		},
+		"labels": {
+			"enabled": true,
+			"prefix": "taskmaster-",
+			"statusLabels": {
+				"pending": "status:pending",
+				"in-progress": "status:in-progress",
+				"review": "status:review"
+			},
+			"priorityLabels": {
+				"high": "priority:high",
+				"medium": "priority:medium",
+				"low": "priority:low"
+			}
+		}
+	},
+	"relationships": {
+		"depends-on": "depends-on",
+		"related-to": "related-to"
+	},
+	"fieldsToIgnore": []
+}

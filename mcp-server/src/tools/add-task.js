@@ -11,6 +11,7 @@ import {
 } from './utils.js';
 import { addTaskDirect } from '../core/task-master-core.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
+import { findTasksFile } from '../../../scripts/modules/ticketing/utils/task-file-utils.js';
 
 /**
  * Register the addTask tool with the MCP server
@@ -70,7 +71,8 @@ export function registerAddTaskTool(server) {
 				// Use args.projectRoot directly (guaranteed by withNormalizedProjectRoot)
 				let tasksJsonPath;
 				try {
-					tasksJsonPath = findTasksJsonPath(
+					// Use the centralized utility function for finding tasks.json
+					tasksJsonPath = findTasksFile(
 						{ projectRoot: args.projectRoot, file: args.file },
 						log
 					);

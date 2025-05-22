@@ -153,14 +153,11 @@ const DEFAULT_MAPPINGS = {
 let mappingsCache = {};
 
 /**
- * Get the mapping configuration directory
- * @returns {string} Path to the mapping configuration directory
+ * Get the project root directory
+ * @returns {string|null} Path to the project root or null if not found
  */
-function getMappingConfigDir(explicitRoot = null) {
-	const rootDir = explicitRoot || findProjectRoot();
-	if (!rootDir) return null;
-
-	return path.join(rootDir, 'taskmaster', 'mappings');
+function getProjectRoot(explicitRoot = null) {
+	return explicitRoot || findProjectRoot();
 }
 
 /**
@@ -170,10 +167,51 @@ function getMappingConfigDir(explicitRoot = null) {
  * @returns {string|null} Path to the mapping file or null if no root found
  */
 function getMappingFilePath(ticketingSystem, explicitRoot = null) {
-	const mappingDir = getMappingConfigDir(explicitRoot);
-	if (!mappingDir) return null;
+	// Normalize ticketing system name
+	let systemFolder = ticketingSystem;
+	
+	// Handle Azure DevOps special case (the folder is named 'azdevops' but system type might be 'azure')
+	if (systemFolder === 'azure') {
+		systemFolder = 'azdevops';
+	}
 
-	return path.join(mappingDir, `${ticketingSystem}-mapping.json`);
+	// First try to find the mapping file in the system-specific folder
+	const projectRootDir = getProjectRoot(explicitRoot);
+	if (!projectRootDir) return null;
+
+	// Check in the system-specific folder first (new location)
+	const systemSpecificPath = path.join(
+		__dirname,
+		systemFolder,
+		`${ticketingSystem}-mapping.json`
+	);
+
+	// If it exists in the new location, return that path
+	if (fs.existsSync(systemSpecificPath)) {
+		return systemSpecificPath;
+	}
+
+	// For backward compatibility, also check in the old location
+	const legacyPath = path.join(
+		projectRootDir,
+		'taskmaster',
+		'mappings',
+		`${ticketingSystem}-mapping.json`
+	);
+
+	if (fs.existsSync(legacyPath)) {
+		log('info', `Using legacy mapping file from ${legacyPath}`);
+		return legacyPath;
+	}
+
+	// Finally, check in the centralized mappings directory within the ticketing module
+	const centralizedPath = path.join(
+		__dirname,
+		'mappings',
+		`${ticketingSystem}-mapping.json`
+	);
+
+	return fs.existsSync(centralizedPath) ? centralizedPath : null;
 }
 
 /**

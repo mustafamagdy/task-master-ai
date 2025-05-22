@@ -1,5 +1,5 @@
 /**
- * sync-tickets-fixed.js
+ * sync-tickets.js
  * Fixed version of sync-tickets.js with proper syntax
  * Generic task synchronization with ticketing systems
  */
@@ -16,9 +16,19 @@ import {
     getJiraApiToken,
     getTicketingSystemType
 } from '../config-manager.js';
-import { getRefId, formatTitleForTicket } from './reference-id-service.js';
 import generateTaskFiles from '../task-manager/generate-task-files.js';
-import { getTaskTicketId, storeTaskTicketId } from './ticket-id-helper.js';
+// Import directly from utils
+import { 
+    getRefId, 
+    formatTitleForTicket
+} from './utils/index.js';
+import { 
+    getTicketId, 
+    storeTicketId, 
+    synchronizeTaskStatus as syncTaskStatus,
+    createTicketForTask,
+    createSubtaskTicket
+} from './utils/index.js';
 
 // Default debug mode - set to false in production
 const DEBUG = false;
@@ -97,138 +107,48 @@ async function syncTickets(tasksPath, options = {}) {
                 
                 if (!ticketingSystem) {
                     customLog.error(`Ticketing system is undefined for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
-                    return;
+                    return false;
                 }
                 
                 if (!ticketIdentifier) {
                     customLog.error(`Ticket identifier is undefined for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
-                    return;
+                    return false;
                 }
                 
-                // Get current status from ticketing system
-                const ticketStatus = await ticketingSystem.getTicketStatus(
-                    ticketIdentifier,
-                    projectRoot
-                );
-                
-                if (!ticketStatus) {
-                    customLog.warn(`No status found for ticket ${ticketIdentifier}`);
-                    return;
-                }
-                
-                // Handle case where ticketStatus might be a string (for backward compatibility or mock API)
-                let statusObj = ticketStatus;
-                if (typeof ticketStatus === 'string') {
-                    debugLog(`Ticket status is a string, converting to object format`);
-                    statusObj = {
-                        status: ticketStatus,
-                        updated: new Date().toISOString() // Use current time as fallback
-                    };
-                }
-                
-                // Map the ticketing system status to TaskMaster status
-                const jiraStatusInTaskmaster = ticketingSystem.mapTicketStatusToTaskmaster(statusObj.status);
-                
-                // Get current status of the task/subtask
-                const currentTaskStatus = taskItem.status || 'pending';
-                
-                // Get last update timestamps
-                const jiraLastUpdated = statusObj.updated || null;
-                let taskLastUpdated = (taskItem.metadata && taskItem.metadata.lastStatusUpdate) || null;
-                
-                // Initialize task timestamp if missing
-                if (!taskLastUpdated) {
-                    taskItem.metadata = taskItem.metadata || {};
-                    
-                    // For subtasks without timestamps, use a timestamp older than Jira's
-                    // This ensures that Jira's status will be preferred for the first sync
-                    if (isSubtaskItem && jiraLastUpdated) {
-                        // Create a date 1 day before Jira's update
-                        const jiraDate = new Date(jiraLastUpdated);
-                        const olderDate = new Date(jiraDate);
-                        olderDate.setDate(olderDate.getDate() - 1); // 1 day older than Jira update
-                        taskItem.metadata.lastStatusUpdate = olderDate.toISOString();
-                        debugLog(`Added older timestamp to subtask ${taskItem.id} (before Jira's update)`);
-                    } else {
-                        // For main tasks or if no Jira timestamp, use current time
-                        taskItem.metadata.lastStatusUpdate = new Date().toISOString();
-                        debugLog(`Added timestamp to ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
-                    }
-                    
-                    taskLastUpdated = taskItem.metadata.lastStatusUpdate;
-                    stats.tasksWithTimestampsAdded++;
-                }
-                
-                // If statuses are different, decide which one to update
-                if (currentTaskStatus !== jiraStatusInTaskmaster) {
-                    debugLog(`Status mismatch: TaskMaster=${currentTaskStatus}, Jira=${jiraStatusInTaskmaster}`);
-                    
-                    // Determine which status to use based on timestamps
-                    // Case 1: If task has no timestamp, always prefer Jira status (especially for subtasks)
-                    // Case 2: If task has timestamp but Jira doesn't, prefer task status
-                    // Case 3: If both have timestamps, prefer the more recent one
-                    
-                    const shouldUpdateJira = taskLastUpdated && 
-                                            (!jiraLastUpdated || new Date(taskLastUpdated) > new Date(jiraLastUpdated));
-                    
-                    // Special handling for subtasks without timestamps
-                    const isSubtaskWithoutTimestamp = isSubtaskItem && !taskLastUpdated;
-                    
-                    if (shouldUpdateJira && !isSubtaskWithoutTimestamp) {
-                        debugLog(`TaskMaster has more recent update, updating Jira ticket`);
-                        
-                        try {
-                            const updated = await ticketingSystem.updateTicketStatus(
-                                ticketIdentifier,
-                                currentTaskStatus,
-                                projectRoot,
-                                taskItem
-                            );
-                            
-                            if (updated) {
-                                customLog.success(`Updated Jira ticket ${ticketIdentifier} status to match TaskMaster ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} status: ${currentTaskStatus}`);
-                                stats.ticketsUpdated = (stats.ticketsUpdated || 0) + 1;
-                            } else {
-                                customLog.error(`Failed to update Jira ticket ${ticketIdentifier} status, but will preserve local ${isSubtaskItem ? 'subtask' : 'task'} status`);
-                            }
-                        } catch (error) {
-                            customLog.error(`Error updating Jira ticket status: ${error.message}`);
-                        }
-                    } 
-                    // Case 2: Jira was updated more recently than task - update task
-                    // OR subtask has no timestamp - always prefer Jira status
-                    else {
-                        if (isSubtaskWithoutTimestamp) {
-                            debugLog(`Subtask has no timestamp, preferring Jira status`);
-                        } else {
-                            debugLog(`Jira has more recent update, updating TaskMaster ${isSubtaskItem ? 'subtask' : 'task'}`);
-                        }
-                        
-                        // Update task status
-                        taskItem.status = jiraStatusInTaskmaster;
+                // Use the centralized utility function for status synchronization
+                const result = await syncTaskStatus(taskItem, ticketIdentifier, ticketingSystem, {
+                    isSubtaskItem,
+                    projectRoot,
+                    logger: customLog,
+                    debug: debug,
+                    onStatusChanged: (task, newStatus, originalTicketStatus) => {
+                        customLog.success(`Updated ${isSubtaskItem ? 'subtask' : 'task'} ${task.id} status from "${task.status}" to "${newStatus}" (original ticket status: "${originalTicketStatus}")`);
                         
                         // Update last status update timestamp
-                        taskItem.metadata = taskItem.metadata || {};
-                        taskItem.metadata.lastStatusUpdate = new Date().toISOString();
-                        
-                        customLog.success(`Updated TaskMaster ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} status to match Jira ticket ${ticketIdentifier} status: ${jiraStatusInTaskmaster}`);
-                        
-                        // Save the updated status
-                        debugLog('Saving updated status to tasks.json');
-                        options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
+                        task.metadata = task.metadata || {};
+                        task.metadata.lastStatusUpdate = new Date().toISOString();
                         
                         if (isSubtaskItem) {
                             stats.subtasksUpdated++;
                         } else {
                             stats.tasksUpdated++;
                         }
+                        
+                        // Save the updated status to tasks.json
+                        debugLog('Saving updated status to tasks.json');
+                        options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
                     }
-                } else {
-                    debugLog(`Status for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} and ticket ${ticketIdentifier} are in sync: ${currentTaskStatus}`);
+                });
+                
+                if (!result) {
+                    debugLog(`No status change needed for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
                 }
-            } catch (syncError) {
-                customLog.error(`Error synchronizing ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${syncError.message}`);
+                
+                return result;
+            } catch (error) {
+                customLog.error(`Error synchronizing status for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${error.message}`);
                 stats.errors++;
+                return false;
             }
         };
 
@@ -280,7 +200,7 @@ async function syncTickets(tasksPath, options = {}) {
                 customLog.info(`Processing task ${task.id}: ${task.title}`);
 
                 // Store the original parent task ticketId before processing subtasks
-                originalParentTicketId = getTaskTicketId(task);
+                originalParentTicketId = getTicketId(task);
                 console.log(`[PARENT-DEBUG] Original parent task ${task.id} ticketId: ${originalParentTicketId || 'undefined'}`);
 
                 // Get reference ID for the task
@@ -295,7 +215,7 @@ async function syncTickets(tasksPath, options = {}) {
                 }
 
                 // Check if task already has a ticket ID
-                let ticketId = getTaskTicketId(task);
+                let ticketId = getTicketId(task);
                 debugLog(`Task ${task.id} initial ticketId check: ${ticketId || 'undefined'}`);
 
                 // If ticket ID exists, verify it actually exists in Jira
@@ -344,7 +264,7 @@ async function syncTickets(tasksPath, options = {}) {
                             debugLog(
                                 `Storing ticket ID ${ticketId} in task ${task.id} metadata`
                             );
-                            storeTaskTicketId(task, ticketId);
+                            storeTicketId(task, ticketId);
 
                             // Save the updated metadata
                             debugLog('Saving updated metadata to tasks.json');
@@ -361,48 +281,28 @@ async function syncTickets(tasksPath, options = {}) {
 
                 // Create a new ticket if not found
                 if (!ticketId) {
-                    customLog.info(
-                        `Creating new ticket for task ${task.id} (${refId})...`
-                    );
+                    customLog.info(`Creating new ticket for task ${task.id} (${refId})...`);
                     try {
-                        const title = formatTitleForTicket(task);
-                        customLog.info(`Creating story with title: ${title}`);
-
-                        const result = await ticketingSystem.createTicket(
-                            {
-                                title,
-                                description: task.description || '',
-                                refId,
-                                status: task.status || 'pending',
-                                priority: task.priority || 'medium'
-                            },
-                            projectRoot
-                        );
-
-                        if (!result) {
-                            throw new Error(
-                                'Failed to create ticket in Jira. API call returned no result.'
-                            );
+                        // Use the centralized ticket creation utility
+                        ticketId = await createTicketForTask(task, ticketingSystem, {
+                            projectRoot,
+                            logger: customLog,
+                            debug
+                        });
+                        
+                        if (ticketId) {
+                            customLog.success(`Created ticket ${ticketId} for task ${task.id}`);
+                            
+                            // Save the updated tasks file
+                            debugLog('Saving updated metadata to tasks.json');
+                            options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
+                            stats.tasksCreated++;
+                        } else {
+                            customLog.error(`Failed to create ticket for task ${task.id}`);
+                            stats.errors++;
                         }
-
-                        // Extract ticket ID from result
-                        ticketId = result.key || result.id;
-                        customLog.success(`Created ticket ${ticketId} for task ${task.id}`);
-
-                        // Store the ticket ID in task metadata
-                        debugLog(
-                            `Storing ticket ID ${ticketId} in task ${task.id} metadata`
-                        );
-                        storeTaskTicketId(task, ticketId);
-
-                        // Save the updated metadata
-                        debugLog('Saving updated metadata to tasks.json');
-                        options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
-                        stats.tasksCreated++;
                     } catch (error) {
-                        customLog.error(
-                            `Failed to create ticket for task ${task.id}: ${error.message}`
-                        );
+                        customLog.error(`Failed to create ticket for task ${task.id}: ${error.message}`);
                         stats.errors++;
                     }
                 }
@@ -414,7 +314,7 @@ async function syncTickets(tasksPath, options = {}) {
                     );
                     
                     // Store the parent task's ticketId explicitly before processing subtasks
-                    const parentTaskTicketId = getTaskTicketId(task);
+                    const parentTaskTicketId = getTicketId(task);
                     console.log(`[PARENT-DEBUG] Parent task ${task.id} ticketId: ${parentTaskTicketId || 'undefined'}`);
                     
                     // Check if we have a valid parent ticketId before proceeding
@@ -435,7 +335,7 @@ async function syncTickets(tasksPath, options = {}) {
                                 }
 
                                 // Check if subtask already has a ticket ID
-                                let subtaskTicketId = getTaskTicketId(subtask, task);
+                                let subtaskTicketId = getTicketId(subtask, { parentTask: task, debug });
                                 
                                 // Log the subtask ticket ID for debugging
                                 console.log(`[SUBTASK-DEBUG] Subtask ${subtask.id} ticketId: ${subtaskTicketId || 'undefined'}`);
@@ -465,7 +365,7 @@ async function syncTickets(tasksPath, options = {}) {
                                             debugLog(
                                                 `Storing ticket ID ${subtaskTicketId} in subtask ${subtask.id} metadata`
                                             );
-                                            storeTaskTicketId(subtask, subtaskTicketId);
+                                            storeTicketId(subtask, subtaskTicketId);
 
                                             // Save the updated metadata
                                             debugLog('Saving updated metadata to tasks.json');
@@ -479,61 +379,36 @@ async function syncTickets(tasksPath, options = {}) {
                                         stats.errors++;
                                     }
                                 }
-
+                                
                                 // Create a new subtask ticket if not found
                                 if (!subtaskTicketId) {
-                                    customLog.info(
-                                        `Creating new subtask ticket for subtask ${subtask.id} (${subtaskRefId}) under parent ${ticketId}...`
-                                    );
+                                    customLog.info(`Creating new subtask ticket for subtask ${subtask.id} under parent ${ticketId}...`);
                                     try {
-                                        const title = formatTitleForTicket(subtask);
-                                        customLog.info(`Creating subtask with title: ${title}`);
-
-                                        const result = await ticketingSystem.createSubtask(
-                                            {
-                                                title,
-                                                description: subtask.description || '',
-                                                refId: subtaskRefId,
-                                                status: subtask.status || 'pending',
-                                                priority: subtask.priority || 'medium'
-                                            },
-                                            ticketId,
-                                            projectRoot
-                                        );
-
-                                        if (!result) {
-                                            throw new Error(
-                                                'Failed to create subtask in Jira. API call returned no result.'
-                                            );
+                                        // Use the centralized subtask ticket creation utility
+                                        subtaskTicketId = await createSubtaskTicket(subtask, task, ticketingSystem, {
+                                            projectRoot,
+                                            logger: customLog,
+                                            debug
+                                        });
+                                        
+                                        if (subtaskTicketId) {
+                                            customLog.success(`Created subtask ticket ${subtaskTicketId} for subtask ${subtask.id} under parent ${ticketId}`);
+                                            
+                                            // Save the updated tasks file
+                                            debugLog('Saving updated metadata to tasks.json');
+                                            options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
+                                            stats.subtasksCreated++;
+                                        } else {
+                                            customLog.error(`Failed to create subtask ticket for subtask ${subtask.id}`);
+                                            stats.errors++;
                                         }
-
-                                        // Extract ticket ID from result
-                                        subtaskTicketId = result.key || result.id;
-                                        customLog.success(
-                                            `Created subtask ticket ${subtaskTicketId} for subtask ${subtask.id} under parent ${ticketId}`
-                                        );
-
-                                        // Store the ticket ID in subtask metadata
-                                        debugLog(
-                                            `Storing ticket ID ${subtaskTicketId} in subtask ${subtask.id} metadata`
-                                        );
-                                        storeTaskTicketId(subtask, subtaskTicketId);
-
-                                        // Save the updated metadata
-                                        debugLog('Saving updated metadata to tasks.json');
-                                        options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
-                                        stats.subtasksCreated++;
                                     } catch (error) {
-                                        customLog.error(
-                                            `Failed to create subtask ticket for subtask ${subtask.id}: ${error.message}`
-                                        );
+                                        customLog.error(`Failed to create subtask ticket for subtask ${subtask.id}: ${error.message}`);
                                         stats.errors++;
                                     }
                                 }
                             } catch (subtaskError) {
-                                customLog.error(
-                                    `Error processing subtask ${subtask.id}: ${subtaskError.message}`
-                                );
+                                customLog.error(`Error processing subtask ${subtask.id}: ${subtaskError.message}`);
                                 stats.errors++;
                             }
                         }
@@ -541,7 +416,7 @@ async function syncTickets(tasksPath, options = {}) {
                 }
                 
                 // After processing subtasks, synchronize status for main task
-                finalTicketId = getTaskTicketId(task);
+                finalTicketId = getTicketId(task, { debug });
                 console.log(`[FINAL-DEBUG] Task ${task.id} - finalTicketId: ${finalTicketId || 'undefined'}`);
                 console.log(`[FINAL-DEBUG] Task ${task.id} - originalParentTicketId: ${originalParentTicketId || 'undefined'}`);
                 
