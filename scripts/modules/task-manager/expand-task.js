@@ -23,7 +23,7 @@ import {
 	generateSubtaskRefId,
 	storeRefId,
 	getRefId
-} from '../ticketing/reference-id-service.js';
+} from '../ticketing/utils/id-utils.js';
 import generateTaskFiles from './generate-task-files.js';
 
 // --- Zod Schemas (Keep from previous step) ---

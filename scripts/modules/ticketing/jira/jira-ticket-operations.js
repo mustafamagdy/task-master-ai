@@ -28,7 +28,7 @@ import {
     extractRefIdFromTitle,
     formatTitleForJira,
     getRefId
-} from '../reference-id-service.js';
+} from '../utils/id-utils.js';
 import { getTicketId as getTicketIdFromUtils, storeTicketId as storeTicketIdInUtils } from '../utils/ticket-id-utils.js';
 
 /**

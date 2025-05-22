@@ -22,7 +22,7 @@ import { getTicketingInstance } from '../ticketing/ticketing-factory.js';
 import {
 	generateUserStoryRefId,
 	storeRefId
-} from '../ticketing/reference-id-service.js';
+} from '../ticketing/utils/id-utils.js';
 import generateTaskFiles from './generate-task-files.js';
 
 // Define Zod schema for the expected AI output object
