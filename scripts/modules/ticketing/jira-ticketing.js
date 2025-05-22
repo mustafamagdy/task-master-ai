@@ -266,6 +266,28 @@ ${taskData.details}`
 	}
 
 	/**
+	 * Store Jira key in task metadata
+	 * @param {Object} task - Task object
+	 * @param {string} ticketId - Jira issue key
+	 * @returns {Object} Updated task object
+	 */
+	storeTicketId(task, ticketId) {
+		const newTask = { ...task };
+		if (!newTask.metadata) newTask.metadata = {};
+		newTask.metadata.jiraKey = ticketId;
+		return newTask;
+	}
+
+	/**
+	 * Get Jira key from task metadata
+	 * @param {Object} task - Task object
+	 * @returns {string|null} Jira issue key or null if not found
+	 */
+	getTicketId(task) {
+		return task?.metadata?.jiraKey || null;
+	}
+
+	/**
 	 * Map TaskMaster status to Jira status
 	 * @param {string} status - TaskMaster status (pending, in-progress, review, done, etc.)
 	 * @returns {string} Jira status
