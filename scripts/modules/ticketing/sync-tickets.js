@@ -150,10 +150,24 @@ async function syncTickets(tasksPath, options = {}) {
                 // Initialize task timestamp if missing
                 if (!taskLastUpdated) {
                     taskItem.metadata = taskItem.metadata || {};
-                    taskItem.metadata.lastStatusUpdate = new Date().toISOString();
+                    
+                    // For subtasks without timestamps, use a timestamp older than Jira's
+                    // This ensures that Jira's status will be preferred for the first sync
+                    if (isSubtaskItem && jiraLastUpdated) {
+                        // Create a date 1 day before Jira's update
+                        const jiraDate = new Date(jiraLastUpdated);
+                        const olderDate = new Date(jiraDate);
+                        olderDate.setDate(olderDate.getDate() - 1); // 1 day older than Jira update
+                        taskItem.metadata.lastStatusUpdate = olderDate.toISOString();
+                        console.log(`[SYNC-DEBUG] Added older timestamp to subtask ${taskItem.id}: ${taskItem.metadata.lastStatusUpdate} (before Jira's ${jiraLastUpdated})`);
+                    } else {
+                        // For main tasks or if no Jira timestamp, use current time
+                        taskItem.metadata.lastStatusUpdate = new Date().toISOString();
+                        console.log(`[SYNC-DEBUG] Added current timestamp to ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${taskItem.metadata.lastStatusUpdate}`);
+                    }
+                    
                     taskLastUpdated = taskItem.metadata.lastStatusUpdate;
                     stats.tasksWithTimestampsAdded++;
-                    console.log(`[SYNC-DEBUG] Added timestamp to ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${taskLastUpdated}`);
                 }
                 
                 // If statuses are different, decide which one to update
