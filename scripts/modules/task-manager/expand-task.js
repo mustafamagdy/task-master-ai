@@ -640,7 +640,8 @@ async function expandTask(
 		if (getTicketingIntegrationEnabled(projectRoot)) {
 			for (let i = 0; i < generatedSubtasks.length; i++) {
 				const subtask = generatedSubtasks[i];
-				const refId = generateSubtaskRefId(task.id, subtask.id, projectRoot);
+				// Add await keyword since generateSubtaskRefId is an async function
+				const refId = await generateSubtaskRefId(task.id, subtask.id, projectRoot);
 				if (refId) {
 					generatedSubtasks[i] = storeRefId(subtask, refId);
 					logger.info(
