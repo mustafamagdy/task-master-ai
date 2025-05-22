@@ -324,6 +324,21 @@ async function addTask(
 					'Ticketing system integration is enabled. Creating user story in ticketing system...',
 					'info'
 				);
+				// Ensure the task has a valid reference ID before creating a ticket
+				if (!newTask.metadata?.refId) {
+					report('Task is missing a reference ID. Attempting to generate one...', 'warn');
+					try {
+						const refId = await generateUserStoryRefId(newTaskId, projectRoot);
+						if (refId) {
+							newTask = storeRefId(newTask, refId);
+							report(`Generated and stored reference ID ${refId} in task metadata`, 'info');
+						} else {
+							report('Could not generate a reference ID for the task', 'warn');
+						}
+					} catch (error) {
+						report(`Error generating reference ID: ${error.message}`, 'error');
+					}
+				}
 				try {
 					// Create user story in ticketing system
 					const ticketingInstance = await getTicketingInstance(
