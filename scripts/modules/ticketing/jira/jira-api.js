@@ -57,7 +57,6 @@ export async function getTicketStatus(ticketId, config) {
     try {
         // Request status and updated fields
         const url = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/${encodeURIComponent(ticketId)}?fields=status,updated`;
-        console.log(`[API-DEBUG] Fetching ticket status from URL: ${url}`);
 
         const response = await fetch(url, {
             method: 'GET',
@@ -67,12 +66,10 @@ export async function getTicketStatus(ticketId, config) {
         if (!response.ok) {
             const errorText = await response.text();
             log('error', `Error fetching Jira ticket status: ${response.status} ${errorText}`);
-            console.log(`[API-ERROR] Failed to fetch ticket status: ${response.status} ${errorText}`);
             return null;
         }
 
         const data = await response.json();
-        console.log(`[API-DEBUG] Received Jira data: ${JSON.stringify(data.fields || {})}`);
         
         // Return object with status and updated timestamp
         return {
@@ -81,7 +78,6 @@ export async function getTicketStatus(ticketId, config) {
         };
     } catch (error) {
         log('error', `Error fetching Jira ticket status: ${error.message}`);
-        console.log(`[API-ERROR] Exception fetching ticket status: ${error.message}`);
         return null;
     }
 }
