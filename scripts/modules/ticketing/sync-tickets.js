@@ -287,6 +287,105 @@ async function syncTickets(tasksPath, options = {}) {
 
 				debugLog('checking subtasks...');
 
+				/**
+				 * Synchronizes status between TaskMaster and ticketing system
+				 * @param {Object} taskItem - The task or subtask object
+				 * @param {string} ticketIdentifier - The ticket ID in the ticketing system
+				 * @param {boolean} isSubtaskItem - Whether this is a subtask
+				 * @returns {Promise<void>}
+				 */
+				async function synchronizeTaskStatus(taskItem, ticketIdentifier, isSubtaskItem) {
+					debugLog(`Syncing status for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} with ticket ${ticketIdentifier}`);
+					
+					try {
+						// Get the current status from the ticketing system
+						const ticketStatus = await ticketingSystem.getTicketStatus(ticketIdentifier, projectRoot);
+						if (!ticketStatus) {
+							debugLog(`No status found for ticket ${ticketIdentifier}`);
+							return;
+						}
+						
+						// Map the ticketing system status to TaskMaster status
+						const jiraStatusInTaskmaster = ticketingSystem.mapTicketStatusToTaskmaster(
+							ticketStatus.status
+						);
+						
+						// Get current status of the task/subtask
+						const currentTaskStatus = taskItem.status || 'pending';
+						
+						// Get last update timestamps
+						const jiraLastUpdated = ticketStatus.updated || null;
+						let taskLastUpdated = (taskItem.metadata && taskItem.metadata.lastStatusUpdate) || null;
+						
+						// Initialize task timestamp if missing
+						if (!taskLastUpdated && jiraLastUpdated) {
+							debugLog(`No timestamp in TaskMaster, initializing from Jira's updated time: ${jiraLastUpdated}`);
+							if (!taskItem.metadata) taskItem.metadata = {};
+							taskItem.metadata.lastStatusUpdate = jiraLastUpdated;
+							taskLastUpdated = jiraLastUpdated;
+							stats.tasksWithTimestampsAdded = (stats.tasksWithTimestampsAdded || 0) + 1;
+						}
+						
+						debugLog(`${isSubtaskItem ? 'Subtask' : 'Task'} ${taskItem.id} status: ${currentTaskStatus} (last updated: ${taskLastUpdated || 'never'})`);
+						debugLog(`Jira status: ${jiraStatusInTaskmaster} (last updated: ${jiraLastUpdated || 'never'})`);
+						
+						// Different status detected, determine which is more recent
+						if (currentTaskStatus !== jiraStatusInTaskmaster) {
+							// Case 1: Task was updated more recently than Jira - update Jira
+							if (taskLastUpdated && (!jiraLastUpdated || new Date(taskLastUpdated) > new Date(jiraLastUpdated))) {
+								debugLog(`TaskMaster has more recent update (${taskLastUpdated}), updating Jira ticket`);
+								
+								try {
+									const updated = await ticketingSystem.updateTicketStatus(ticketIdentifier, currentTaskStatus, projectRoot, taskItem);
+									if (updated) {
+										customLog.success(`Updated Jira ticket ${ticketIdentifier} status to match TaskMaster ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} status: ${currentTaskStatus}`);
+										stats.ticketsUpdated = (stats.ticketsUpdated || 0) + 1;
+									} else {
+										customLog.error(`Failed to update Jira ticket ${ticketIdentifier} status, but will preserve local ${isSubtaskItem ? 'subtask' : 'task'} status`);
+									}
+								} catch (error) {
+									customLog.error(`Error updating Jira ticket status: ${error.message}`);
+								}
+							}
+							// Case 2: Jira was updated more recently than TaskMaster - update TaskMaster
+							else if (jiraLastUpdated && (!taskLastUpdated || new Date(jiraLastUpdated) > new Date(taskLastUpdated))) {
+								debugLog(`Jira has more recent update (${jiraLastUpdated}), updating TaskMaster ${isSubtaskItem ? 'subtask' : 'task'}`);
+								
+								// Update task status and set the timestamp to match Jira's
+								taskItem.status = jiraStatusInTaskmaster;
+								if (!taskItem.metadata) taskItem.metadata = {};
+								taskItem.metadata.lastStatusUpdate = jiraLastUpdated;
+								
+								if (isSubtaskItem) {
+									customLog.success(`Updated subtask ${taskItem.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketIdentifier}`);
+									stats.subtasksUpdated++;
+								} else {
+									customLog.success(`Updated task ${taskItem.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketIdentifier}`);
+									stats.tasksUpdated++;
+								}
+							} 
+							// Case 3: Cannot determine which is more recent - use TaskMaster as source of truth
+							else {
+								debugLog(`Cannot determine which status is more recent, using TaskMaster as source of truth`);
+								
+								try {
+									const updated = await ticketingSystem.updateTicketStatus(ticketIdentifier, currentTaskStatus, projectRoot, taskItem);
+									if (updated) {
+										customLog.success(`Updated Jira ticket ${ticketIdentifier} status to match TaskMaster status: ${currentTaskStatus}`);
+										stats.ticketsUpdated = (stats.ticketsUpdated || 0) + 1;
+									}
+								} catch (error) {
+									customLog.error(`Error updating Jira ticket status: ${error.message}`);
+								}
+							}
+						} else {
+							debugLog(`${isSubtaskItem ? 'Subtask' : 'Task'} and Jira status match (${currentTaskStatus}), no update needed`);
+						}
+					} catch (error) {
+						customLog.error(`Error synchronizing status for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${error.message}`);
+					}
+				}
+
 				// Process subtasks if present
 				if (task.subtasks && task.subtasks.length > 0 && ticketId) {
 					customLog.info(`Processing ${task.subtasks.length} subtasks for task ${task.id}...`);
@@ -398,14 +497,112 @@ async function syncTickets(tasksPath, options = {}) {
 								}
 							}
 
-							
-						} catch (subtaskError) {
-							customLog.error(
-								`Error processing subtask ${subtask.id}: ${subtaskError.message}`
-							);
+						}
+					} catch (subtaskError) {
+						customLog.error(
+							`Error processing subtask ${subtask.id}: ${subtaskError.message}`
+						);
+						stats.errors++;
+					}
+				}
+
+				// After all subtasks are processed, synchronize their statuses with tickets
+				if (task.subtasks && task.subtasks.length > 0) {
+					customLog.info(`Synchronizing status for ${task.subtasks.length} subtasks of task ${task.id}...`);
+					
+					for (const subtask of task.subtasks) {
+						try {
+							// Get the ticket ID for this subtask
+							const subtaskTicketId = ticketingSystem.getTicketId(subtask);
+							if (subtaskTicketId) {
+								// Get current subtask status
+								const subtaskStatus = subtask.status || 'pending';
+								
+								// Get Jira status for comparison
+								let jiraSubtaskStatus = null;
+								try {
+									const ticketStatus = await ticketingSystem.getTicketStatus(subtaskTicketId, projectRoot);
+									if (ticketStatus) {
+										jiraSubtaskStatus = ticketingSystem.mapTicketStatusToTaskmaster(ticketStatus.status);
+										
+										// Initialize metadata if needed
+										if (!subtask.metadata) subtask.metadata = {};
+										
+										// Get last update timestamps
+										const jiraLastUpdated = ticketStatus.updated || null;
+										let subtaskLastUpdated = subtask.metadata.lastStatusUpdate || null;
+										
+										// If subtask doesn't have a timestamp but Jira does, populate it
+										if (!subtaskLastUpdated && jiraLastUpdated) {
+											debugLog(`No timestamp in subtask, initializing from Jira's updated time: ${jiraLastUpdated}`);
+											subtask.metadata.lastStatusUpdate = jiraLastUpdated;
+											subtaskLastUpdated = jiraLastUpdated;
+											stats.tasksWithTimestampsAdded++;
+										}
+										
+										// Different status detected, determine which is more recent
+										if (subtaskStatus !== jiraSubtaskStatus) {
+											// Case 1: Subtask was updated more recently than Jira - update Jira
+											if (subtaskLastUpdated && (!jiraLastUpdated || new Date(subtaskLastUpdated) > new Date(jiraLastUpdated))) {
+												debugLog(`Subtask has more recent update (${subtaskLastUpdated}), updating Jira ticket`);
+												
+												// Use the updated updateTicketStatus with subtask data
+												const updated = await ticketingSystem.updateTicketStatus(subtaskTicketId, subtaskStatus, projectRoot, subtask);
+												
+												if (updated) {
+													customLog.success(`Updated Jira ticket ${subtaskTicketId} status to match subtask ${subtask.id} status: ${subtaskStatus}`);
+													stats.ticketsUpdated++;
+												} else {
+													customLog.error(`Failed to update Jira ticket ${subtaskTicketId} status, but will preserve local subtask status`);
+												}
+											}
+											// Case 2: Jira was updated more recently than subtask - update subtask
+											else if (jiraLastUpdated && (!subtaskLastUpdated || new Date(jiraLastUpdated) > new Date(subtaskLastUpdated))) {
+												debugLog(`Jira has more recent update (${jiraLastUpdated}), updating subtask`);
+												
+												// Update subtask status and set the timestamp to match Jira's
+												subtask.status = jiraSubtaskStatus;
+												subtask.metadata.lastStatusUpdate = jiraLastUpdated;
+												
+												customLog.success(`Updated subtask ${subtask.id} status to ${jiraSubtaskStatus} from Jira ticket ${subtaskTicketId}`);
+												stats.subtasksUpdated++;
+											}
+											// Case 3: Cannot determine which is more recent - use subtask as source of truth
+											else {
+												debugLog(`Cannot determine which status is more recent, using subtask as source of truth`);
+												
+												// Use the updated updateTicketStatus with subtask data
+												const updated = await ticketingSystem.updateTicketStatus(subtaskTicketId, subtaskStatus, projectRoot, subtask);
+												
+												if (updated) {
+													customLog.success(`Updated Jira ticket ${subtaskTicketId} status to match subtask status: ${subtaskStatus}`);
+													stats.ticketsUpdated++;
+												}
+											}
+										} else {
+											debugLog(`Subtask and Jira status match (${subtaskStatus}), no update needed`);
+										}
+									}
+								} catch (ticketError) {
+									customLog.error(`Error getting ticket status for subtask ${subtask.id}: ${ticketError.message}`);
+								}
+							}
+						} catch (syncError) {
+							customLog.error(`Error synchronizing subtask ${subtask.id}: ${syncError.message}`);
 							stats.errors++;
 						}
 					}
+				}
+			} catch (taskError) {
+					customLog.error(
+						`Error processing task ${task.id || 'unknown'}: ${taskError.message}`
+					);
+					stats.errors++;
+				}
+
+				// Synchronize status for main task
+				if (ticketId) {
+					await synchronizeTaskStatus(task, ticketId, false);
 				}
 			} catch (taskError) {
 				customLog.error(
@@ -479,80 +676,10 @@ async function syncTickets(tasksPath, options = {}) {
 				
 				// If task found, handle status synchronization based on timestamps
 				if (taskToUpdate) {
-					const jiraStatus = ticket.status;
-					const jiraStatusInTaskmaster = ticketingSystem.mapTicketStatusToTaskmaster(jiraStatus);
-					const currentTaskStatus = taskToUpdate.status || 'pending';
-					
-					// Get last update times for comparison
-					let taskLastUpdated = taskToUpdate.metadata?.lastStatusUpdate;
-					const jiraLastUpdated = ticket.updated; // Most Jira APIs provide this field
-					
-					// If task doesn't have a timestamp but Jira does, populate it
-					if (!taskLastUpdated && jiraLastUpdated) {
-						debugLog(`No timestamp in TaskMaster, initializing from Jira's updated time: ${jiraLastUpdated}`);
-						if (!taskToUpdate.metadata) taskToUpdate.metadata = {};
-						taskToUpdate.metadata.lastStatusUpdate = jiraLastUpdated;
-						taskLastUpdated = jiraLastUpdated;
-						stats.tasksWithTimestampsAdded = (stats.tasksWithTimestampsAdded || 0) + 1;
-					}
-					
-					debugLog(`Task ${taskToUpdate.id} status: ${currentTaskStatus} (last updated: ${taskLastUpdated || 'never'})`);
-					debugLog(`Jira status: ${jiraStatusInTaskmaster} (last updated: ${jiraLastUpdated || 'never'})`);
-					
-					// Different status detected, determine which is more recent
-					if (currentTaskStatus !== jiraStatusInTaskmaster) {
-						// Case 1: Task was updated more recently than Jira - update Jira
-						if (taskLastUpdated && (!jiraLastUpdated || new Date(taskLastUpdated) > new Date(jiraLastUpdated))) {
-							debugLog(`TaskMaster has more recent update (${taskLastUpdated}), updating Jira ticket`);
-							
-							try {
-								const updated = await ticketingSystem.updateTicketStatus(ticketId, currentTaskStatus, projectRoot);
-								if (updated) {
-									customLog.success(`Updated Jira ticket ${ticketId} status to match TaskMaster ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id} status: ${currentTaskStatus}`);
-									stats.ticketsUpdated = (stats.ticketsUpdated || 0) + 1;
-								} else {
-									customLog.error(`Failed to update Jira ticket ${ticketId} status, but will preserve local ${isSubtask ? 'subtask' : 'task'} status`);
-								}
-							} catch (error) {
-								customLog.error(`Error updating Jira ticket status: ${error.message}`);
-							}
-						}
-						// Case 2: Jira was updated more recently than TaskMaster - update TaskMaster
-						else if (jiraLastUpdated && (!taskLastUpdated || new Date(jiraLastUpdated) > new Date(taskLastUpdated))) {
-							debugLog(`Jira has more recent update (${jiraLastUpdated}), updating TaskMaster task`);
-							
-							// Update task status and set the timestamp to match Jira's
-							taskToUpdate.status = jiraStatusInTaskmaster;
-							if (!taskToUpdate.metadata) taskToUpdate.metadata = {};
-							taskToUpdate.metadata.lastStatusUpdate = jiraLastUpdated;
-							
-							if (isSubtask) {
-								customLog.success(`Updated subtask ${taskToUpdate.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketId}`);
-								stats.subtasksUpdated++;
-							} else {
-								customLog.success(`Updated task ${taskToUpdate.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketId}`);
-								stats.tasksUpdated++;
-							}
-						} 
-						// Case 3: Cannot determine which is more recent - use TaskMaster as source of truth
-						else {
-							debugLog(`Cannot determine which status is more recent, using TaskMaster as source of truth`);
-							
-							try {
-								const updated = await ticketingSystem.updateTicketStatus(ticketId, currentTaskStatus, projectRoot);
-								if (updated) {
-									customLog.success(`Updated Jira ticket ${ticketId} status to match TaskMaster status: ${currentTaskStatus}`);
-									stats.ticketsUpdated = (stats.ticketsUpdated || 0) + 1;
-								}
-							} catch (error) {
-								customLog.error(`Error updating Jira ticket status: ${error.message}`);
-							}
-						}
-					} else {
-						debugLog(`No status update needed for ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id}, statuses are the same`);
-					}
+						// Synchronize the main task status with the ticket
+					await synchronizeTaskStatus(taskToUpdate, ticketId, isSubtask);
+					continue;
 				}
-				continue;
 			}
 			
 			// Convert ticket to task

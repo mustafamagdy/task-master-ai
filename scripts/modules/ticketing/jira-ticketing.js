@@ -505,9 +505,10 @@ ${taskData.details}`
 	 * @param {string} ticketId - Jira ticket ID/key (e.g., 'PROJ-123')
 	 * @param {string} taskmasterStatus - TaskMaster status (e.g., 'done', 'in-progress')
 	 * @param {string|null} explicitRoot - Optional explicit path to the project root
+	 * @param {Object|null} taskData - Optional task or subtask data object
 	 * @returns {Promise<boolean>} True if the update was successful, false otherwise
 	 */
-	async updateTicketStatus(ticketId, taskmasterStatus, explicitRoot = null) {
+	async updateTicketStatus(ticketId, taskmasterStatus, explicitRoot = null, taskData = null) {
 		if (!ticketId) {
 			log('error', 'Cannot update ticket status: No ticket ID provided');
 			return false;
