@@ -51,6 +51,10 @@ async function updateSingleTaskStatus(
 		// Update the subtask status
 		const oldStatus = subtask.status || 'pending';
 		subtask.status = newStatus;
+		
+		// Add timestamp of this update
+		if (!subtask.metadata) subtask.metadata = {};
+		subtask.metadata.lastStatusUpdate = new Date().toISOString();
 
 		log(
 			'info',
@@ -99,6 +103,10 @@ async function updateSingleTaskStatus(
 		// Update the task status
 		const oldStatus = task.status || 'pending';
 		task.status = newStatus;
+		
+		// Add timestamp of this update
+		if (!task.metadata) task.metadata = {};
+		task.metadata.lastStatusUpdate = new Date().toISOString();
 
 		log(
 			'info',

@@ -457,56 +457,70 @@ async function syncTickets(tasksPath, options = {}) {
 					}
 				}
 				
-				// If task found, handle status synchronization bidirectionally
+				// If task found, handle status synchronization based on timestamps
 				if (taskToUpdate) {
 					const jiraStatus = ticket.status;
 					const jiraStatusInTaskmaster = ticketingSystem.mapTicketStatusToTaskmaster(jiraStatus);
 					const currentTaskStatus = taskToUpdate.status || 'pending';
 					
-					// Define status hierarchy (higher index = more advanced status)
-					const statusHierarchy = ['cancelled', 'deferred', 'pending', 'in-progress', 'review', 'done'];
-					const currentStatusRank = statusHierarchy.indexOf(currentTaskStatus);
-					const jiraStatusRank = statusHierarchy.indexOf(jiraStatusInTaskmaster);
+					// Get last update times for comparison
+					const taskLastUpdated = taskToUpdate.metadata?.lastStatusUpdate;
+					const jiraLastUpdated = ticket.updated; // Most Jira APIs provide this field
 					
-					// If current status not found in hierarchy, default it to -1 (lowest)
-					const effectiveCurrentRank = currentStatusRank === -1 ? -1 : currentStatusRank;
-					const effectiveJiraRank = jiraStatusRank === -1 ? -1 : jiraStatusRank;
+					debugLog(`Task ${taskToUpdate.id} status: ${currentTaskStatus} (last updated: ${taskLastUpdated || 'never'})`);
+					debugLog(`Jira status: ${jiraStatusInTaskmaster} (last updated: ${jiraLastUpdated || 'never'})`);
 					
-					debugLog(`Task ${taskToUpdate.id} status: ${currentTaskStatus} (rank ${effectiveCurrentRank}), Jira status: ${jiraStatusInTaskmaster} (rank ${effectiveJiraRank})`);
-					
-					// Case 1: TaskMaster status is more advanced than Jira status - update Jira
-					if (effectiveCurrentRank > effectiveJiraRank) {
-						debugLog(`Updating Jira ticket ${ticketId} status from ${jiraStatus} to match TaskMaster status ${currentTaskStatus}`);
-						
-						try {
-							const updated = await ticketingSystem.updateTicketStatus(ticketId, currentTaskStatus, projectRoot);
-							if (updated) {
-								customLog.success(`Updated Jira ticket ${ticketId} status to match TaskMaster ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id} status: ${currentTaskStatus}`);
-								stats.ticketsUpdated = (stats.ticketsUpdated || 0) + 1;
-							} else {
-								customLog.error(`Failed to update Jira ticket ${ticketId} status, but will preserve local ${isSubtask ? 'subtask' : 'task'} status`);
+					// Different status detected, determine which is more recent
+					if (currentTaskStatus !== jiraStatusInTaskmaster) {
+						// Case 1: Task was updated more recently than Jira - update Jira
+						if (taskLastUpdated && (!jiraLastUpdated || new Date(taskLastUpdated) > new Date(jiraLastUpdated))) {
+							debugLog(`TaskMaster has more recent update (${taskLastUpdated}), updating Jira ticket`);
+							
+							try {
+								const updated = await ticketingSystem.updateTicketStatus(ticketId, currentTaskStatus, projectRoot);
+								if (updated) {
+									customLog.success(`Updated Jira ticket ${ticketId} status to match TaskMaster ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id} status: ${currentTaskStatus}`);
+									stats.ticketsUpdated = (stats.ticketsUpdated || 0) + 1;
+								} else {
+									customLog.error(`Failed to update Jira ticket ${ticketId} status, but will preserve local ${isSubtask ? 'subtask' : 'task'} status`);
+								}
+							} catch (error) {
+								customLog.error(`Error updating Jira ticket status: ${error.message}`);
 							}
-						} catch (error) {
-							customLog.error(`Error updating Jira ticket status: ${error.message}`);
 						}
-						// Always keep the TaskMaster status (don't override with Jira status)
-					}
-					// Case 2: Jira status is more advanced than TaskMaster status - update TaskMaster
-					else if (effectiveJiraRank > effectiveCurrentRank) {
-						debugLog(`Updating ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id} status from ${currentTaskStatus} to match Jira status ${jiraStatusInTaskmaster}`);
-						taskToUpdate.status = jiraStatusInTaskmaster;
-						
-						if (isSubtask) {
-							customLog.success(`Updated subtask ${taskToUpdate.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketId}`);
-							stats.subtasksUpdated++;
-						} else {
-							customLog.success(`Updated task ${taskToUpdate.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketId}`);
-							stats.tasksUpdated++;
+						// Case 2: Jira was updated more recently than TaskMaster - update TaskMaster
+						else if (jiraLastUpdated && (!taskLastUpdated || new Date(jiraLastUpdated) > new Date(taskLastUpdated))) {
+							debugLog(`Jira has more recent update (${jiraLastUpdated}), updating TaskMaster task`);
+							
+							// Update task status and set the timestamp to match Jira's
+							taskToUpdate.status = jiraStatusInTaskmaster;
+							if (!taskToUpdate.metadata) taskToUpdate.metadata = {};
+							taskToUpdate.metadata.lastStatusUpdate = jiraLastUpdated;
+							
+							if (isSubtask) {
+								customLog.success(`Updated subtask ${taskToUpdate.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketId}`);
+								stats.subtasksUpdated++;
+							} else {
+								customLog.success(`Updated task ${taskToUpdate.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketId}`);
+								stats.tasksUpdated++;
+							}
+						} 
+						// Case 3: Cannot determine which is more recent - use TaskMaster as source of truth
+						else {
+							debugLog(`Cannot determine which status is more recent, using TaskMaster as source of truth`);
+							
+							try {
+								const updated = await ticketingSystem.updateTicketStatus(ticketId, currentTaskStatus, projectRoot);
+								if (updated) {
+									customLog.success(`Updated Jira ticket ${ticketId} status to match TaskMaster status: ${currentTaskStatus}`);
+									stats.ticketsUpdated = (stats.ticketsUpdated || 0) + 1;
+								}
+							} catch (error) {
+								customLog.error(`Error updating Jira ticket status: ${error.message}`);
+							}
 						}
-					}
-					// Case 3: Statuses have same rank or cannot be compared - no change needed
-					else {
-						debugLog(`No status update needed for ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id}, statuses are equivalent or incomparable`);
+					} else {
+						debugLog(`No status update needed for ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id}, statuses are the same`);
 					}
 				}
 				continue;
