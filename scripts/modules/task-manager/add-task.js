@@ -316,12 +316,17 @@ async function addTask(
 		}
 
 		// Check if ticketing system integration is enabled and configured
-		if (getTicketingSystemEnabled(projectRoot)) {
+		report('DEBUG: Checking if ticketing system is enabled...', 'debug');
+		const ticketingEnabled = getTicketingSystemEnabled(projectRoot);
+		report(`DEBUG: Ticketing system enabled: ${ticketingEnabled}`, 'debug');
+		if (ticketingEnabled) {
 			// Then check if properly configured (async function)
+			report('DEBUG: Checking if ticketing system is configured...', 'debug');
 			const isConfigured = await isTicketingSystemConfigured(projectRoot);
+			report(`DEBUG: Ticketing system configured: ${isConfigured}`, 'debug');
 			if (isConfigured) {
 				report(
-					'Ticketing system integration is enabled. Creating user story in ticketing system...',
+					'Ticketing system integration is enabled and configured. Creating user story in ticketing system...',
 					'info'
 				);
 				// Ensure the task has a valid reference ID before creating a ticket
@@ -341,16 +346,29 @@ async function addTask(
 				}
 				try {
 					// Create user story in ticketing system
+					report('DEBUG: Getting ticketing instance...', 'debug');
 					const ticketingInstance = await getTicketingInstance(
 						null,
 						projectRoot
 					);
+					report(`DEBUG: Ticketing instance type: ${ticketingInstance ? ticketingInstance.constructor.name : 'null'}`, 'debug');
 					if (!ticketingInstance) {
 						throw new Error('No ticketing system configured');
 					}
-					// Use the full newTask object instead of just taskData
+					// Ensure we're passing the right task format expected by the ticketing system
+					// Create a task representation that matches what the ticketing system expects
+					const ticketData = {
+						id: newTask.id,
+						title: newTask.title,
+						description: newTask.description,
+						details: newTask.details,
+						priority: newTask.priority,
+						status: newTask.status,
+						metadata: newTask.metadata
+					};
+					report(`DEBUG: Creating ticket with data: ${JSON.stringify(ticketData, null, 2)}`, 'debug');
 					const ticketingIssue = await ticketingInstance.createStory(
-						newTask,
+						ticketData,
 						projectRoot
 					);
 					if (ticketingIssue && ticketingIssue.key) {
