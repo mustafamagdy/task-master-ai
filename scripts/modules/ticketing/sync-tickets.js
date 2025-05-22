@@ -292,6 +292,15 @@ async function syncTickets(tasksPath, options = {}) {
 
                                 // Check if subtask already has a ticket ID
                                 let subtaskTicketId = getTaskTicketId(subtask, task);
+                                
+                                // Log the subtask ticket ID for debugging
+                                console.log(`[SUBTASK-DEBUG] Subtask ${subtask.id} ticketId: ${subtaskTicketId || 'undefined'}`);
+
+                                // If subtask has a ticket ID, synchronize its status
+                                if (subtaskTicketId) {
+                                    debugLog(`Synchronizing status for subtask ${subtask.id} with ticket ${subtaskTicketId}...`);
+                                    await synchronizeTaskStatus(subtask, subtaskTicketId, true);
+                                }
 
                                 // If no ticket ID in metadata, try to find it by reference ID
                                 if (!subtaskTicketId) {
