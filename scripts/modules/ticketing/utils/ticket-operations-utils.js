@@ -3,7 +3,7 @@
  * Centralized utilities for common ticket operations across ticketing systems
  */
 
-import { getTicketId, storeTicketId } from './ticket-id-utils.js';
+import { getTicketId, storeTicketId } from './id-utils.js';
 import { log } from '../../utils.js';
 
 /**

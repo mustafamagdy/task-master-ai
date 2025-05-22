@@ -29,7 +29,7 @@ import {
     formatTitleForJira,
     getRefId
 } from '../utils/id-utils.js';
-import { getTicketId as getTicketIdFromUtils, storeTicketId as storeTicketIdInUtils } from '../utils/ticket-id-utils.js';
+import { getTicketId as getTicketIdFromUtils, storeTicketId as storeTicketIdInUtils } from '../utils/id-utils.js';
 
 /**
  * Store Jira key in task metadata
