@@ -3,7 +3,7 @@
  * Utilities for working with task files and paths
  */
 
-import { findTasksJsonPath } from '../../../mcp-server/src/core/utils/path-utils.js';
+import { findTasksJsonPath } from '../../../../mcp-server/src/core/utils/path-utils.js';
 
 /**
  * Find the tasks.json file path based on project root and optional file path
