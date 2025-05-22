@@ -322,7 +322,13 @@ ${taskData.details}`
 	 * @returns {string|null} Jira issue key or null if not found
 	 */
 	getTicketId(task) {
-		return task?.metadata?.jiraKey || null;
+		// If jiraKey exists in metadata, return it directly
+		if (task?.metadata?.jiraKey) {
+			return task.metadata.jiraKey;
+		}
+		
+		// No direct jiraKey found, return null
+		return null;
 	}
 
 	/**
