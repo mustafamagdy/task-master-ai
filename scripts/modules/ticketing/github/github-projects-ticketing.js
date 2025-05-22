@@ -11,7 +11,7 @@ import {
 	getGitHubOwner,
 	getGitHubRepository,
 	getGitHubProjectNumber
-} from '../config-manager.js';
+} from '../../config-manager.js';
 
 /**
  * GitHub Projects implementation of the ticketing system interface
