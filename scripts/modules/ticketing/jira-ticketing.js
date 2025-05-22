@@ -128,22 +128,17 @@ class JiraTicketing extends TicketingSystemInterface {
 	 * @returns {Promise<Object>} Created issue data
 	 */
 	async createStory(taskData, explicitRoot = null) {
-		console.log('DEBUG - createStory called with taskData:', JSON.stringify(taskData, null, 2));
-		
 		// Validate configuration
 		const config = this.validateConfig(explicitRoot);
 		if (!config) {
-			console.log('DEBUG - Jira configuration validation failed');
 			return null;
 		}
 
 		const { projectKey, baseUrl, email, apiToken } = config;
-		console.log(`DEBUG - Using Jira project key: ${projectKey}`);
 
 		try {
 			// Ensure taskData has required fields
 			if (!taskData || !taskData.title || !taskData.description) {
-				console.log('DEBUG - Invalid taskData: missing required fields');
 				throw new Error('Invalid task data: missing required fields (title, description)');
 			}
 
@@ -172,14 +167,11 @@ ${taskData.details}`
 				]
 			};
 
-			console.log('DEBUG - Formatting title for Jira');
 			// Format title with reference ID for Jira if available
 			const summary = this.formatTitleForTicket(taskData);
-			console.log(`DEBUG - Formatted summary: ${summary}`);
 			
 			// Get the issue type based on the mapping
 			const issueType = getIssueTypeMapping('task');
-			console.log(`DEBUG - Using issue type: ${issueType}`);
 		
 			// Build the fields object without priority first
 			const fields = {
@@ -196,7 +188,6 @@ ${taskData.details}`
 			// Only add priority if provided, needed, and not disabled in mapping
 			try {
 				const priorityValue = this.mapPriorityToTicket(taskData.priority || 'medium');
-				console.log(`DEBUG - Mapped priority: ${priorityValue}`);
 				
 				// Only add if priority mapping returned a value (not null/disabled)
 				if (priorityValue) {
@@ -206,12 +197,7 @@ ${taskData.details}`
 				}
 			} catch (priorityError) {
 				// Ignore priority field if it causes issues
-				console.log(`DEBUG - Priority mapping error: ${priorityError.message}`);
 			}
-
-			console.log('DEBUG - Preparing to send request to Jira API');
-			console.log(`DEBUG - Request URL: ${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`);
-			console.log(`DEBUG - Request fields: ${JSON.stringify(fields, null, 2)}`);
 
 			const response = await fetch(
 				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
@@ -221,16 +207,12 @@ ${taskData.details}`
 					body: JSON.stringify({ fields })
 				}
 			);
-
-			console.log(`DEBUG - Jira API response status: ${response.status}`);
 			
 			if (!response.ok) {
 				const errorText = await response.text();
-				console.log(`DEBUG - Jira API error: ${errorText}`);
 				
 				// If the error is specifically about priority, retry without priority field
 				if (errorText.includes('priority') && fields.priority) {
-					console.log('DEBUG - Priority field error detected, retrying without priority');
 					delete fields.priority;
 					
 					const retryResponse = await fetch(
@@ -242,17 +224,12 @@ ${taskData.details}`
 						}
 					);
 					
-					console.log(`DEBUG - Retry response status: ${retryResponse.status}`);
-					
 					if (!retryResponse.ok) {
 						const retryErrorText = await retryResponse.text();
-						console.log(`DEBUG - Retry error: ${retryErrorText}`);
 						throw new Error(`Jira API error: ${retryResponse.status} ${retryErrorText}`);
 					}
 					
 					const data = await retryResponse.json();
-					console.log(`DEBUG - Successfully created Jira issue after retry: ${JSON.stringify(data)}`);
-
 					return data;
 				}
 				
@@ -261,15 +238,12 @@ ${taskData.details}`
 
 			try {
 				const data = await response.json();
-				console.log(`DEBUG - Successfully created Jira issue: ${JSON.stringify(data)}`);
 				return data;
 			} catch (jsonError) {
-				console.log(`DEBUG - JSON parse error: ${jsonError.message}`);
 				log('error', `JSON parse error: ${jsonError.message}`);
 				throw jsonError; // Re-throw the original error
 			}
 		} catch (error) {
-			console.log(`DEBUG - Error creating Jira story: ${error.message}`);
 			log('error', `Error creating Jira story: ${error.message}`);
 			throw error;
 		}
@@ -282,17 +256,14 @@ ${taskData.details}`
 	 */
 	mapPriorityToTicket(priority) {
 		const mappedField = getFieldMapping('priority', priority.toLowerCase());
-		console.log(`DEBUG - Priority mapping: ${JSON.stringify(mappedField)}`);
 		
 		// If the field is disabled, return null to exclude it
 		if (!mappedField || !mappedField.enabled) {
-			console.log('DEBUG - Priority field is disabled or not configured');
 			return null;
 		}
 		
 		// Return default priority if the mapping doesn't have a value
 		if (!mappedField.value) {
-			console.log('DEBUG - Using default priority Medium');
 			return 'Medium';
 		}
 		
