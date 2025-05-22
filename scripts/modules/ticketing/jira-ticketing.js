@@ -580,6 +580,93 @@ ${taskData.details}`
 
 
 	/**
+	 * Create a task/subtask in the Jira system
+	 * @param {Object} subtaskData - Subtask data
+	 * @param {string} parentTicketId - Parent ticket ID in the ticketing system
+	 * @param {string|null} explicitRoot - Optional explicit path to the project root
+	 * @returns {Promise<Object>} Created ticket data
+	 */
+	async createTask(subtaskData, parentTicketId, explicitRoot = null) {
+		// Validate configuration
+		const config = this.validateConfig(explicitRoot);
+		if (!config) {
+			log('error', 'Invalid Jira configuration');
+			return null;
+		}
+
+		const { projectKey, baseUrl, email, apiToken } = config;
+
+		try {
+			// Ensure subtaskData has required fields
+			if (!subtaskData || !subtaskData.title || !subtaskData.description) {
+				log('error', 'Missing required fields in subtask data');
+				return null;
+			}
+
+			// Format the issue creation payload
+			const payload = {
+				fields: {
+					project: {
+						key: projectKey
+					},
+					summary: subtaskData.title,
+					description: {
+						type: 'doc',
+						version: 1,
+						content: [
+							{
+								type: 'paragraph',
+								content: [
+									{
+										type: 'text',
+										text: subtaskData.description
+									}
+								]
+							}
+						]
+					},
+					issuetype: {
+						name: 'Sub-task' // Use 'Sub-task' as the issue type for subtasks
+					},
+					parent: {
+						key: parentTicketId // Set the parent issue key
+					}
+				}
+			};
+
+			// Add priority if specified
+			if (subtaskData.priority) {
+				const jiraPriority = this.mapPriorityToTicket(subtaskData.priority);
+				if (jiraPriority) {
+					payload.fields.priority = {
+						name: jiraPriority
+					};
+				}
+			}
+
+			// Create the issue in Jira
+			const response = await fetch(`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`, {
+				method: 'POST',
+				headers: this._getAuthHeaders(email, apiToken),
+				body: JSON.stringify(payload)
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				log('error', `Error creating Jira subtask: ${response.status} ${errorText}`);
+				return null;
+			}
+
+			const data = await response.json();
+			log('success', `Created Jira subtask: ${data.key}`);
+			return data;
+		} catch (error) {
+			log('error', `Error creating Jira subtask: ${error.message}`);
+			return null;
+		}
+	}
+
+	/**
 	 * Check if a ticket exists in the Jira system
 	 * @param {string} ticketId - Jira ticket ID/key (e.g., 'PROJ-123')
 	 * @param {string|null} explicitRoot - Optional explicit path to the project root
