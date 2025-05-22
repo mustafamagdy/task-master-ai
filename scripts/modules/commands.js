@@ -489,21 +489,70 @@ function displayTicketSyncResults(results) {
 		return;
 	}
 
-	// Create a nice summary box
+	// Define statistics for cleaner code
+	const stats = {
+		tasksCreated: results.stats?.tasksCreated || 0,
+		subtasksCreated: results.stats?.subtasksCreated || 0,
+		tasksUpdated: results.stats?.tasksUpdated || 0,
+		subtasksUpdated: results.stats?.subtasksUpdated || 0,
+		errors: results.stats?.errors || 0,
+		total: function() {
+			return this.tasksCreated + this.subtasksCreated + this.tasksUpdated + this.subtasksUpdated;
+		}
+	};
+
+	// Create status indicators
+	const getStatusIndicator = (value) => {
+		return value > 0 ? chalk.green('●') : chalk.gray('○');
+	};
+
+	// Calculate the longest label for alignment
+	const labelWidth = 17; // Fixed width for alignment
+
+	// Create a more visually appealing summary box with aligned columns and status indicators
 	console.log(
 		boxen(
-			`${chalk.bold.green('Ticket Synchronization Complete')}\n\n` +
-			`${chalk.cyan('Tasks created:')} ${results.stats?.tasksCreated || 0}\n` +
-			`${chalk.cyan('Subtasks created:')} ${results.stats?.subtasksCreated || 0}\n` +
-			`${chalk.cyan('Tasks updated:')} ${results.stats?.tasksUpdated || 0}\n` +
-			`${chalk.cyan('Subtasks updated:')} ${results.stats?.subtasksUpdated || 0}\n` +
-			`${chalk.cyan('Errors:')} ${results.stats?.errors || 0}`,
-			{ padding: 1, borderColor: 'green', borderStyle: 'round' }
+			`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
+` +
+			`${chalk.bold.white.bgGreen(' TICKET SYNCHRONIZATION COMPLETE ')}
+` +
+			`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
+
+` +
+			// First section: Tasks
+			`${chalk.bold.yellow('TASKS')}
+` +
+			`${getStatusIndicator(stats.tasksCreated)} ${chalk.bold("Created:".padEnd(labelWidth))}${chalk.white(stats.tasksCreated)}
+` +
+			`${getStatusIndicator(stats.tasksUpdated)} ${chalk.bold("Updated:".padEnd(labelWidth))}${chalk.white(stats.tasksUpdated)}
+
+` +
+			// Second section: Subtasks
+			`${chalk.bold.yellow('SUBTASKS')}
+` +
+			`${getStatusIndicator(stats.subtasksCreated)} ${chalk.bold("Created:".padEnd(labelWidth))}${chalk.white(stats.subtasksCreated)}
+` +
+			`${getStatusIndicator(stats.subtasksUpdated)} ${chalk.bold("Updated:".padEnd(labelWidth))}${chalk.white(stats.subtasksUpdated)}
+
+` +
+			// Third section: Summary
+			`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
+` +
+			`${chalk.bold("Total Items:".padEnd(labelWidth))}${chalk.white(stats.total())}
+` +
+			`${chalk.bold("Errors:".padEnd(labelWidth))}${stats.errors > 0 ? chalk.red(stats.errors) : chalk.green(stats.errors)}`,
+			{ 
+				padding: 1, 
+				margin: { top: 1, bottom: 1 },
+				borderColor: 'green', 
+				borderStyle: 'round',
+				titleAlignment: 'center'
+			}
 		)
 	);
 
 	// Show warning if there were errors
-	if (results.stats?.errors > 0) {
+	if (stats.errors > 0) {
 		console.log(chalk.yellow('Some operations failed. Check the logs for details.'));
 	}
 }
