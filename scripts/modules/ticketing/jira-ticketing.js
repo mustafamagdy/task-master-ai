@@ -62,13 +62,13 @@ class JiraTicketing extends TicketingSystemInterface {
 	 * @returns {Object|null} Configuration object or null if invalid
 	 */
 	validateConfig(explicitRoot = null) {
-		log('info', 'Validating Jira configuration...');
+
 		const projectKey = getJiraProjectKey(explicitRoot);
 		const baseUrl = getJiraBaseUrl(explicitRoot);
 		const email = getJiraEmail(explicitRoot);
 		const apiToken = getJiraApiToken(explicitRoot);
 
-		log('info', `Jira configuration: projectKey=${projectKey || 'NOT SET'}, baseUrl=${baseUrl || 'NOT SET'}, email=${email || 'NOT SET'}, apiToken=${apiToken ? 'SET' : 'NOT SET'}`);
+
 
 		// Check if all required fields are present
 		if (!projectKey) {
@@ -107,7 +107,7 @@ class JiraTicketing extends TicketingSystemInterface {
 			return null;
 		}
 
-		log('success', 'Jira configuration is valid!');
+
 		return { projectKey, baseUrl, email, apiToken };
 	}
 
@@ -173,7 +173,7 @@ ${taskData.details}`
 				}
 			} catch (priorityError) {
 				// Ignore priority field if it causes issues
-				log('warn', `Skipping priority field for Jira story: ${priorityError.message}`);
+
 			}
 
 			const response = await fetch(
@@ -189,7 +189,7 @@ ${taskData.details}`
 				const errorText = await response.text();
 				// If the error is specifically about priority, retry without priority field
 				if (errorText.includes('priority') && fields.priority) {
-					log('warn', 'Priority field error detected. Retrying without priority field.');
+
 					delete fields.priority;
 					
 					const retryResponse = await fetch(
@@ -207,7 +207,7 @@ ${taskData.details}`
 					}
 					
 					const data = await retryResponse.json();
-					log('success', `Created Jira story ${data.key} for task ${taskData.id} without priority field`);
+	
 					return data;
 				}
 				
@@ -216,7 +216,7 @@ ${taskData.details}`
 
 			try {
 				const data = await response.json();
-				log('success', `Created Jira story ${data.key} for task ${taskData.id}`);
+
 				return data;
 			} catch (jsonError) {
 				log('error', `JSON parse error: ${jsonError.message}`);
@@ -307,7 +307,7 @@ ${taskData.details}`
 		try {
 			// JQL query to get all issues for the project
 			const jql = `project = ${projectKey} ORDER BY created DESC`;
-			log('info', `Fetching all issues with JQL: ${jql}`);
+
 			
 			// Make the API request
 			const response = await fetch(
@@ -327,7 +327,7 @@ ${taskData.details}`
 			
 			// Process the results
 			if (data.issues && Array.isArray(data.issues)) {
-				log('success', `Found ${data.issues.length} tickets in Jira`);
+
 				return data.issues.map(issue => ({
 					id: issue.id,
 					key: issue.key,
@@ -366,7 +366,7 @@ ${taskData.details}`
 		const url = `${baseUrl}/rest/api/3/issue/${ticketId}`;
 		
 		try {
-			log('debug', `Fetching status for ticket ${ticketId}`);
+
 			
 			const response = await fetch(url, {
 				method: 'GET',
