@@ -44,6 +44,8 @@ import {
 	fixDependenciesCommand
 } from './dependency-manager.js';
 
+import initializeMappings from './ticketing/initialize-mappings.js';
+
 import {
 	isApiKeySet,
 	getDebugFlag,
@@ -1302,23 +1304,32 @@ function registerCommands(programInstance) {
 			}
 		});
 
+	// init-mappings command
+	programInstance
+		.command('init-mappings')
+		.description('Initialize or update ticketing system mapping files')
+		.action(async () => {
+			const projectRoot = findProjectRoot();
+			
+			if (!projectRoot) {
+				console.error(chalk.red('Error: Could not find project root directory'));
+				return;
+			}
+
+			await initializeMappings({}, projectRoot);
+		});
+
 	// sync-tickets command
 	programInstance
 		.command('sync-tickets')
-		.description('Synchronize tasks with ticketing system')
+		.description('Synchronize task statuses with the ticketing system')
 		.option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
-		.option(
-			'--force',
-			'Force synchronization even if ticketing system integration is not enabled'
-		)
-		.option('--debug', 'Enable debug logging for troubleshooting')
 		.action(async (options) => {
-			const tasksPath = path.resolve(options.file);
-
-			// Check if tasks.json exists
-			if (!fs.existsSync(tasksPath)) {
-				console.error(chalk.red(`Error: Tasks file not found at ${tasksPath}`));
-				process.exit(1);
+			const projectRoot = findProjectRoot();
+			
+			if (!projectRoot) {
+				console.error(chalk.red('Error: Could not find project root directory'));
+				return;
 			}
 
 			try {

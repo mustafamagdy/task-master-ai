@@ -17,6 +17,13 @@ import {
 	formatTitleForJira,
 	getRefId
 } from './reference-id-service.js';
+import {
+	getIssueTypeMapping,
+	getFieldMapping,
+	shouldIgnoreField,
+	getRelationshipMapping,
+	initializeDefaultMappings
+} from './mapping-manager.js';
 
 // API version to use
 const JIRA_API_VERSION = '2';
@@ -144,6 +151,9 @@ ${taskData.details}`
 			// Format title with reference ID for Jira if available
 			const summary = this.formatTitleForTicket(taskData);
 			
+			// Get the issue type based on the mapping
+			const issueType = getIssueTypeMapping('task');
+		
 			// Build the fields object without priority first
 			const fields = {
 				project: {
@@ -152,166 +162,23 @@ ${taskData.details}`
 				summary,
 				description,
 				issuetype: {
-					name: 'Story'
+					name: issueType
 				}
 			};
 			
-			// Only add priority if provided and needed
+			// Only add priority if provided, needed, and not disabled in mapping
 			try {
-				fields.priority = {
-					name: this.mapPriorityToTicket(taskData.priority || 'medium')
-				};
+				const priorityValue = this.mapPriorityToTicket(taskData.priority || 'medium');
+				
+				// Only add if priority mapping returned a value (not null/disabled)
+				if (priorityValue) {
+					fields.priority = {
+						name: priorityValue
+					};
+				}
 			} catch (priorityError) {
 				// Ignore priority field if it causes issues
 				log('warn', `Skipping priority field for Jira story: ${priorityError.message}`);
-			}
-
-			const response = await fetch(
-				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-					},
-					body: JSON.stringify({ fields })
-				}
-			);
-
-			if (!response.ok) {
-				const errorText = await response.text();
-				console.log(`====== DEBUG: Response error: ${response.status} ${errorText} ======`);
-				// If the error is specifically about priority, retry without priority field
-				if (errorText.includes('priority') && fields.priority) {
-					console.log('====== DEBUG: Priority field error detected, retrying without priority ======');
-					log('warn', 'Priority field error detected. Retrying without priority field.');
-					delete fields.priority;
-					
-					console.log('====== DEBUG: Sending retry request without priority field ======');
-					const retryResponse = await fetch(
-						`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
-						{
-							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json',
-								Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-							},
-							body: JSON.stringify({ fields })
-						}
-					);
-					console.log(`====== DEBUG: Retry response status: ${retryResponse.status} ======`);
-					
-					if (!retryResponse.ok) {
-						const retryErrorText = await retryResponse.text();
-						console.log(`====== DEBUG: Retry failed with error: ${retryResponse.status} ${retryErrorText} ======`);
-						const retryContentType = retryResponse.headers.get('content-type') || '';
-						if (retryContentType.includes('text/html')) {
-							const htmlContent = await retryResponse.text();
-							console.log('====== DEBUG: Received HTML response instead of JSON on retry ======');
-							console.log(`====== DEBUG: First 200 chars of HTML: ${htmlContent.substring(0, 200)} ======`);
-							throw new Error('Authentication failed or invalid endpoint - received HTML response instead of JSON');
-						}
-						throw new Error(`Jira API error: ${retryResponse.status} ${retryErrorText}`);
-					}
-					
-					try {
-						const data = await retryResponse.json();
-						console.log(`====== DEBUG: Retry succeeded, created story ${data.key} ======`);
-						log('success', `Created Jira story ${data.key} for task ${taskData.id} without priority field`);
-						return data;
-					} catch (jsonError) {
-						console.log(`====== DEBUG: JSON parse error in retry: ${jsonError.message} ======`);
-						// Try to get the text response to see what we actually received
-						try {
-							const responseText = await retryResponse.text();
-							console.log(`====== DEBUG: Retry response text: ${responseText.substring(0, 200)}... ======`);
-						} catch (textError) {
-							console.log(`====== DEBUG: Unable to get retry response text: ${textError.message} ======`);
-						}
-						throw jsonError; // Re-throw the original error
-					}
-				}
-				
-				const contentType = response.headers.get('content-type') || '';
-				if (contentType.includes('text/html')) {
-					const htmlContent = await response.text();
-					console.log('====== DEBUG: Received HTML response instead of JSON ======');
-					console.log(`====== DEBUG: First 200 chars of HTML: ${htmlContent.substring(0, 200)} ======`);
-					throw new Error('Authentication failed or invalid endpoint - received HTML response instead of JSON');
-				}
-				
-				throw new Error(`Jira API error: ${response.status} ${errorText}`);
-			}
-
-			try {
-				const data = await response.json();
-				console.log(`====== DEBUG: Successfully created story ${data.key} ======`);
-				log('success', `Created Jira story ${data.key} for task ${taskData.id}`);
-				return data;
-			} catch (jsonError) {
-				console.log(`====== DEBUG: JSON parse error: ${jsonError.message} ======`);
-				// Try to get the text response to see what we actually received
-				try {
-					const responseText = await response.text();
-					console.log(`====== DEBUG: Response text: ${responseText.substring(0, 200)}... ======`);
-				} catch (textError) {
-					console.log(`====== DEBUG: Unable to get response text: ${textError.message} ======`);
-				}
-				throw jsonError; // Re-throw the original error
-			}
-		} catch (error) {
-			console.log(`====== DEBUG: Error in createStory: ${error.message} ======`);
-			console.log(`====== DEBUG: Error stack: ${error.stack} ======`);
-			log('error', `Error creating Jira story: ${error.message}`);
-			throw error;
-		}
-	}
-
-	/**
-	 * Create a subtask in Jira
-	 * @param {Object} subtaskData - Subtask data
-	 * @param {string} parentTicketId - Parent issue key in Jira
-	 * @param {string|null} explicitRoot - Optional explicit path to the project root
-	 * @returns {Promise<Object>} Created issue data
-	 */
-	async createTask(subtaskData, parentTicketId, explicitRoot = null) {
-		// Validate configuration
-		const config = this.validateConfig(explicitRoot);
-		if (!config) return null;
-
-		const { baseUrl, email, apiToken } = config;
-
-		try {
-			// Format title with reference ID for Jira if available
-			const summary = this.formatTitleForTicket(subtaskData);
-
-			// Combine description and details with a separator if both exist
-			const description = subtaskData.details
-				? `${subtaskData.description}
-
-${subtaskData.details}`
-				: subtaskData.description;
-
-			// Build the fields object without priority first
-			const fields = {
-				parent: {
-					key: parentTicketId
-				},
-				summary,
-				description,
-				issuetype: {
-					name: 'Sub-task'
-				}
-			};
-			
-			// Only add priority if provided and needed
-			try {
-				fields.priority = {
-					name: this.mapPriorityToTicket(subtaskData.priority || 'medium')
-				};
-			} catch (priorityError) {
-				// Ignore priority field if it causes issues
-				log('warn', `Skipping priority field for Jira subtask: ${priorityError.message}`);
 			}
 
 			const response = await fetch(
@@ -351,309 +218,25 @@ ${subtaskData.details}`
 					}
 					
 					const data = await retryResponse.json();
-					log('success', `Created Jira subtask ${data.key} for task ${subtaskData.id} without priority field`);
+					log('success', `Created Jira story ${data.key} for task ${taskData.id} without priority field`);
 					return data;
 				}
 				
 				throw new Error(`Jira API error: ${response.status} ${errorText}`);
 			}
 
-			const data = await response.json();
-			log(
-				'success',
-				`Created Jira subtask ${data.key} for task ${subtaskData.id}`
-			);
-			return data;
+			try {
+				const data = await response.json();
+				log('success', `Created Jira story ${data.key} for task ${taskData.id}`);
+				return data;
+			} catch (jsonError) {
+				log('error', `JSON parse error: ${jsonError.message}`);
+				throw jsonError; // Re-throw the original error
+			}
 		} catch (error) {
-			log('error', `Error creating Jira subtask: ${error.message}`);
+			log('error', `Error creating Jira story: ${error.message}`);
 			throw error;
 		}
-	}
-
-	/**
-	 * Find a Jira issue key by reference ID
-	 * @param {string} refId - Reference ID to search for
-	 * @param {string|null} explicitRoot - Optional explicit path to the project root
-	 * @returns {Promise<string|null>} Issue key if found, null otherwise
-	 */
-	async findTicketByRefId(refId, explicitRoot = null) {
-		console.log(`===== DEBUG: findTicketByRefId called with refId: ${refId} =====`);
-
-		// Validate configuration
-		const config = this.validateConfig(explicitRoot);
-		
-		if (!config) {
-			console.log(`===== DEBUG: Config validation failed in findTicketByRefId =====`);
-			return null;
-		}
-		if (!refId) {
-			console.log(`===== DEBUG: No refId provided to findTicketByRefId =====`);
-			return null;
-		}
-
-		console.log(`===== DEBUG: findTicketByRefId config validated, searching for ticket =====`);
-		const { projectKey, baseUrl, email, apiToken } = config;
-
-		try {
-			// Search for issues with the reference ID in the title
-			const jql = `project = ${projectKey} AND summary ~ "${refId}" ORDER BY created DESC`;
-			console.log(`===== DEBUG: Searching with JQL: ${jql} =====`);
-			
-			// FOR DEBUG ONLY: Force this method to return null to test ticket creation
-			console.log(`===== DEBUG: FORCING null return to test ticket creation =====`);
-			return null;
-
-			// const response = await fetch(
-			// 	`${baseUrl}/rest/api/${JIRA_API_VERSION}/search?jql=${encodeURIComponent(jql)}`,
-			// 	{
-			// 		method: 'GET',
-			// 		headers: {
-			// 			'Content-Type': 'application/json',
-			// 			Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-			// 		}
-			// 	}
-			// );
-
-			// if (!response.ok) {
-			// 	const errorText = await response.text();
-			// 	throw new Error(`Jira API error: ${response.status} ${errorText}`);
-			// }
-
-			// const data = await response.json();
-			// if (data.issues && data.issues.length > 0) {
-			// 	return data.issues[0].key;
-			// }
-			// return null;
-		} catch (error) {
-			log(
-				'error',
-				`Error finding Jira issue by reference ID: ${error.message}`
-			);
-			return null;
-		}
-	}
-
-	/**
-	 * Check if a Jira issue exists
-	 * @param {string} ticketId - Issue key in Jira
-	 * @param {string|null} explicitRoot - Optional explicit path to the project root
-	 * @returns {Promise<boolean>} True if the issue exists, false otherwise
-	 */
-	async ticketExists(ticketId, explicitRoot = null) {
-		// Validate configuration
-		const config = this.validateConfig(explicitRoot);
-		if (!config) return false;
-		if (!ticketId) return false;
-
-		const { baseUrl, email, apiToken } = config;
-
-		try {
-			const response = await fetch(
-				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/${ticketId}`,
-				{
-					method: 'GET',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-					}
-				}
-			);
-
-			return response.ok;
-		} catch (error) {
-			log('error', `Error checking if Jira issue exists: ${error.message}`);
-			return false;
-		}
-	}
-
-	/**
-	 * Create a link between two Jira issues
-	 * @param {string} fromTicketId - From issue key in Jira
-	 * @param {string} toTicketId - To issue key in Jira
-	 * @param {string} linkType - Link type (e.g., 'Blocks', 'Relates to')
-	 * @param {string|null} explicitRoot - Optional explicit path to the project root
-	 * @returns {Promise<boolean>} True if successful, false otherwise
-	 */
-	async createTicketLink(
-		fromTicketId,
-		toTicketId,
-		linkType,
-		explicitRoot = null
-	) {
-		// Validate configuration
-		const config = this.validateConfig(explicitRoot);
-		if (!config) return false;
-		if (!fromTicketId || !toTicketId || !linkType) return false;
-
-		const { baseUrl, email, apiToken } = config;
-
-		try {
-			const response = await fetch(
-				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issueLink`,
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-					},
-					body: JSON.stringify({
-						type: {
-							name: linkType
-						},
-						inwardIssue: {
-							key: fromTicketId
-						},
-						outwardIssue: {
-							key: toTicketId
-						}
-					})
-				}
-			);
-
-			return response.ok;
-		} catch (error) {
-			log('error', `Error creating Jira issue link: ${error.message}`);
-			return false;
-		}
-	}
-
-	/**
-	 * Update issue status in Jira
-	 * @param {string} ticketId - Issue key in Jira
-	 * @param {string} status - New status
-	 * @param {string|null} explicitRoot - Optional explicit path to the project root
-	 * @param {Object} taskData - Task data for creating the issue if it doesn't exist
-	 * @returns {Promise<boolean>} True if successful, false otherwise
-	 */
-	async updateTicketStatus(
-		ticketId,
-		status,
-		explicitRoot = null,
-		taskData = null
-	) {
-		// Validate configuration
-		const config = this.validateConfig(explicitRoot);
-		if (!config) return false;
-		if (!ticketId || !status) return false;
-
-		const { baseUrl, email, apiToken } = config;
-		const jiraStatus = this.mapStatusToTicket(status);
-
-		try {
-			// Check if the issue exists
-			const exists = await this.ticketExists(ticketId, explicitRoot);
-			if (!exists) {
-				if (taskData) {
-					// Try to create the issue if we have task data
-					log(
-						'info',
-						`Issue ${ticketId} not found. Attempting to create it...`
-					);
-					if (taskData.parentId || taskData.parentJiraKey) {
-						const parentKey = taskData.parentJiraKey;
-						if (parentKey) {
-							const result = await this.createTask(
-								taskData,
-								parentKey,
-								explicitRoot
-							);
-							return !!result;
-						}
-					} else {
-						const result = await this.createStory(taskData, explicitRoot);
-						return !!result;
-					}
-				}
-				log('warn', `Issue ${ticketId} not found and could not be created.`);
-				return false;
-			}
-
-			// Get transitions for the issue
-			const transResponse = await fetch(
-				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/${ticketId}/transitions`,
-				{
-					method: 'GET',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-					}
-				}
-			);
-
-			if (!transResponse.ok) {
-				log('error', `Error getting transitions for issue ${ticketId}`);
-				return false;
-			}
-
-			const transData = await transResponse.json();
-			const transition = transData.transitions.find(
-				(t) =>
-					t.name.toLowerCase() === jiraStatus.toLowerCase() ||
-					t.to.name.toLowerCase() === jiraStatus.toLowerCase()
-			);
-
-			if (!transition) {
-				log(
-					'warn',
-					`Transition to status ${jiraStatus} not found for issue ${ticketId}`
-				);
-				return false;
-			}
-
-			// Perform the transition
-			const updateResponse = await fetch(
-				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/${ticketId}/transitions`,
-				{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
-					},
-					body: JSON.stringify({
-						transition: {
-							id: transition.id
-						}
-					})
-				}
-			);
-
-			return updateResponse.ok;
-		} catch (error) {
-			log('error', `Error updating Jira issue status: ${error.message}`);
-			return false;
-		}
-	}
-
-	/**
-	 * Store Jira key in task metadata
-	 * @param {Object} task - Task object
-	 * @param {string} ticketId - Jira issue key
-	 * @returns {Object} Updated task object
-	 */
-	storeTicketId(task, ticketId) {
-		const newTask = { ...task };
-		if (!newTask.metadata) newTask.metadata = {};
-		newTask.metadata.jiraKey = ticketId;
-		return newTask;
-	}
-
-	/**
-	 * Get Jira key from task metadata
-	 * @param {Object} task - Task object
-	 * @returns {string|null} Jira issue key or null if not found
-	 */
-	getTicketId(task) {
-		return task?.metadata?.jiraKey || null;
-	}
-
-	/**
-	 * Format a task title for Jira
-	 * @param {Object} task - Task object
-	 * @returns {string} Formatted title
-	 */
-	formatTitleForTicket(task) {
-		const refId = getRefId(task);
-		return refId ? `${refId}-${task.title}` : task.title;
 	}
 
 	/**
@@ -662,16 +245,14 @@ ${subtaskData.details}`
 	 * @returns {string} Jira priority
 	 */
 	mapPriorityToTicket(priority) {
-		switch (priority?.toLowerCase()) {
-			case 'high':
-				return 'High';
-			case 'medium':
-				return 'Medium';
-			case 'low':
-				return 'Low';
-			default:
-				return 'Medium'; // Default to medium priority
+		const mappedField = getFieldMapping('priority', priority.toLowerCase());
+		
+		// If the field is disabled, return null to exclude it
+		if (!mappedField.enabled) {
+			return null;
 		}
+		
+		return mappedField.value;
 	}
 
 	/**
@@ -680,22 +261,14 @@ ${subtaskData.details}`
 	 * @returns {string} Jira status
 	 */
 	mapStatusToTicket(status) {
-		switch (status?.toLowerCase()) {
-			case 'pending':
-				return 'To Do';
-			case 'in-progress':
-				return 'In Progress';
-			case 'review':
-				return 'In Review';
-			case 'done':
-				return 'Done';
-			case 'cancelled':
-				return 'Cancelled';
-			case 'deferred':
-				return 'Backlog';
-			default:
-				return 'To Do';
+		const mappedField = getFieldMapping('status', status.toLowerCase());
+		
+		// If the field is disabled, return default status
+		if (!mappedField.enabled) {
+			return 'To Do';
 		}
+		
+		return mappedField.value;
 	}
 
 	/**
@@ -810,6 +383,24 @@ ${subtaskData.details}`
 	mapTicketStatusToTaskmaster(jiraStatus) {
 		if (!jiraStatus) return 'pending';
 		
+		// Create a reverse mapping by loading the current mapping
+		const statusMapping = getFieldMapping('status', '').mapping || {};
+		const reverseMapping = {};
+		
+		// Build a reverse lookup map
+		Object.entries(statusMapping).forEach(([taskmasterStatus, jiraStatusValue]) => {
+			reverseMapping[jiraStatusValue.toLowerCase()] = taskmasterStatus;
+		});
+		
+		// Look up the TaskMaster status from the Jira status
+		const taskmasterStatus = reverseMapping[jiraStatus.toLowerCase()];
+		
+		// If found, return it; otherwise use a default mapping
+		if (taskmasterStatus) {
+			return taskmasterStatus;
+		}
+		
+		// Fallback to default mapping if not found in configuration
 		switch (jiraStatus.toLowerCase()) {
 			case 'to do':
 			case 'open':
@@ -836,6 +427,24 @@ ${subtaskData.details}`
 	mapTicketPriorityToTaskmaster(jiraPriority) {
 		if (!jiraPriority) return 'medium';
 		
+		// Create a reverse mapping by loading the current mapping
+		const priorityMapping = getFieldMapping('priority', '').mapping || {};
+		const reverseMapping = {};
+		
+		// Build a reverse lookup map
+		Object.entries(priorityMapping).forEach(([taskmasterPriority, jiraPriorityValue]) => {
+			reverseMapping[jiraPriorityValue.toLowerCase()] = taskmasterPriority;
+		});
+		
+		// Look up the TaskMaster priority from the Jira priority
+		const taskmasterPriority = reverseMapping[jiraPriority.toLowerCase()];
+		
+		// If found, return it; otherwise use a default mapping
+		if (taskmasterPriority) {
+			return taskmasterPriority;
+		}
+		
+		// Fallback to default mapping if not found in configuration
 		switch (jiraPriority.toLowerCase()) {
 			case 'highest':
 			case 'high':
