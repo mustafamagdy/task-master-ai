@@ -169,6 +169,7 @@ async function syncTickets(tasksPath, options = {}) {
 		tasksUpdated: 0,
 		subtasksUpdated: 0,
 		ticketsUpdated: 0,
+		tasksWithTimestampsAdded: 0,
 		errors: 0
 	};
 
@@ -317,6 +318,25 @@ async function syncTickets(tasksPath, options = {}) {
 										);
 										// Store the ticket ID in subtask metadata
 										ticketingSystem.storeTicketId(subtask, subtaskTicketId);
+
+										// Try to get ticket status to retrieve updated timestamp
+										try {
+											const ticketStatus = await ticketingSystem.getTicketStatus(subtaskTicketId, projectRoot);
+											if (ticketStatus && ticketStatus.updated) {
+												// Initialize metadata if needed
+												if (!subtask.metadata) subtask.metadata = {};
+												
+												// Add timestamp from Jira if not present in subtask
+												if (!subtask.metadata.lastStatusUpdate) {
+													subtask.metadata.lastStatusUpdate = ticketStatus.updated;
+													stats.tasksWithTimestampsAdded++;
+													debugLog(`Added timestamp from Jira to subtask ${subtask.id}: ${ticketStatus.updated}`);
+												}
+											}
+										} catch (e) {
+											debugLog(`Could not get ticket status for subtask timestamp: ${e.message}`);
+										}
+
 										// Save the updated metadata
 										options.writeJSON?.(tasksPath, data) ||
 											writeJSON(tasksPath, data);
@@ -464,8 +484,17 @@ async function syncTickets(tasksPath, options = {}) {
 					const currentTaskStatus = taskToUpdate.status || 'pending';
 					
 					// Get last update times for comparison
-					const taskLastUpdated = taskToUpdate.metadata?.lastStatusUpdate;
+					let taskLastUpdated = taskToUpdate.metadata?.lastStatusUpdate;
 					const jiraLastUpdated = ticket.updated; // Most Jira APIs provide this field
+					
+					// If task doesn't have a timestamp but Jira does, populate it
+					if (!taskLastUpdated && jiraLastUpdated) {
+						debugLog(`No timestamp in TaskMaster, initializing from Jira's updated time: ${jiraLastUpdated}`);
+						if (!taskToUpdate.metadata) taskToUpdate.metadata = {};
+						taskToUpdate.metadata.lastStatusUpdate = jiraLastUpdated;
+						taskLastUpdated = jiraLastUpdated;
+						stats.tasksWithTimestampsAdded = (stats.tasksWithTimestampsAdded || 0) + 1;
+					}
 					
 					debugLog(`Task ${taskToUpdate.id} status: ${currentTaskStatus} (last updated: ${taskLastUpdated || 'never'})`);
 					debugLog(`Jira status: ${jiraStatusInTaskmaster} (last updated: ${jiraLastUpdated || 'never'})`);
@@ -627,7 +656,7 @@ async function syncTickets(tasksPath, options = {}) {
 		}
 
 		// Return success with statistics
-		const message = `Synchronization complete: ${stats.tasksCreated} tasks created, ${stats.subtasksCreated} subtasks created, ${stats.tasksUpdated} tasks updated, ${stats.subtasksUpdated} subtasks updated, ${stats.ticketsUpdated} tickets updated, ${stats.errors} errors`;
+		const message = `Synchronization complete: ${stats.tasksCreated} tasks created, ${stats.subtasksCreated} subtasks created, ${stats.tasksUpdated} tasks updated, ${stats.subtasksUpdated} subtasks updated, ${stats.ticketsUpdated} tickets updated, ${stats.tasksWithTimestampsAdded} timestamps initialized, ${stats.errors} errors`;
 		customLog.success(message);
 
 		return {
