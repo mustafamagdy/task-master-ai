@@ -204,23 +204,61 @@ ${taskData.details}`
 					if (!retryResponse.ok) {
 						const retryErrorText = await retryResponse.text();
 						console.log(`====== DEBUG: Retry failed with error: ${retryResponse.status} ${retryErrorText} ======`);
+						const retryContentType = retryResponse.headers.get('content-type') || '';
+						if (retryContentType.includes('text/html')) {
+							const htmlContent = await retryResponse.text();
+							console.log('====== DEBUG: Received HTML response instead of JSON on retry ======');
+							console.log(`====== DEBUG: First 200 chars of HTML: ${htmlContent.substring(0, 200)} ======`);
+							throw new Error('Authentication failed or invalid endpoint - received HTML response instead of JSON');
+						}
 						throw new Error(`Jira API error: ${retryResponse.status} ${retryErrorText}`);
 					}
 					
-					const data = await retryResponse.json();
-					console.log(`====== DEBUG: Retry succeeded, created story ${data.key} ======`);
-					log('success', `Created Jira story ${data.key} for task ${taskData.id} without priority field`);
-					return data;
+					try {
+						const data = await retryResponse.json();
+						console.log(`====== DEBUG: Retry succeeded, created story ${data.key} ======`);
+						log('success', `Created Jira story ${data.key} for task ${taskData.id} without priority field`);
+						return data;
+					} catch (jsonError) {
+						console.log(`====== DEBUG: JSON parse error in retry: ${jsonError.message} ======`);
+						// Try to get the text response to see what we actually received
+						try {
+							const responseText = await retryResponse.text();
+							console.log(`====== DEBUG: Retry response text: ${responseText.substring(0, 200)}... ======`);
+						} catch (textError) {
+							console.log(`====== DEBUG: Unable to get retry response text: ${textError.message} ======`);
+						}
+						throw jsonError; // Re-throw the original error
+					}
 				}
 				
-				console.log(`====== DEBUG: Throwing error for failed request ======`);
+				const contentType = response.headers.get('content-type') || '';
+				if (contentType.includes('text/html')) {
+					const htmlContent = await response.text();
+					console.log('====== DEBUG: Received HTML response instead of JSON ======');
+					console.log(`====== DEBUG: First 200 chars of HTML: ${htmlContent.substring(0, 200)} ======`);
+					throw new Error('Authentication failed or invalid endpoint - received HTML response instead of JSON');
+				}
+				
 				throw new Error(`Jira API error: ${response.status} ${errorText}`);
 			}
 
-			const data = await response.json();
-			console.log(`====== DEBUG: Successfully created story ${data.key} ======`);
-			log('success', `Created Jira story ${data.key} for task ${taskData.id}`);
-			return data;
+			try {
+				const data = await response.json();
+				console.log(`====== DEBUG: Successfully created story ${data.key} ======`);
+				log('success', `Created Jira story ${data.key} for task ${taskData.id}`);
+				return data;
+			} catch (jsonError) {
+				console.log(`====== DEBUG: JSON parse error: ${jsonError.message} ======`);
+				// Try to get the text response to see what we actually received
+				try {
+					const responseText = await response.text();
+					console.log(`====== DEBUG: Response text: ${responseText.substring(0, 200)}... ======`);
+				} catch (textError) {
+					console.log(`====== DEBUG: Unable to get response text: ${textError.message} ======`);
+				}
+				throw jsonError; // Re-throw the original error
+			}
 		} catch (error) {
 			console.log(`====== DEBUG: Error in createStory: ${error.message} ======`);
 			console.log(`====== DEBUG: Error stack: ${error.stack} ======`);
