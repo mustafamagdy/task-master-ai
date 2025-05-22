@@ -6,7 +6,7 @@
 import { log } from '../utils.js';
 
 // Import implementations
-import JiraTicketing from './jira-ticketing.js';
+import JiraTicketing from './jira/jira-ticketing.js';
 import AzureDevOpsTicketing from './azure-devops-ticketing.js';
 import GitHubProjectsTicketing from './github-projects-ticketing.js';
 

@@ -3,27 +3,27 @@
  * Jira implementation of the abstract ticketing system interface
  */
 
-import TicketingSystemInterface from './ticketing-interface.js';
-import { log } from '../utils.js';
+import TicketingSystemInterface from '../ticketing-interface.js';
+import { log } from '../../utils.js';
 import {
 	getConfig,
 	getJiraProjectKey,
 	getJiraBaseUrl,
 	getJiraEmail,
 	getJiraApiToken
-} from '../config-manager.js';
+} from '../../config-manager.js';
 import {
 	extractRefIdFromTitle,
 	formatTitleForJira,
 	getRefId
-} from './reference-id-service.js';
+} from '../reference-id-service.js';
 import {
 	getIssueTypeMapping,
 	getFieldMapping,
 	shouldIgnoreField,
 	getRelationshipMapping,
 	initializeDefaultMappings
-} from './mapping-manager.js';
+} from '../mapping-manager.js';
 
 // API version to use consistently across all endpoints
 const JIRA_API_VERSION = '3';
