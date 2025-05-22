@@ -606,39 +606,38 @@ ${taskData.details}`
 			// Initialize payload variable outside try/catch for proper scope
 			let payload;
 
-			// Get all issue types from the project
-			const issueTypesUrl = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/createmeta/${projectKey}/issuetypes`;
-			log('info', `Fetching available issue types from ${issueTypesUrl}`);
-
 			try {
-				// First, try to get project issue types
-				const issueTypesResponse = await fetch(issueTypesUrl, {
+				// First, try to get all available issue types (not just for the project)
+				const allIssueTypesUrl = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issuetype`;
+				log('info', `Fetching all available issue types from ${allIssueTypesUrl}`);
+
+				const allIssueTypesResponse = await fetch(allIssueTypesUrl, {
 					method: 'GET',
 					headers: this._getAuthHeaders(email, apiToken)
 				});
-				
-				if (!issueTypesResponse.ok) {
-					const errorText = await issueTypesResponse.text();
-					log('error', `Error fetching issue types: ${issueTypesResponse.status} ${errorText}`);
-					throw new Error(`Error fetching issue types: ${issueTypesResponse.status}`);
-				}
-				
-				const issueTypesData = await issueTypesResponse.json();
-				const issueTypes = issueTypesData?.values || [];
 
-				if (issueTypes.length === 0) {
-					log('error', 'No issue types found in this Jira project');
+				if (!allIssueTypesResponse.ok) {
+					const errorText = await allIssueTypesResponse.text();
+					log('error', `Error fetching all issue types: ${allIssueTypesResponse.status} ${errorText}`);
+					throw new Error(`Error fetching all issue types: ${allIssueTypesResponse.status}`);
+				}
+
+				const allIssueTypes = await allIssueTypesResponse.json();
+
+				if (!Array.isArray(allIssueTypes) || allIssueTypes.length === 0) {
+					log('error', 'No issue types found in Jira instance');
 					throw new Error('No issue types found');
 				}
 
+				log('info', `Found ${allIssueTypes.length} issue types in Jira`);
+
 				// Try different approaches to find a suitable issue type for a subtask
-				
 				// Approach 1: Look for an issue type that is explicitly marked as a subtask
-				let subtaskType = issueTypes.find(type => type.subtask === true);
-				
+				let subtaskType = allIssueTypes.find(type => type.subtask === true);
+
 				// Approach 2: Look for an issue type with 'subtask' or 'sub-task' in the name (case insensitive)
 				if (!subtaskType) {
-					subtaskType = issueTypes.find(type => 
+					subtaskType = allIssueTypes.find(type => 
 						type.name && (
 							type.name.toLowerCase().includes('subtask') || 
 							type.name.toLowerCase().includes('sub-task') ||
@@ -649,20 +648,47 @@ ${taskData.details}`
 
 				// Approach 3: Just use the first Task type if available
 				if (!subtaskType) {
-					subtaskType = issueTypes.find(type => 
+					subtaskType = allIssueTypes.find(type => 
 						type.name && type.name.toLowerCase().includes('task') && !type.name.toLowerCase().includes('story')
 					);
 				}
 
 				// Approach 4: Just use any issue type as a last resort
-				if (!subtaskType && issueTypes.length > 0) {
-					subtaskType = issueTypes[0];
+				if (!subtaskType && allIssueTypes.length > 0) {
+					// Avoid using Epic as a default
+					const nonEpicTypes = allIssueTypes.filter(type => 
+						!type.name || !type.name.toLowerCase().includes('epic')
+					);
+
+					if (nonEpicTypes.length > 0) {
+						subtaskType = nonEpicTypes[0];
+					} else {
+						subtaskType = allIssueTypes[0];
+					}
+
 					log('warn', `No specific subtask type found, using issue type: ${subtaskType.name}`);
 				}
-				
+
 				if (subtaskType) {
 					log('info', `Using issue type: ${subtaskType.name} (ID: ${subtaskType.id})`);
-					
+
+					// Now get the detailed create metadata for this issue type to ensure it's valid for this project
+					const createMetaUrl = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/createmeta/${projectKey}/issuetypes/${subtaskType.id}`;
+					log('info', `Checking issue type compatibility with project: ${createMetaUrl}`);
+
+					try {
+						const createMetaResponse = await fetch(createMetaUrl, {
+							method: 'GET',
+							headers: this._getAuthHeaders(email, apiToken)
+						});
+
+						if (!createMetaResponse.ok) {
+							log('warn', `Issue type ${subtaskType.name} may not be compatible with project ${projectKey}, but trying anyway`);
+						}
+					} catch (metaError) {
+						log('warn', `Error checking issue type compatibility: ${metaError.message}`);
+					}
+
 					// Format the issue creation payload
 					payload = {
 						fields: {
@@ -686,26 +712,29 @@ ${taskData.details}`
 								]
 							},
 							issuetype: {
-								id: subtaskType.id // Use the ID of the found type
-							},
-							parent: {
-								key: parentTicketId // Set the parent issue key
+								id: subtaskType.id
 							}
 						}
 					};
+
+					// Only add parent field if the issue type supports it (is a subtask)
+					if (subtaskType.subtask) {
+						payload.fields.parent = {
+							key: parentTicketId
+						};
+					} else {
+						// For non-subtask issue types, we might need to use a different mechanism like links
+						log('info', `Using regular issue type ${subtaskType.name}, will create link after creation`);
+					}
 				} else {
-					log('error', 'No suitable issue type found in this Jira project');
+					log('error', 'No suitable issue type found in Jira');
 					throw new Error('No suitable issue type found');
 				}
 			} catch (issueTypeError) {
 				log('error', `Error finding issue type: ${issueTypeError.message}`);
-				
-				// Try different hardcoded issue type IDs that are commonly used
-				const commonIssueTypeIds = ['10000', '10001', '10002', '10003', '10100', '3', '5', '7'];
-				let fallbackId = '10100'; // Default fallback
 
-				// Iteratively try different issue types if we can
-				log('info', 'Trying fallback approach with common issue type IDs');
+				// Try a very basic payload with just the minimum required fields
+				log('info', 'Trying basic issue creation without specifying issue type ID');
 
 				payload = {
 					fields: {
@@ -729,16 +758,10 @@ ${taskData.details}`
 							]
 						},
 						issuetype: {
-							id: fallbackId // Common default issue type ID in many Jira instances
-						},
-						parent: {
-							key: parentTicketId // Set the parent issue key
+							name: 'Task' // Try a generic name instead of ID
 						}
 					}
 				};
-
-				// Save the list of fallback IDs for later iteration if needed
-				this._commonIssueTypeIds = commonIssueTypeIds;
 			}
 
 			// Check if payload is defined
