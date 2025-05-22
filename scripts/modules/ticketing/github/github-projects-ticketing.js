@@ -4,7 +4,7 @@
  * NOTE: This is a placeholder implementation with stubs for future development
  */
 
-import TicketingSystemInterface from './ticketing-interface.js';
+import TicketingSystemInterface from '../ticketing/ticketing-interface.js';
 import { log } from '../utils.js';
 import {
 	getGitHubToken,
