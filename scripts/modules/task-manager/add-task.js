@@ -303,10 +303,15 @@ async function addTask(
 
 		// Store reference ID in task metadata if ticketing system integration is enabled
 		if (getTicketingSystemEnabled(projectRoot)) {
-			const refId = generateUserStoryRefId(newTaskId, projectRoot);
-			if (refId) {
-				newTask = storeRefId(newTask, refId);
-				report(`Stored reference ID ${refId} in task metadata`, 'info');
+			try {
+				// generateUserStoryRefId is async, so we need to await it
+				const refId = await generateUserStoryRefId(newTaskId, projectRoot);
+				if (refId) {
+					newTask = storeRefId(newTask, refId);
+					report(`Stored reference ID ${refId} in task metadata`, 'info');
+				}
+			} catch (refIdError) {
+				report(`Error generating reference ID: ${refIdError.message}`, 'error');
 			}
 		}
 
