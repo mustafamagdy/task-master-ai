@@ -333,13 +333,14 @@ async function addTask(
 					if (!ticketingInstance) {
 						throw new Error('No ticketing system configured');
 					}
+					// Use the full newTask object instead of just taskData
 					const ticketingIssue = await ticketingInstance.createStory(
-						taskData,
+						newTask,
 						projectRoot
 					);
 					if (ticketingIssue && ticketingIssue.key) {
 						// Store ticketing issue key in task metadata
-						newTask = storeTicketingKey(newTask, ticketingIssue.key);
+						newTask = ticketingInstance.storeTicketId(newTask, ticketingIssue.key);
 						report(
 							`Created ticketing user story: ${ticketingIssue.key}`,
 							'success'
