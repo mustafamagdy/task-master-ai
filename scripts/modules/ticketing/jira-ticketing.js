@@ -256,6 +256,16 @@ ${taskData.details}`
 	}
 
 	/**
+	 * Format a task title for Jira
+	 * @param {Object} task - Task object
+	 * @returns {string} Formatted title
+	 */
+	formatTitleForTicket(task) {
+		const refId = getRefId(task);
+		return refId ? `${refId}-${task.title}` : task.title;
+	}
+
+	/**
 	 * Map TaskMaster status to Jira status
 	 * @param {string} status - TaskMaster status (pending, in-progress, review, done, etc.)
 	 * @returns {string} Jira status
