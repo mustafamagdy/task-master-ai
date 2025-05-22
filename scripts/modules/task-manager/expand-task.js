@@ -16,7 +16,8 @@ import { isTicketingSystemConfigured } from '../ticketing/ticketing-interface.js
 import {
 	getDefaultSubtasks,
 	getDebugFlag,
-	getTicketingIntegrationEnabled
+	getTicketingIntegrationEnabled,
+	getTicketingSystem
 } from '../config-manager.js';
 import {
 	generateSubtaskRefId,
@@ -656,8 +657,11 @@ async function expandTask(
 		) {
 			logger.info('Jira integration is enabled. Creating tasks in Jira...');
 
+			// Get the ticketing system instance
+			const ticketingSystem = await getTicketingSystem(projectRoot);
+			
 			// Get the parent task's Jira key
-			const parentJiraKey = getJiraKey(task);
+			const parentJiraKey = ticketingSystem.getTicketId(task);
 
 			if (parentJiraKey) {
 				// Create Jira tasks for each subtask
