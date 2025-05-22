@@ -603,36 +603,111 @@ ${taskData.details}`
 				return null;
 			}
 
-			// Format the issue creation payload
-			const payload = {
-				fields: {
-					project: {
-						key: projectKey
-					},
-					summary: subtaskData.title,
-					description: {
-						type: 'doc',
-						version: 1,
-						content: [
-							{
-								type: 'paragraph',
-								content: [
-									{
-										type: 'text',
-										text: subtaskData.description
-									}
-								]
-							}
-						]
-					},
-					issuetype: {
-						name: 'Sub-task' // Use 'Sub-task' as the issue type for subtasks
-					},
-					parent: {
-						key: parentTicketId // Set the parent issue key
-					}
+			// Initialize payload variable outside try/catch for proper scope
+			let payload;
+
+			// Before creating the issue, fetch available issue types to find the subtask type
+			const issueTypesUrl = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/createmeta/${projectKey}/issuetypes`;
+			log('info', `Fetching available issue types from ${issueTypesUrl}`);
+			
+			try {
+				const issueTypesResponse = await fetch(issueTypesUrl, {
+					method: 'GET',
+					headers: this._getAuthHeaders(email, apiToken)
+				});
+				
+				if (!issueTypesResponse.ok) {
+					const errorText = await issueTypesResponse.text();
+					log('error', `Error fetching issue types: ${issueTypesResponse.status} ${errorText}`);
+					return null;
 				}
-			};
+				
+				const issueTypesData = await issueTypesResponse.json();
+				const issueTypes = issueTypesData?.values || [];
+				
+				// Find the first issue type that is a subtask type
+				const subtaskType = issueTypes.find(type => type.subtask === true);
+				
+				if (!subtaskType) {
+					log('error', 'No subtask issue type found in this Jira project');
+					return null;
+				}
+				
+				log('info', `Found subtask issue type: ${subtaskType.name} (ID: ${subtaskType.id})`);
+				
+				// Format the issue creation payload
+				payload = {
+					fields: {
+						project: {
+							key: projectKey
+						},
+						summary: subtaskData.title,
+						description: {
+							type: 'doc',
+							version: 1,
+							content: [
+								{
+									type: 'paragraph',
+									content: [
+										{
+											type: 'text',
+											text: subtaskData.description
+										}
+									]
+								}
+							]
+						},
+						issuetype: {
+							id: subtaskType.id // Use the ID of the found subtask type
+						},
+						parent: {
+							key: parentTicketId // Set the parent issue key
+						}
+					}
+				};
+			} catch (issueTypeError) {
+				log('error', `Error getting issue types: ${issueTypeError.message}`);
+				
+				// Fallback: Try with a default approach using ID 10100 which is common for subtasks
+				log('info', 'Falling back to default subtask type ID');
+				
+				// Format the issue creation payload with fallback
+				payload = {
+					fields: {
+						project: {
+							key: projectKey
+						},
+						summary: subtaskData.title,
+						description: {
+							type: 'doc',
+							version: 1,
+							content: [
+								{
+									type: 'paragraph',
+									content: [
+										{
+											type: 'text',
+											text: subtaskData.description
+										}
+									]
+								}
+							]
+						},
+						issuetype: {
+							id: '10100' // Common default subtask type ID in many Jira instances
+						},
+						parent: {
+							key: parentTicketId // Set the parent issue key
+						}
+					}
+				};
+			}
+
+			// Check if payload is defined
+			if (!payload) {
+				log('error', 'Failed to create Jira issue payload');
+				return null;
+			}
 
 			// Add priority if specified
 			if (subtaskData.priority) {
