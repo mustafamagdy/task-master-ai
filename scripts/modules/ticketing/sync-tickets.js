@@ -93,28 +93,59 @@ async function syncTickets(tasksPath, options = {}) {
         // Define a helper function for synchronizing task status
         const synchronizeTaskStatus = async (taskItem, ticketIdentifier, isSubtaskItem) => {
             try {
-                debugLog(`Synchronizing status for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} with ticket ${ticketIdentifier}...`);
+                console.log(`[SYNC-DEBUG] Starting synchronization for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} with ticket ${ticketIdentifier}...`);
+                
+                if (!ticketingSystem) {
+                    console.log(`[SYNC-ERROR] ticketingSystem is undefined for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
+                    return;
+                }
+                
+                if (!ticketIdentifier) {
+                    console.log(`[SYNC-ERROR] ticketIdentifier is undefined for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
+                    return;
+                }
                 
                 // Get current status from ticketing system
+                console.log(`[SYNC-DEBUG] Getting status for ticket ${ticketIdentifier}...`);
                 const ticketStatus = await ticketingSystem.getTicketStatus(
                     ticketIdentifier,
                     projectRoot
                 );
                 
+                console.log(`[SYNC-DEBUG] Ticket status result for ${ticketIdentifier}: ${JSON.stringify(ticketStatus) || 'null'}`);
+                
                 if (!ticketStatus) {
-                    debugLog(`No status found for ticket ${ticketIdentifier}`);
+                    console.log(`[SYNC-WARN] No status found for ticket ${ticketIdentifier}`);
                     return;
                 }
                 
+                // Handle case where ticketStatus might be a string (for backward compatibility or mock API)
+                let statusObj = ticketStatus;
+                if (typeof ticketStatus === 'string') {
+                    console.log(`[SYNC-WARN] Ticket status is a string, converting to object format`);
+                    statusObj = {
+                        status: ticketStatus,
+                        updated: new Date().toISOString() // Use current time as fallback
+                    };
+                }
+                
                 // Map the ticketing system status to TaskMaster status
-                const jiraStatusInTaskmaster = ticketingSystem.mapTicketStatusToTaskmaster(ticketStatus.status);
+                const jiraStatusInTaskmaster = ticketingSystem.mapTicketStatusToTaskmaster(statusObj.status);
+                console.log(`[SYNC-DEBUG] Mapped Jira status '${statusObj.status}' to TaskMaster status '${jiraStatusInTaskmaster}'`);
                 
                 // Get current status of the task/subtask
                 const currentTaskStatus = taskItem.status || 'pending';
+                console.log(`[SYNC-DEBUG] Current ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} status: ${currentTaskStatus}`);
                 
                 // Get last update timestamps
-                const jiraLastUpdated = ticketStatus.updated || null;
+                const jiraLastUpdated = statusObj.updated || null;
                 let taskLastUpdated = (taskItem.metadata && taskItem.metadata.lastStatusUpdate) || null;
+                console.log(`[SYNC-DEBUG] Jira last updated: ${jiraLastUpdated || 'null'}, Task last updated: ${taskLastUpdated || 'null'}`);
+                
+                // For debugging - add additional info about the task
+                if (isSubtaskItem) {
+                    console.log(`[SYNC-DEBUG] Subtask details - ID: ${taskItem.id}, Title: ${taskItem.title || 'N/A'}, Status: ${taskItem.status || 'N/A'}`);
+                }
                 
                 // Initialize task timestamp if missing
                 if (!taskLastUpdated) {
@@ -122,14 +153,16 @@ async function syncTickets(tasksPath, options = {}) {
                     taskItem.metadata.lastStatusUpdate = new Date().toISOString();
                     taskLastUpdated = taskItem.metadata.lastStatusUpdate;
                     stats.tasksWithTimestampsAdded++;
-                    debugLog(`Added timestamp to ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${taskLastUpdated}`);
+                    console.log(`[SYNC-DEBUG] Added timestamp to ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${taskLastUpdated}`);
                 }
                 
                 // If statuses are different, decide which one to update
                 if (currentTaskStatus !== jiraStatusInTaskmaster) {
+                    console.log(`[SYNC-DEBUG] Status mismatch: TaskMaster=${currentTaskStatus}, Jira=${jiraStatusInTaskmaster}`);
+                    
                     // Case 1: Task was updated more recently than Jira - update Jira
                     if (taskLastUpdated && (!jiraLastUpdated || new Date(taskLastUpdated) > new Date(jiraLastUpdated))) {
-                        debugLog(`TaskMaster has more recent update (${taskLastUpdated}), updating Jira ticket`);
+                        console.log(`[SYNC-DEBUG] TaskMaster has more recent update (${taskLastUpdated}), updating Jira ticket`);
                         
                         try {
                             const updated = await ticketingSystem.updateTicketStatus(
@@ -147,11 +180,12 @@ async function syncTickets(tasksPath, options = {}) {
                             }
                         } catch (error) {
                             customLog.error(`Error updating Jira ticket status: ${error.message}`);
+                            console.log(`[SYNC-ERROR] Full error updating Jira ticket: ${error.stack || error}`);
                         }
                     } 
                     // Case 2: Jira was updated more recently than task - update task
                     else {
-                        debugLog(`Jira has more recent update (${jiraLastUpdated}), updating TaskMaster ${isSubtaskItem ? 'subtask' : 'task'}`);
+                        console.log(`[SYNC-DEBUG] Jira has more recent update (${jiraLastUpdated}), updating TaskMaster ${isSubtaskItem ? 'subtask' : 'task'}`);
                         
                         // Update task status
                         taskItem.status = jiraStatusInTaskmaster;
@@ -163,20 +197,25 @@ async function syncTickets(tasksPath, options = {}) {
                         customLog.success(`Updated TaskMaster ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} status to match Jira ticket ${ticketIdentifier} status: ${jiraStatusInTaskmaster}`);
                         
                         // Save the updated status
-                        debugLog('Saving updated status to tasks.json');
+                        console.log('[SYNC-DEBUG] Saving updated status to tasks.json');
                         options.writeJSON?.(tasksPath, data) || writeJSON(tasksPath, data);
                         
                         if (isSubtaskItem) {
                             stats.subtasksUpdated++;
+                            console.log(`[SYNC-DEBUG] Incremented subtasksUpdated to ${stats.subtasksUpdated}`);
                         } else {
                             stats.tasksUpdated++;
+                            console.log(`[SYNC-DEBUG] Incremented tasksUpdated to ${stats.tasksUpdated}`);
                         }
                     }
                 } else {
-                    debugLog(`Status for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} and ticket ${ticketIdentifier} are in sync: ${currentTaskStatus}`);
+                    console.log(`[SYNC-DEBUG] Status for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} and ticket ${ticketIdentifier} are in sync: ${currentTaskStatus}`);
                 }
+                
+                console.log(`[SYNC-DEBUG] Completed synchronization for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
             } catch (syncError) {
                 customLog.error(`Error synchronizing ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${syncError.message}`);
+                console.log(`[SYNC-ERROR] Full synchronization error: ${syncError.stack || syncError}`);
                 stats.errors++;
             }
         };

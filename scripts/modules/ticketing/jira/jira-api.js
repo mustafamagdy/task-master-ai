@@ -47,7 +47,7 @@ export async function getAllTickets(config) {
  * Get current status of a Jira ticket
  * @param {string} ticketId - The Jira ticket ID
  * @param {Object} config - Jira configuration object
- * @returns {Promise<string|null>} - The status of the ticket or null if it couldn't be fetched
+ * @returns {Promise<Object|null>} - Object with status and updated properties or null if couldn't be fetched
  */
 export async function getTicketStatus(ticketId, config) {
     if (!ticketId || !config) return null;
@@ -55,7 +55,9 @@ export async function getTicketStatus(ticketId, config) {
     const { baseUrl, email, apiToken } = config;
 
     try {
-        const url = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/${encodeURIComponent(ticketId)}?fields=status`;
+        // Request status and updated fields
+        const url = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/${encodeURIComponent(ticketId)}?fields=status,updated`;
+        console.log(`[API-DEBUG] Fetching ticket status from URL: ${url}`);
 
         const response = await fetch(url, {
             method: 'GET',
@@ -65,13 +67,21 @@ export async function getTicketStatus(ticketId, config) {
         if (!response.ok) {
             const errorText = await response.text();
             log('error', `Error fetching Jira ticket status: ${response.status} ${errorText}`);
+            console.log(`[API-ERROR] Failed to fetch ticket status: ${response.status} ${errorText}`);
             return null;
         }
 
         const data = await response.json();
-        return data.fields?.status?.name || null;
+        console.log(`[API-DEBUG] Received Jira data: ${JSON.stringify(data.fields || {})}`);
+        
+        // Return object with status and updated timestamp
+        return {
+            status: data.fields?.status?.name || null,
+            updated: data.fields?.updated || null
+        };
     } catch (error) {
         log('error', `Error fetching Jira ticket status: ${error.message}`);
+        console.log(`[API-ERROR] Exception fetching ticket status: ${error.message}`);
         return null;
     }
 }
