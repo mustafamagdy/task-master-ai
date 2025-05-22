@@ -53,13 +53,43 @@ export function storeTicketId(task, ticketId) {
 /**
  * Get Jira key from task metadata
  * @param {Object} task - Task object
+ * @param {Object} options - Optional parameters
+ * @param {Object} options.parentTask - Parent task object for subtasks
  * @returns {string|null} Jira issue key or null if not found
  */
-export function getTicketId(task) {
-    if (!task || !task.metadata) return null;
-
-    // Check if the task has a Jira key in its metadata
-    return task.metadata.jiraKey || null;
+export function getTicketId(task, options = {}) {
+    // Add detailed logging to help diagnose issues
+    const isSubtask = task && task.id && task.id.toString().includes('.');
+    console.log(`[TICKET-DEBUG] getTicketId called for ${isSubtask ? 'subtask' : 'task'}: ${task ? task.id : 'undefined'}`);
+    
+    if (!task) {
+        console.log('[TICKET-DEBUG] getTicketId: task is null or undefined');
+        return null;
+    }
+    
+    // First try to get the ticket ID from the task's own metadata
+    if (task.metadata && task.metadata.jiraKey) {
+        console.log(`[TICKET-DEBUG] getTicketId: ${isSubtask ? 'subtask' : 'task'} ${task.id} has jiraKey: ${task.metadata.jiraKey}`);
+        return task.metadata.jiraKey;
+    }
+    
+    // If this is a subtask and it doesn't have its own jiraKey, try to use the parent task's jiraKey
+    if (isSubtask) {
+        // If a parent task was provided in the options, use its jiraKey
+        if (options.parentTask && options.parentTask.metadata && options.parentTask.metadata.jiraKey) {
+            console.log(`[TICKET-DEBUG] Using parent task ${options.parentTask.id} jiraKey for subtask ${task.id}: ${options.parentTask.metadata.jiraKey}`);
+            return options.parentTask.metadata.jiraKey;
+        }
+        
+        // Extract parent task ID from subtask ID (e.g., "1.2" -> "1")
+        const parentTaskId = task.id.toString().split('.')[0];
+        console.log(`[TICKET-DEBUG] Subtask ${task.id} has no jiraKey, parent task ID would be: ${parentTaskId}`);
+        console.log(`[TICKET-DEBUG] However, parent task object not provided, cannot get jiraKey from parent`);
+    }
+    
+    // If we get here, no ticket ID was found
+    console.log(`[TICKET-DEBUG] No jiraKey found for ${isSubtask ? 'subtask' : 'task'} ${task.id}`);
+    return null;
 }
 
 /**
