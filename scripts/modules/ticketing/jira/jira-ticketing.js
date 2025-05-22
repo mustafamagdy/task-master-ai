@@ -5,7 +5,7 @@
  * and delegates to specialized modules for different functionalities.
  */
 
-import TicketingSystemInterface from '../ticketing/ticketing-interface.js';
+import TicketingSystemInterface from '../ticketing-interface.js';
 
 // Import from our refactored modules
 import { isConfigured, validateConfig, getJiraConfig } from './jira-config.js';
