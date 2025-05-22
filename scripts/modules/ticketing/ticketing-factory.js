@@ -70,9 +70,9 @@ async function getTicketingInstance(explicitType = null, explicitRoot = null) {
 
 		// Get the configuration
 		const config = getConfig(explicitRoot);
-		
+
 		// Get the ticketing system type
-		const type = explicitType || (config?.global?.ticketingSystem || 'none');
+		const type = explicitType || config?.global?.ticketingSystem || 'none';
 
 		// Create and return the appropriate implementation
 		return TicketingSystemFactory.create(type, config);

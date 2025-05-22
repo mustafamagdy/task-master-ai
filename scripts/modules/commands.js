@@ -485,7 +485,9 @@ async function runInteractiveSetup(projectRoot) {
  */
 function displayTicketSyncResults(results) {
 	if (!results.success) {
-		console.log(chalk.yellow(`Ticket synchronization skipped: ${results.message}`));
+		console.log(
+			chalk.yellow(`Ticket synchronization skipped: ${results.message}`)
+		);
 		return;
 	}
 
@@ -496,8 +498,13 @@ function displayTicketSyncResults(results) {
 		tasksUpdated: results.stats?.tasksUpdated || 0,
 		subtasksUpdated: results.stats?.subtasksUpdated || 0,
 		errors: results.stats?.errors || 0,
-		total: function() {
-			return this.tasksCreated + this.subtasksCreated + this.tasksUpdated + this.subtasksUpdated;
+		total: function () {
+			return (
+				this.tasksCreated +
+				this.subtasksCreated +
+				this.tasksUpdated +
+				this.subtasksUpdated
+			);
 		}
 	};
 
@@ -514,37 +521,37 @@ function displayTicketSyncResults(results) {
 		boxen(
 			`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
 ` +
-			`${chalk.bold.white.bgGreen(' TICKET SYNCHRONIZATION COMPLETE ')}
+				`${chalk.bold.white.bgGreen(' TICKET SYNCHRONIZATION COMPLETE ')}
 ` +
-			`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
+				`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
 
 ` +
-			// First section: Tasks
-			`${chalk.bold.yellow('TASKS')}
+				// First section: Tasks
+				`${chalk.bold.yellow('TASKS')}
 ` +
-			`${getStatusIndicator(stats.tasksCreated)} ${chalk.bold("Created:".padEnd(labelWidth))}${chalk.white(stats.tasksCreated)}
+				`${getStatusIndicator(stats.tasksCreated)} ${chalk.bold('Created:'.padEnd(labelWidth))}${chalk.white(stats.tasksCreated)}
 ` +
-			`${getStatusIndicator(stats.tasksUpdated)} ${chalk.bold("Updated:".padEnd(labelWidth))}${chalk.white(stats.tasksUpdated)}
+				`${getStatusIndicator(stats.tasksUpdated)} ${chalk.bold('Updated:'.padEnd(labelWidth))}${chalk.white(stats.tasksUpdated)}
 
 ` +
-			// Second section: Subtasks
-			`${chalk.bold.yellow('SUBTASKS')}
+				// Second section: Subtasks
+				`${chalk.bold.yellow('SUBTASKS')}
 ` +
-			`${getStatusIndicator(stats.subtasksCreated)} ${chalk.bold("Created:".padEnd(labelWidth))}${chalk.white(stats.subtasksCreated)}
+				`${getStatusIndicator(stats.subtasksCreated)} ${chalk.bold('Created:'.padEnd(labelWidth))}${chalk.white(stats.subtasksCreated)}
 ` +
-			`${getStatusIndicator(stats.subtasksUpdated)} ${chalk.bold("Updated:".padEnd(labelWidth))}${chalk.white(stats.subtasksUpdated)}
+				`${getStatusIndicator(stats.subtasksUpdated)} ${chalk.bold('Updated:'.padEnd(labelWidth))}${chalk.white(stats.subtasksUpdated)}
 
 ` +
-			// Third section: Summary
-			`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
+				// Third section: Summary
+				`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
 ` +
-			`${chalk.bold("Total Items:".padEnd(labelWidth))}${chalk.white(stats.total())}
+				`${chalk.bold('Total Items:'.padEnd(labelWidth))}${chalk.white(stats.total())}
 ` +
-			`${chalk.bold("Errors:".padEnd(labelWidth))}${stats.errors > 0 ? chalk.red(stats.errors) : chalk.green(stats.errors)}`,
-			{ 
-				padding: 1, 
+				`${chalk.bold('Errors:'.padEnd(labelWidth))}${stats.errors > 0 ? chalk.red(stats.errors) : chalk.green(stats.errors)}`,
+			{
+				padding: 1,
 				margin: { top: 1, bottom: 1 },
-				borderColor: 'green', 
+				borderColor: 'green',
 				borderStyle: 'round',
 				titleAlignment: 'center'
 			}
@@ -553,7 +560,9 @@ function displayTicketSyncResults(results) {
 
 	// Show warning if there were errors
 	if (stats.errors > 0) {
-		console.log(chalk.yellow('Some operations failed. Check the logs for details.'));
+		console.log(
+			chalk.yellow('Some operations failed. Check the logs for details.')
+		);
 	}
 }
 
@@ -1359,9 +1368,11 @@ function registerCommands(programInstance) {
 		.description('Initialize or update ticketing system mapping files')
 		.action(async () => {
 			const projectRoot = findProjectRoot();
-			
+
 			if (!projectRoot) {
-				console.error(chalk.red('Error: Could not find project root directory'));
+				console.error(
+					chalk.red('Error: Could not find project root directory')
+				);
 				return;
 			}
 
@@ -1375,9 +1386,11 @@ function registerCommands(programInstance) {
 		.option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
 		.action(async (options) => {
 			const projectRoot = findProjectRoot();
-			
+
 			if (!projectRoot) {
-				console.error(chalk.red('Error: Could not find project root directory'));
+				console.error(
+					chalk.red('Error: Could not find project root directory')
+				);
 				return;
 			}
 
@@ -1412,7 +1425,10 @@ function registerCommands(programInstance) {
 			'-d, --description <description>',
 			'Task description (for manual task creation)'
 		)
-		.option('--details <details>', 'Implementation details (for manual task creation)')
+		.option(
+			'--details <details>',
+			'Implementation details (for manual task creation)'
+		)
 		.option(
 			'--dependencies <dependencies>',
 			'Comma-separated list of task IDs this task depends on'

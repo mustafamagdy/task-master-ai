@@ -362,7 +362,10 @@ Guidelines:
 
 					if (jiraIssue && jiraIssue.key) {
 						// Store Jira issue key in task metadata
-						processedNewTasks[i] = ticketingInstance.storeTicketId(task, jiraIssue.key);
+						processedNewTasks[i] = ticketingInstance.storeTicketId(
+							task,
+							jiraIssue.key
+						);
 						// Get reference ID from metadata for logging
 						const refId = getRefId(processedNewTasks[i]);
 						report(
@@ -419,7 +422,10 @@ Guidelines:
 
 					if (jiraIssue && jiraIssue.key) {
 						// Store Jira issue key in task metadata
-						processedNewTasks[i] = ticketingInstance.storeTicketId(task, jiraIssue.key);
+						processedNewTasks[i] = ticketingInstance.storeTicketId(
+							task,
+							jiraIssue.key
+						);
 						// Get reference ID from metadata for logging
 						const refId = getRefId(processedNewTasks[i]);
 						report(

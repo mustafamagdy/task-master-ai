@@ -659,7 +659,7 @@ async function expandTask(
 
 			// Get the ticketing system instance
 			const ticketingSystem = await getTicketingSystem(projectRoot);
-			
+
 			// Get the parent task's Jira key
 			const parentJiraKey = ticketingSystem.getTicketId(task);
 

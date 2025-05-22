@@ -325,34 +325,36 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 				// Read existing config
 				const existingContent = fs.readFileSync(targetPath, 'utf8');
 				let existingConfig = JSON.parse(existingContent);
-				
+
 				// Make sure global object exists
 				if (!existingConfig.global) {
 					existingConfig.global = {};
 				}
-				
+
 				// Update ticketing configuration inside the global object
 				const selectedTicketing = replacements.ticketingSystem || 'none';
-				
+
 				// Update the ticketing system type
 				existingConfig.global.ticketingSystem = selectedTicketing;
-				
+
 				// Set ticketingIntegrationEnabled flag
 				if (selectedTicketing === 'none') {
 					existingConfig.global.ticketingIntegrationEnabled = false;
 				} else {
 					existingConfig.global.ticketingIntegrationEnabled = true;
 				}
-				
+
 				// Add specific configuration based on selected system
 				switch (selectedTicketing) {
 					case 'jira':
 						// Update Jira configuration
-						existingConfig.global.jiraProjectKey = replacements.jiraProjectKey || '';
+						existingConfig.global.jiraProjectKey =
+							replacements.jiraProjectKey || '';
 						existingConfig.global.jiraBaseUrl = replacements.jiraBaseUrl || '';
 						existingConfig.global.jiraEmail = replacements.jiraEmail || '';
-						existingConfig.global.jiraApiToken = replacements.jiraApiToken || '';
-						
+						existingConfig.global.jiraApiToken =
+							replacements.jiraApiToken || '';
+
 						// Remove other ticketing configurations
 						delete existingConfig.global.azureOrganization;
 						delete existingConfig.global.azurePersonalAccessToken;
@@ -362,13 +364,16 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 						delete existingConfig.global.githubRepository;
 						delete existingConfig.global.githubProjectNumber;
 						break;
-						
+
 					case 'azure':
 						// Update Azure configuration
-						existingConfig.global.azureOrganization = replacements.azureOrganization || '';
-						existingConfig.global.azurePersonalAccessToken = replacements.azurePersonalAccessToken || '';
-						existingConfig.global.azureProjectName = replacements.azureProjectName || '';
-						
+						existingConfig.global.azureOrganization =
+							replacements.azureOrganization || '';
+						existingConfig.global.azurePersonalAccessToken =
+							replacements.azurePersonalAccessToken || '';
+						existingConfig.global.azureProjectName =
+							replacements.azureProjectName || '';
+
 						// Remove other ticketing configurations
 						delete existingConfig.global.jiraProjectKey;
 						delete existingConfig.global.jiraBaseUrl;
@@ -379,14 +384,16 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 						delete existingConfig.global.githubRepository;
 						delete existingConfig.global.githubProjectNumber;
 						break;
-						
+
 					case 'github':
 						// Update GitHub configuration
 						existingConfig.global.githubToken = replacements.githubToken || '';
 						existingConfig.global.githubOwner = replacements.githubOwner || '';
-						existingConfig.global.githubRepository = replacements.githubRepository || '';
-						existingConfig.global.githubProjectNumber = replacements.githubProjectNumber || '';
-						
+						existingConfig.global.githubRepository =
+							replacements.githubRepository || '';
+						existingConfig.global.githubProjectNumber =
+							replacements.githubProjectNumber || '';
+
 						// Remove other ticketing configurations
 						delete existingConfig.global.jiraProjectKey;
 						delete existingConfig.global.jiraBaseUrl;
@@ -396,7 +403,7 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 						delete existingConfig.global.azurePersonalAccessToken;
 						delete existingConfig.global.azureProjectName;
 						break;
-						
+
 					case 'none':
 						// Remove all ticketing configurations
 						delete existingConfig.global.jiraProjectKey;
@@ -412,7 +419,7 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 						delete existingConfig.global.githubProjectNumber;
 						break;
 				}
-				
+
 				// Remove any root level ticketing configuration that may have been added incorrectly
 				delete existingConfig.ticketingSystem;
 				delete existingConfig.ticketingIntegrationEnabled;
@@ -427,7 +434,7 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 				delete existingConfig.githubOwner;
 				delete existingConfig.githubRepository;
 				delete existingConfig.githubProjectNumber;
-				
+
 				// Write the updated configuration
 				fs.writeFileSync(targetPath, JSON.stringify(existingConfig, null, 2));
 				log('success', `Updated ${targetPath} with new configuration`);
@@ -631,7 +638,8 @@ async function promptForTicketingSystem() {
 					message: 'Enter Jira project key:'
 				});
 				ticketingOptions.jiraBaseUrl = await input({
-					message: 'Enter Jira base URL (e.g., https://yourcompany.atlassian.net):'
+					message:
+						'Enter Jira base URL (e.g., https://yourcompany.atlassian.net):'
 				});
 				ticketingOptions.jiraEmail = await input({
 					message: 'Enter Jira email:'
@@ -854,7 +862,7 @@ async function createProjectStructure(addAliases, dryRun) {
 			// Use the full path to the bin directory
 			const packagePath = path.resolve(path.join(__dirname, '..'));
 			const cliPath = path.join(packagePath, 'bin', 'task-master.js');
-			
+
 			// Execute with proper shell escaping and quoted paths
 			execSync(`node "${cliPath}" models --setup`, {
 				stdio: 'inherit',
@@ -881,21 +889,22 @@ async function createProjectStructure(addAliases, dryRun) {
 		// Get ticketing configuration from user after model setup
 		log('info', 'Setting up ticketing system integration (final step)...');
 		const ticketingOptions = await promptForTicketingSystem();
-		
+
 		// If user selected a ticketing system, update the configuration file
 		if (ticketingOptions.type !== 'none') {
 			log('info', 'Updating configuration with ticketing system settings...');
-			
+
 			// Set up ticketing configuration replacements
 			const configReplacements = {
 				year: new Date().getFullYear(),
 				ticketingSystem: ticketingOptions.type
 			};
-			
+
 			// Add configuration for the selected ticketing system
 			switch (ticketingOptions.type) {
 				case 'jira':
-					configReplacements.jiraProjectKey = ticketingOptions.jiraProjectKey || '';
+					configReplacements.jiraProjectKey =
+						ticketingOptions.jiraProjectKey || '';
 					configReplacements.jiraBaseUrl = ticketingOptions.jiraBaseUrl || '';
 					configReplacements.jiraEmail = ticketingOptions.jiraEmail || '';
 					configReplacements.jiraApiToken = ticketingOptions.jiraApiToken || '';
@@ -903,17 +912,22 @@ async function createProjectStructure(addAliases, dryRun) {
 					break;
 
 				case 'azure':
-					configReplacements.azureOrganization = ticketingOptions.azureOrganization || '';
-					configReplacements.azurePersonalAccessToken = ticketingOptions.azurePersonalAccessToken || '';
-					configReplacements.azureProjectName = ticketingOptions.azureProjectName || '';
+					configReplacements.azureOrganization =
+						ticketingOptions.azureOrganization || '';
+					configReplacements.azurePersonalAccessToken =
+						ticketingOptions.azurePersonalAccessToken || '';
+					configReplacements.azureProjectName =
+						ticketingOptions.azureProjectName || '';
 					configReplacements.ticketingIntegrationEnabled = true;
 					break;
 
 				case 'github':
 					configReplacements.githubToken = ticketingOptions.githubToken || '';
 					configReplacements.githubOwner = ticketingOptions.githubOwner || '';
-					configReplacements.githubRepository = ticketingOptions.githubRepository || '';
-					configReplacements.githubProjectNumber = ticketingOptions.githubProjectNumber || '';
+					configReplacements.githubRepository =
+						ticketingOptions.githubRepository || '';
+					configReplacements.githubProjectNumber =
+						ticketingOptions.githubProjectNumber || '';
 					configReplacements.ticketingIntegrationEnabled = true;
 					break;
 			}
@@ -924,7 +938,7 @@ async function createProjectStructure(addAliases, dryRun) {
 				path.join(targetDir, '.taskmasterconfig'),
 				configReplacements
 			);
-			
+
 			log('success', 'Configuration updated with ticketing system settings.');
 		}
 	} else if (isSilentMode() && !dryRun) {

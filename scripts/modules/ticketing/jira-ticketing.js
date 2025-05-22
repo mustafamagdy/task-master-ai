@@ -62,51 +62,68 @@ class JiraTicketing extends TicketingSystemInterface {
 	 * @returns {Object|null} Configuration object or null if invalid
 	 */
 	validateConfig(explicitRoot = null) {
-
 		const projectKey = getJiraProjectKey(explicitRoot);
 		const baseUrl = getJiraBaseUrl(explicitRoot);
 		const email = getJiraEmail(explicitRoot);
 		const apiToken = getJiraApiToken(explicitRoot);
 
-
-
 		// Check if all required fields are present
 		if (!projectKey) {
-			log('error', 'Jira project key is not configured. Please set jiraProjectKey in your .taskmasterconfig file.');
+			log(
+				'error',
+				'Jira project key is not configured. Please set jiraProjectKey in your .taskmasterconfig file.'
+			);
 			return null;
 		}
 
 		if (!baseUrl) {
-			log('error', 'Jira base URL is not configured. Please set jiraBaseUrl in your .taskmasterconfig file.');
+			log(
+				'error',
+				'Jira base URL is not configured. Please set jiraBaseUrl in your .taskmasterconfig file.'
+			);
 			return null;
 		}
 
 		if (!email) {
-			log('error', 'Jira email is not configured. Please set jiraEmail in your .taskmasterconfig file.');
+			log(
+				'error',
+				'Jira email is not configured. Please set jiraEmail in your .taskmasterconfig file.'
+			);
 			return null;
 		}
 
 		if (!apiToken) {
-			log('error', 'Jira API token is not configured. Please set jiraApiToken in your .taskmasterconfig file.');
+			log(
+				'error',
+				'Jira API token is not configured. Please set jiraApiToken in your .taskmasterconfig file.'
+			);
 			return null;
 		}
 
 		// Check for placeholder values
 		if (baseUrl.includes('{{') || baseUrl.includes('}}')) {
-			log('error', 'Jira base URL contains placeholder values. Please update your .taskmasterconfig file.');
+			log(
+				'error',
+				'Jira base URL contains placeholder values. Please update your .taskmasterconfig file.'
+			);
 			return null;
 		}
 
 		if (email.includes('{{') || email.includes('}}')) {
-			log('error', 'Jira email contains placeholder values. Please update your .taskmasterconfig file.');
+			log(
+				'error',
+				'Jira email contains placeholder values. Please update your .taskmasterconfig file.'
+			);
 			return null;
 		}
 
 		if (apiToken.includes('{{') || apiToken.includes('}}')) {
-			log('error', 'Jira API token contains placeholder values. Please update your .taskmasterconfig file.');
+			log(
+				'error',
+				'Jira API token contains placeholder values. Please update your .taskmasterconfig file.'
+			);
 			return null;
 		}
-
 
 		return { projectKey, baseUrl, email, apiToken };
 	}
@@ -139,7 +156,9 @@ class JiraTicketing extends TicketingSystemInterface {
 		try {
 			// Ensure taskData has required fields
 			if (!taskData || !taskData.title || !taskData.description) {
-				throw new Error('Invalid task data: missing required fields (title, description)');
+				throw new Error(
+					'Invalid task data: missing required fields (title, description)'
+				);
 			}
 
 			// For API version 3, we need to use the Atlassian Document Format (ADF)
@@ -149,18 +168,18 @@ class JiraTicketing extends TicketingSystemInterface {
 
 ${taskData.details}`
 				: taskData.description;
-			
+
 			// Create an ADF document structure
 			const description = {
-				"version": 1,
-				"type": "doc",
-				"content": [
+				version: 1,
+				type: 'doc',
+				content: [
 					{
-						"type": "paragraph",
-						"content": [
+						type: 'paragraph',
+						content: [
 							{
-								"type": "text",
-								"text": plainTextDescription
+								type: 'text',
+								text: plainTextDescription
 							}
 						]
 					}
@@ -169,10 +188,10 @@ ${taskData.details}`
 
 			// Format title with reference ID for Jira if available
 			const summary = this.formatTitleForTicket(taskData);
-			
+
 			// Get the issue type based on the mapping
 			const issueType = getIssueTypeMapping('task');
-		
+
 			// Build the fields object without priority first
 			const fields = {
 				project: {
@@ -184,11 +203,13 @@ ${taskData.details}`
 					name: issueType
 				}
 			};
-			
+
 			// Only add priority if provided, needed, and not disabled in mapping
 			try {
-				const priorityValue = this.mapPriorityToTicket(taskData.priority || 'medium');
-				
+				const priorityValue = this.mapPriorityToTicket(
+					taskData.priority || 'medium'
+				);
+
 				// Only add if priority mapping returned a value (not null/disabled)
 				if (priorityValue) {
 					fields.priority = {
@@ -207,14 +228,14 @@ ${taskData.details}`
 					body: JSON.stringify({ fields })
 				}
 			);
-			
+
 			if (!response.ok) {
 				const errorText = await response.text();
-				
+
 				// If the error is specifically about priority, retry without priority field
 				if (errorText.includes('priority') && fields.priority) {
 					delete fields.priority;
-					
+
 					const retryResponse = await fetch(
 						`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
 						{
@@ -223,16 +244,18 @@ ${taskData.details}`
 							body: JSON.stringify({ fields })
 						}
 					);
-					
+
 					if (!retryResponse.ok) {
 						const retryErrorText = await retryResponse.text();
-						throw new Error(`Jira API error: ${retryResponse.status} ${retryErrorText}`);
+						throw new Error(
+							`Jira API error: ${retryResponse.status} ${retryErrorText}`
+						);
 					}
-					
+
 					const data = await retryResponse.json();
 					return data;
 				}
-				
+
 				throw new Error(`Jira API error: ${response.status} ${errorText}`);
 			}
 
@@ -256,17 +279,17 @@ ${taskData.details}`
 	 */
 	mapPriorityToTicket(priority) {
 		const mappedField = getFieldMapping('priority', priority.toLowerCase());
-		
+
 		// If the field is disabled, return null to exclude it
 		if (!mappedField || !mappedField.enabled) {
 			return null;
 		}
-		
+
 		// Return default priority if the mapping doesn't have a value
 		if (!mappedField.value) {
 			return 'Medium';
 		}
-		
+
 		return mappedField.value;
 	}
 
@@ -309,12 +332,12 @@ ${taskData.details}`
 	 */
 	mapStatusToTicket(status) {
 		const mappedField = getFieldMapping('status', status.toLowerCase());
-		
+
 		// If the field is disabled, return default status
 		if (!mappedField.enabled) {
 			return 'To Do';
 		}
-		
+
 		return mappedField.value;
 	}
 
@@ -334,7 +357,6 @@ ${taskData.details}`
 			// JQL query to get all issues for the project
 			const jql = `project = ${projectKey} ORDER BY created DESC`;
 
-			
 			// Make the API request
 			const response = await fetch(
 				`${baseUrl}/rest/api/${JIRA_API_VERSION}/search?jql=${encodeURIComponent(jql)}&maxResults=100`,
@@ -350,11 +372,10 @@ ${taskData.details}`
 			}
 
 			const data = await response.json();
-			
+
 			// Process the results
 			if (data.issues && Array.isArray(data.issues)) {
-
-				return data.issues.map(issue => ({
+				return data.issues.map((issue) => ({
 					id: issue.id,
 					key: issue.key,
 					summary: issue.fields.summary,
@@ -367,7 +388,7 @@ ${taskData.details}`
 					updated: issue.fields.updated
 				}));
 			}
-			
+
 			return [];
 		} catch (error) {
 			log('error', `Error fetching tickets from Jira: ${error.message}`);
@@ -383,39 +404,45 @@ ${taskData.details}`
 	 */
 	async getTicketStatus(ticketId, explicitRoot = null) {
 		if (!ticketId) return null;
-		
+
 		// Validate configuration
 		const config = this.validateConfig(explicitRoot);
 		if (!config) return null;
-		
+
 		const { baseUrl, email, apiToken } = config;
 		const url = `${baseUrl}/rest/api/3/issue/${ticketId}`;
-		
-		try {
 
-			
+		try {
 			const response = await fetch(url, {
 				method: 'GET',
 				headers: this._getAuthHeaders(email, apiToken)
 			});
-			
+
 			if (!response.ok) {
-				log('error', `Failed to fetch ticket status: ${response.status} ${response.statusText}`);
+				log(
+					'error',
+					`Failed to fetch ticket status: ${response.status} ${response.statusText}`
+				);
 				return null;
 			}
-			
+
 			const data = await response.json();
-			if (data && data.fields && data.fields.status && data.fields.status.name) {
+			if (
+				data &&
+				data.fields &&
+				data.fields.status &&
+				data.fields.status.name
+			) {
 				return data.fields.status.name;
 			}
-			
+
 			return null;
 		} catch (error) {
 			log('error', `Error fetching ticket status: ${error.message}`);
 			return null;
 		}
 	}
-	
+
 	/**
 	 * Map Jira status to TaskMaster status
 	 * @param {string} jiraStatus - Jira status
@@ -423,24 +450,26 @@ ${taskData.details}`
 	 */
 	mapTicketStatusToTaskmaster(jiraStatus) {
 		if (!jiraStatus) return 'pending';
-		
+
 		// Create a reverse mapping by loading the current mapping
 		const statusMapping = getFieldMapping('status', '').mapping || {};
 		const reverseMapping = {};
-		
+
 		// Build a reverse lookup map
-		Object.entries(statusMapping).forEach(([taskmasterStatus, jiraStatusValue]) => {
-			reverseMapping[jiraStatusValue.toLowerCase()] = taskmasterStatus;
-		});
-		
+		Object.entries(statusMapping).forEach(
+			([taskmasterStatus, jiraStatusValue]) => {
+				reverseMapping[jiraStatusValue.toLowerCase()] = taskmasterStatus;
+			}
+		);
+
 		// Look up the TaskMaster status from the Jira status
 		const taskmasterStatus = reverseMapping[jiraStatus.toLowerCase()];
-		
+
 		// If found, return it; otherwise use a default mapping
 		if (taskmasterStatus) {
 			return taskmasterStatus;
 		}
-		
+
 		// Fallback to default mapping if not found in configuration
 		switch (jiraStatus.toLowerCase()) {
 			case 'to do':
@@ -467,24 +496,26 @@ ${taskData.details}`
 	 */
 	mapTicketPriorityToTaskmaster(jiraPriority) {
 		if (!jiraPriority) return 'medium';
-		
+
 		// Create a reverse mapping by loading the current mapping
 		const priorityMapping = getFieldMapping('priority', '').mapping || {};
 		const reverseMapping = {};
-		
+
 		// Build a reverse lookup map
-		Object.entries(priorityMapping).forEach(([taskmasterPriority, jiraPriorityValue]) => {
-			reverseMapping[jiraPriorityValue.toLowerCase()] = taskmasterPriority;
-		});
-		
+		Object.entries(priorityMapping).forEach(
+			([taskmasterPriority, jiraPriorityValue]) => {
+				reverseMapping[jiraPriorityValue.toLowerCase()] = taskmasterPriority;
+			}
+		);
+
 		// Look up the TaskMaster priority from the Jira priority
 		const taskmasterPriority = reverseMapping[jiraPriority.toLowerCase()];
-		
+
 		// If found, return it; otherwise use a default mapping
 		if (taskmasterPriority) {
 			return taskmasterPriority;
 		}
-		
+
 		// Fallback to default mapping if not found in configuration
 		switch (jiraPriority.toLowerCase()) {
 			case 'highest':
@@ -508,25 +539,33 @@ ${taskData.details}`
 	 * @param {Object|null} taskData - Optional task or subtask data object
 	 * @returns {Promise<boolean>} True if the update was successful, false otherwise
 	 */
-	async updateTicketStatus(ticketId, taskmasterStatus, explicitRoot = null, taskData = null) {
+	async updateTicketStatus(
+		ticketId,
+		taskmasterStatus,
+		explicitRoot = null,
+		taskData = null
+	) {
 		if (!ticketId) {
 			log('error', 'Cannot update ticket status: No ticket ID provided');
 			return false;
 		}
-		
+
 		// Validate configuration
 		const config = this.validateConfig(explicitRoot);
 		if (!config) return false;
-		
+
 		const { baseUrl, email, apiToken } = config;
-		
+
 		// Map TaskMaster status to Jira status
 		const jiraStatus = this.mapStatusToTicket(taskmasterStatus);
 		if (!jiraStatus) {
-			log('error', `Cannot update ticket: No Jira status mapping for '${taskmasterStatus}'`);
+			log(
+				'error',
+				`Cannot update ticket: No Jira status mapping for '${taskmasterStatus}'`
+			);
 			return false;
 		}
-		
+
 		try {
 			// Prepare transition request
 			// First, get available transitions for the issue
@@ -535,24 +574,32 @@ ${taskData.details}`
 				method: 'GET',
 				headers: this._getAuthHeaders(email, apiToken)
 			});
-			
+
 			if (!transitionsResponse.ok) {
-				log('error', `Error getting transitions: ${transitionsResponse.status} ${transitionsResponse.statusText}`);
+				log(
+					'error',
+					`Error getting transitions: ${transitionsResponse.status} ${transitionsResponse.statusText}`
+				);
 				return false;
 			}
-			
+
 			const transitionsData = await transitionsResponse.json();
 			const transitions = transitionsData.transitions || [];
-			
+
 			// Find the transition that matches our target status
-			const transition = transitions.find(t => t.to.name.toLowerCase() === jiraStatus.toLowerCase());
-			
+			const transition = transitions.find(
+				(t) => t.to.name.toLowerCase() === jiraStatus.toLowerCase()
+			);
+
 			if (!transition) {
 				// If there's no direct transition available, log error but don't fail completely
-				log('error', `No transition available from current status to '${jiraStatus}' for ticket ${ticketId}`);
+				log(
+					'error',
+					`No transition available from current status to '${jiraStatus}' for ticket ${ticketId}`
+				);
 				return false;
 			}
-			
+
 			// Execute the transition
 			const transitionResponse = await fetch(transitionsUrl, {
 				method: 'POST',
@@ -563,22 +610,26 @@ ${taskData.details}`
 					}
 				})
 			});
-			
+
 			if (!transitionResponse.ok) {
 				const errorText = await transitionResponse.text();
-				log('error', `Error transitioning ticket ${ticketId} to ${jiraStatus}: ${transitionResponse.status} ${errorText}`);
+				log(
+					'error',
+					`Error transitioning ticket ${ticketId} to ${jiraStatus}: ${transitionResponse.status} ${errorText}`
+				);
 				return false;
 			}
-			
-			log('success', `Successfully updated ticket ${ticketId} status to ${jiraStatus}`);
+
+			log(
+				'success',
+				`Successfully updated ticket ${ticketId} status to ${jiraStatus}`
+			);
 			return true;
 		} catch (error) {
 			log('error', `Error updating ticket status: ${error.message}`);
 			return false;
 		}
 	}
-
-
 
 	/**
 	 * Create a task/subtask in the Jira system
@@ -619,14 +670,21 @@ ${taskData.details}`
 
 				if (!projectMetaResponse.ok) {
 					const errorText = await projectMetaResponse.text();
-					log('error', `Error fetching project metadata: ${projectMetaResponse.status} ${errorText}`);
-					throw new Error(`Error fetching project metadata: ${projectMetaResponse.status}`);
+					log(
+						'error',
+						`Error fetching project metadata: ${projectMetaResponse.status} ${errorText}`
+					);
+					throw new Error(
+						`Error fetching project metadata: ${projectMetaResponse.status}`
+					);
 				}
 
 				const projectMeta = await projectMetaResponse.json();
-				
+
 				// Navigate through the response structure to find available issue types for this project
-				const projectData = projectMeta.projects && projectMeta.projects.find(p => p.key === projectKey);
+				const projectData =
+					projectMeta.projects &&
+					projectMeta.projects.find((p) => p.key === projectKey);
 				const validIssueTypes = projectData?.issuetypes || [];
 
 				if (validIssueTypes.length === 0) {
@@ -634,40 +692,51 @@ ${taskData.details}`
 					throw new Error('No valid issue types found for project');
 				}
 
-				log('info', `Found ${validIssueTypes.length} valid issue types for project ${projectKey}`);
-				
+				log(
+					'info',
+					`Found ${validIssueTypes.length} valid issue types for project ${projectKey}`
+				);
+
 				// Debug: List all available issue types to help with troubleshooting
-				validIssueTypes.forEach(type => {
-					log('info', `Available issue type: ${type.name} (ID: ${type.id}, Subtask: ${type.subtask || false})`);
+				validIssueTypes.forEach((type) => {
+					log(
+						'info',
+						`Available issue type: ${type.name} (ID: ${type.id}, Subtask: ${type.subtask || false})`
+					);
 				});
 
 				// Try different approaches to find a suitable issue type for a subtask
 				// Approach 1: Look for an issue type that is explicitly marked as a subtask
-				let selectedType = validIssueTypes.find(type => type.subtask === true);
+				let selectedType = validIssueTypes.find(
+					(type) => type.subtask === true
+				);
 
 				// Approach 2: Look for an issue type with 'subtask' or 'sub-task' in the name (case insensitive)
 				if (!selectedType) {
-					selectedType = validIssueTypes.find(type => 
-						type.name && (
-							type.name.toLowerCase().includes('subtask') || 
-							type.name.toLowerCase().includes('sub-task') ||
-							type.name.toLowerCase().includes('sub task')
-						)
+					selectedType = validIssueTypes.find(
+						(type) =>
+							type.name &&
+							(type.name.toLowerCase().includes('subtask') ||
+								type.name.toLowerCase().includes('sub-task') ||
+								type.name.toLowerCase().includes('sub task'))
 					);
 				}
 
 				// Approach 3: Just use the first Task type if available
 				if (!selectedType) {
-					selectedType = validIssueTypes.find(type => 
-						type.name && type.name.toLowerCase().includes('task') && !type.name.toLowerCase().includes('story')
+					selectedType = validIssueTypes.find(
+						(type) =>
+							type.name &&
+							type.name.toLowerCase().includes('task') &&
+							!type.name.toLowerCase().includes('story')
 					);
 				}
 
 				// Approach 4: Just use any issue type as a last resort
 				if (!selectedType && validIssueTypes.length > 0) {
 					// Avoid using Epic as a default
-					const nonEpicTypes = validIssueTypes.filter(type => 
-						!type.name || !type.name.toLowerCase().includes('epic')
+					const nonEpicTypes = validIssueTypes.filter(
+						(type) => !type.name || !type.name.toLowerCase().includes('epic')
 					);
 
 					if (nonEpicTypes.length > 0) {
@@ -676,11 +745,17 @@ ${taskData.details}`
 						selectedType = validIssueTypes[0];
 					}
 
-					log('warn', `No specific subtask type found, using issue type: ${selectedType.name}`);
+					log(
+						'warn',
+						`No specific subtask type found, using issue type: ${selectedType.name}`
+					);
 				}
 
 				if (selectedType) {
-					log('info', `Selected issue type: ${selectedType.name} (ID: ${selectedType.id})`);
+					log(
+						'info',
+						`Selected issue type: ${selectedType.name} (ID: ${selectedType.id})`
+					);
 
 					// Format the issue creation payload
 					payload = {
@@ -717,7 +792,10 @@ ${taskData.details}`
 						};
 					} else {
 						// For non-subtask issue types, we don't set the parent
-						log('warn', `Using regular issue type ${selectedType.name} without parent relationship`);
+						log(
+							'warn',
+							`Using regular issue type ${selectedType.name} without parent relationship`
+						);
 					}
 				} else {
 					log('error', 'No suitable issue type found in project');
@@ -727,7 +805,10 @@ ${taskData.details}`
 				log('error', `Error preparing Jira issue: ${error.message}`);
 
 				// Create a simple task without link - this is a minimal approach but at least creates an issue
-				log('info', 'Unable to create subtask. Skipping subtask creation for now.');
+				log(
+					'info',
+					'Unable to create subtask. Skipping subtask creation for now.'
+				);
 				return null; // Return null to indicate we couldn't create the subtask
 			}
 
@@ -748,15 +829,21 @@ ${taskData.details}`
 			}
 
 			// Create the issue in Jira
-			const response = await fetch(`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`, {
-				method: 'POST',
-				headers: this._getAuthHeaders(email, apiToken),
-				body: JSON.stringify(payload)
-			});
+			const response = await fetch(
+				`${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
+				{
+					method: 'POST',
+					headers: this._getAuthHeaders(email, apiToken),
+					body: JSON.stringify(payload)
+				}
+			);
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				log('error', `Error creating Jira subtask: ${response.status} ${errorText}`);
+				log(
+					'error',
+					`Error creating Jira subtask: ${response.status} ${errorText}`
+				);
 				return null;
 			}
 
@@ -777,34 +864,37 @@ ${taskData.details}`
 	 */
 	async ticketExists(ticketId, explicitRoot = null) {
 		if (!ticketId) return false;
-		
+
 		// Validate configuration
 		const config = this.validateConfig(explicitRoot);
 		if (!config) return false;
-		
+
 		const { baseUrl, email, apiToken } = config;
-		
+
 		try {
 			// Use the issue API to check if the ticket exists
 			const url = `${baseUrl}/rest/api/3/issue/${encodeURIComponent(ticketId)}`;
-			
+
 			const response = await fetch(url, {
 				method: 'GET',
 				headers: this._getAuthHeaders(email, apiToken)
 			});
-			
+
 			// If we get a 200 OK response, the ticket exists
 			if (response.ok) {
 				return true;
 			}
-			
+
 			// If we get a 404 Not Found, the ticket doesn't exist
 			if (response.status === 404) {
 				return false;
 			}
-			
+
 			// For other errors, log them but assume the ticket doesn't exist for safety
-			log('error', `Error checking if ticket exists: ${response.status} ${response.statusText}`);
+			log(
+				'error',
+				`Error checking if ticket exists: ${response.status} ${response.statusText}`
+			);
 			return false;
 		} catch (error) {
 			log('error', `Error checking if ticket exists: ${error.message}`);
@@ -821,8 +911,8 @@ ${taskData.details}`
 	_getAuthHeaders(email, apiToken) {
 		return {
 			'Content-Type': 'application/json',
-			'Accept': 'application/json',
-			'Authorization': `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
+			Accept: 'application/json',
+			Authorization: `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`
 		};
 	}
 }
