@@ -1333,6 +1333,7 @@ function registerCommands(programInstance) {
 			}
 
 			try {
+				const tasksPath = path.join(projectRoot, options.file);
 				const results = await syncTickets(tasksPath, {
 					force: options.force,
 					debug: options.debug
