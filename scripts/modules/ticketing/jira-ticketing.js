@@ -326,7 +326,7 @@ ${taskData.details}`
 		if (task?.metadata?.jiraKey) {
 			return task.metadata.jiraKey;
 		}
-		
+
 		// No direct jiraKey found, return null
 		return null;
 	}

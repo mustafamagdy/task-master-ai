@@ -641,7 +641,11 @@ async function expandTask(
 			for (let i = 0; i < generatedSubtasks.length; i++) {
 				const subtask = generatedSubtasks[i];
 				// Add await keyword since generateSubtaskRefId is an async function
-				const refId = await generateSubtaskRefId(task.id, subtask.id, projectRoot);
+				const refId = await generateSubtaskRefId(
+					task.id,
+					subtask.id,
+					projectRoot
+				);
 				if (refId) {
 					generatedSubtasks[i] = storeRefId(subtask, refId);
 					logger.info(
