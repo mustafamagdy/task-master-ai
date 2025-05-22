@@ -371,9 +371,25 @@ async function addTask(
 						ticketData,
 						projectRoot
 					);
+					report(`DEBUG: Ticket creation result: ${JSON.stringify(ticketingIssue)}`, 'debug');
+					
 					if (ticketingIssue && ticketingIssue.key) {
 						// Store ticketing issue key in task metadata
-						newTask = ticketingInstance.storeTicketId(newTask, ticketingIssue.key);
+						report(`DEBUG: Storing ticket key ${ticketingIssue.key} in task metadata`, 'debug');
+						
+						// Make sure newTask has metadata object
+						if (!newTask.metadata) {
+							newTask.metadata = {};
+						}
+						
+						// Directly store the Jira key in metadata
+						newTask.metadata.jiraKey = ticketingIssue.key;
+						
+						// Also use the ticketing system's method if available
+						if (typeof ticketingInstance.storeTicketId === 'function') {
+							newTask = ticketingInstance.storeTicketId(newTask, ticketingIssue.key);
+						}
+						
 						report(
 							`Created ticketing user story: ${ticketingIssue.key}`,
 							'success'
