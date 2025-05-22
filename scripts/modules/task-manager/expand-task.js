@@ -667,8 +667,8 @@ async function expandTask(
 				// Create Jira tasks for each subtask
 				for (const subtask of generatedSubtasks) {
 					try {
-						// Create task in Jira
-						const jiraIssue = await createTask(
+						// Create task in Jira using the ticketing system instance
+						const jiraIssue = await ticketingSystem.createTask(
 							{
 								title: subtask.title,
 								description: subtask.description,
