@@ -210,6 +210,7 @@ async function syncTickets(tasksPath, options = {}) {
 
 				// Get reference ID for the task
 				const refId = getRefId(task);
+				debugLog(`Task ${task.id} reference ID: ${refId || 'undefined'}`);
 				if (!refId) {
 					customLog.warn(
 						`Task ${task.id || 'unknown'} has no reference ID, skipping`
@@ -219,6 +220,7 @@ async function syncTickets(tasksPath, options = {}) {
 
 				// Check if task already has a ticket ID
 				let ticketId = ticketingSystem.getTicketId(task);
+				debugLog(`Task ${task.id} initial ticketId check: ${ticketId || 'undefined'}`);
 
 				// If ticket ID exists, verify it actually exists in Jira
 				if (ticketId) {
@@ -616,6 +618,10 @@ async function syncTickets(tasksPath, options = {}) {
 
 					// After all subtasks are processed, synchronize their statuses with tickets
 					if (task.subtasks && task.subtasks.length > 0) {
+						// Debug log the task metadata and ticketId before assigning to parentTicketId
+						debugLog(`Before subtask sync - Task ${task.id} ticketId: ${ticketId || 'undefined'}`);
+						debugLog(`Task ${task.id} metadata: ${JSON.stringify(task.metadata || {})}`);
+						
 						// Define a local variable to avoid scope issues with ticketId
 						const parentTicketId = ticketId;
 
@@ -624,6 +630,16 @@ async function syncTickets(tasksPath, options = {}) {
 							customLog.warn(
 								`Parent task ${task.id} has no ticketId. Individual subtasks will be processed independently if they have their own ticket IDs.`
 							);
+							// Log detailed debug information about why ticketId might be missing
+							debugLog(`Task ${task.id} missing ticketId details:`);
+							debugLog(`- Has metadata: ${task.metadata ? 'Yes' : 'No'}`);
+							if (task.metadata) {
+								debugLog(`- Metadata keys: ${Object.keys(task.metadata).join(', ')}`);
+								debugLog(`- Has jiraKey: ${task.metadata.jiraKey ? 'Yes' : 'No'}`);
+								if (task.metadata.jiraKey) {
+									debugLog(`- jiraKey value: ${task.metadata.jiraKey}`);
+								}
+							}
 						}
 
 						customLog.info(
@@ -784,8 +800,11 @@ async function syncTickets(tasksPath, options = {}) {
 			}
 
 			// Synchronize status for main task
+			debugLog(`Before main task sync - Task ${task.id} ticketId: ${ticketId || 'undefined'}`);
 			if (ticketId) {
 				await synchronizeTaskStatus(task, ticketId, false);
+			} else {
+				debugLog(`Skipping main task sync for task ${task.id} - No ticketId available`);
 			}
 		}
 
