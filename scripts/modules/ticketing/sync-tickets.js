@@ -168,6 +168,7 @@ async function syncTickets(tasksPath, options = {}) {
 		subtasksCreated: 0,
 		tasksUpdated: 0,
 		subtasksUpdated: 0,
+		ticketsUpdated: 0,
 		errors: 0
 	};
 
@@ -456,22 +457,56 @@ async function syncTickets(tasksPath, options = {}) {
 					}
 				}
 				
-				// If task found, update its status from Jira if different
+				// If task found, handle status synchronization bidirectionally
 				if (taskToUpdate) {
 					const jiraStatus = ticket.status;
-					const taskmasterStatus = ticketingSystem.mapTicketStatusToTaskmaster(jiraStatus);
+					const jiraStatusInTaskmaster = ticketingSystem.mapTicketStatusToTaskmaster(jiraStatus);
+					const currentTaskStatus = taskToUpdate.status || 'pending';
 					
-					if (taskToUpdate.status !== taskmasterStatus) {
-						debugLog(`Updating status for ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id} from ${taskToUpdate.status || 'undefined'} to ${taskmasterStatus} (Jira: ${jiraStatus})`);
-						taskToUpdate.status = taskmasterStatus;
+					// Define status hierarchy (higher index = more advanced status)
+					const statusHierarchy = ['cancelled', 'deferred', 'pending', 'in-progress', 'review', 'done'];
+					const currentStatusRank = statusHierarchy.indexOf(currentTaskStatus);
+					const jiraStatusRank = statusHierarchy.indexOf(jiraStatusInTaskmaster);
+					
+					// If current status not found in hierarchy, default it to -1 (lowest)
+					const effectiveCurrentRank = currentStatusRank === -1 ? -1 : currentStatusRank;
+					const effectiveJiraRank = jiraStatusRank === -1 ? -1 : jiraStatusRank;
+					
+					debugLog(`Task ${taskToUpdate.id} status: ${currentTaskStatus} (rank ${effectiveCurrentRank}), Jira status: ${jiraStatusInTaskmaster} (rank ${effectiveJiraRank})`);
+					
+					// Case 1: TaskMaster status is more advanced than Jira status - update Jira
+					if (effectiveCurrentRank > effectiveJiraRank) {
+						debugLog(`Updating Jira ticket ${ticketId} status from ${jiraStatus} to match TaskMaster status ${currentTaskStatus}`);
+						
+						try {
+							const updated = await ticketingSystem.updateTicketStatus(ticketId, currentTaskStatus, projectRoot);
+							if (updated) {
+								customLog.success(`Updated Jira ticket ${ticketId} status to match TaskMaster ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id} status: ${currentTaskStatus}`);
+								stats.ticketsUpdated = (stats.ticketsUpdated || 0) + 1;
+							} else {
+								customLog.error(`Failed to update Jira ticket ${ticketId} status, but will preserve local ${isSubtask ? 'subtask' : 'task'} status`);
+							}
+						} catch (error) {
+							customLog.error(`Error updating Jira ticket status: ${error.message}`);
+						}
+						// Always keep the TaskMaster status (don't override with Jira status)
+					}
+					// Case 2: Jira status is more advanced than TaskMaster status - update TaskMaster
+					else if (effectiveJiraRank > effectiveCurrentRank) {
+						debugLog(`Updating ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id} status from ${currentTaskStatus} to match Jira status ${jiraStatusInTaskmaster}`);
+						taskToUpdate.status = jiraStatusInTaskmaster;
 						
 						if (isSubtask) {
-							customLog.success(`Updated subtask ${taskToUpdate.id} status to ${taskmasterStatus} from Jira ticket ${ticketId}`);
+							customLog.success(`Updated subtask ${taskToUpdate.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketId}`);
 							stats.subtasksUpdated++;
 						} else {
-							customLog.success(`Updated task ${taskToUpdate.id} status to ${taskmasterStatus} from Jira ticket ${ticketId}`);
+							customLog.success(`Updated task ${taskToUpdate.id} status to ${jiraStatusInTaskmaster} from Jira ticket ${ticketId}`);
 							stats.tasksUpdated++;
 						}
+					}
+					// Case 3: Statuses have same rank or cannot be compared - no change needed
+					else {
+						debugLog(`No status update needed for ${isSubtask ? 'subtask' : 'task'} ${taskToUpdate.id}, statuses are equivalent or incomparable`);
 					}
 				}
 				continue;
@@ -578,7 +613,7 @@ async function syncTickets(tasksPath, options = {}) {
 		}
 
 		// Return success with statistics
-		const message = `Synchronization complete: ${stats.tasksCreated} tasks created, ${stats.subtasksCreated} subtasks created, ${stats.tasksUpdated} tasks updated, ${stats.subtasksUpdated} subtasks updated, ${stats.errors} errors`;
+		const message = `Synchronization complete: ${stats.tasksCreated} tasks created, ${stats.subtasksCreated} subtasks created, ${stats.tasksUpdated} tasks updated, ${stats.subtasksUpdated} subtasks updated, ${stats.ticketsUpdated} tickets updated, ${stats.errors} errors`;
 		customLog.success(message);
 
 		return {

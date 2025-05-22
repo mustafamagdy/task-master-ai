@@ -500,6 +500,83 @@ ${taskData.details}`
 		}
 	}
 
+	/**
+	 * Update the status of a Jira ticket
+	 * @param {string} ticketId - Jira ticket ID/key (e.g., 'PROJ-123')
+	 * @param {string} taskmasterStatus - TaskMaster status (e.g., 'done', 'in-progress')
+	 * @param {string|null} explicitRoot - Optional explicit path to the project root
+	 * @returns {Promise<boolean>} True if the update was successful, false otherwise
+	 */
+	async updateTicketStatus(ticketId, taskmasterStatus, explicitRoot = null) {
+		if (!ticketId) {
+			log('error', 'Cannot update ticket status: No ticket ID provided');
+			return false;
+		}
+		
+		// Validate configuration
+		const config = this.validateConfig(explicitRoot);
+		if (!config) return false;
+		
+		const { baseUrl, email, apiToken } = config;
+		
+		// Map TaskMaster status to Jira status
+		const jiraStatus = this.mapStatusToTicket(taskmasterStatus);
+		if (!jiraStatus) {
+			log('error', `Cannot update ticket: No Jira status mapping for '${taskmasterStatus}'`);
+			return false;
+		}
+		
+		try {
+			// Prepare transition request
+			// First, get available transitions for the issue
+			const transitionsUrl = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/${encodeURIComponent(ticketId)}/transitions`;
+			const transitionsResponse = await fetch(transitionsUrl, {
+				method: 'GET',
+				headers: this._getAuthHeaders(email, apiToken)
+			});
+			
+			if (!transitionsResponse.ok) {
+				log('error', `Error getting transitions: ${transitionsResponse.status} ${transitionsResponse.statusText}`);
+				return false;
+			}
+			
+			const transitionsData = await transitionsResponse.json();
+			const transitions = transitionsData.transitions || [];
+			
+			// Find the transition that matches our target status
+			const transition = transitions.find(t => t.to.name.toLowerCase() === jiraStatus.toLowerCase());
+			
+			if (!transition) {
+				// If there's no direct transition available, log error but don't fail completely
+				log('error', `No transition available from current status to '${jiraStatus}' for ticket ${ticketId}`);
+				return false;
+			}
+			
+			// Execute the transition
+			const transitionResponse = await fetch(transitionsUrl, {
+				method: 'POST',
+				headers: this._getAuthHeaders(email, apiToken),
+				body: JSON.stringify({
+					transition: {
+						id: transition.id
+					}
+				})
+			});
+			
+			if (!transitionResponse.ok) {
+				const errorText = await transitionResponse.text();
+				log('error', `Error transitioning ticket ${ticketId} to ${jiraStatus}: ${transitionResponse.status} ${errorText}`);
+				return false;
+			}
+			
+			log('success', `Successfully updated ticket ${ticketId} status to ${jiraStatus}`);
+			return true;
+		} catch (error) {
+			log('error', `Error updating ticket status: ${error.message}`);
+			return false;
+		}
+	}
+
 
 
 	/**
