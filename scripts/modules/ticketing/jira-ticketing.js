@@ -542,6 +542,52 @@ ${taskData.details}`
 			return null;
 		}
 	}
+
+	/**
+	 * Check if a ticket exists in the Jira system
+	 * @param {string} ticketId - Jira ticket ID/key (e.g., 'PROJ-123')
+	 * @param {string|null} explicitRoot - Optional explicit path to the project root
+	 * @returns {Promise<boolean>} True if the ticket exists, false otherwise
+	 */
+	async ticketExists(ticketId, explicitRoot = null) {
+		if (!ticketId) return false;
+		
+		// Validate configuration
+		const config = this.validateConfig(explicitRoot);
+		if (!config) return false;
+		
+		const { baseUrl, email, apiToken } = config;
+		
+		try {
+			// Use the issue API to check if the ticket exists
+			const url = `${baseUrl}/rest/api/3/issue/${encodeURIComponent(ticketId)}`;
+			
+			const response = await fetch(url, {
+				method: 'GET',
+				headers: {
+					'Authorization': `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`,
+					'Accept': 'application/json'
+				}
+			});
+			
+			// If we get a 200 OK response, the ticket exists
+			if (response.ok) {
+				return true;
+			}
+			
+			// If we get a 404 Not Found, the ticket doesn't exist
+			if (response.status === 404) {
+				return false;
+			}
+			
+			// For other errors, log them but assume the ticket doesn't exist for safety
+			log('error', `Error checking if ticket exists: ${response.status} ${response.statusText}`);
+			return false;
+		} catch (error) {
+			log('error', `Error checking if ticket exists: ${error.message}`);
+			return false;
+		}
+	}
 }
 
 export default JiraTicketing;
