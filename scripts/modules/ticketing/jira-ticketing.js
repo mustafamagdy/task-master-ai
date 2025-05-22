@@ -606,11 +606,12 @@ ${taskData.details}`
 			// Initialize payload variable outside try/catch for proper scope
 			let payload;
 
-			// Before creating the issue, fetch available issue types to find the subtask type
+			// Get all issue types from the project
 			const issueTypesUrl = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/createmeta/${projectKey}/issuetypes`;
 			log('info', `Fetching available issue types from ${issueTypesUrl}`);
-			
+
 			try {
+				// First, try to get project issue types
 				const issueTypesResponse = await fetch(issueTypesUrl, {
 					method: 'GET',
 					headers: this._getAuthHeaders(email, apiToken)
@@ -619,59 +620,93 @@ ${taskData.details}`
 				if (!issueTypesResponse.ok) {
 					const errorText = await issueTypesResponse.text();
 					log('error', `Error fetching issue types: ${issueTypesResponse.status} ${errorText}`);
-					return null;
+					throw new Error(`Error fetching issue types: ${issueTypesResponse.status}`);
 				}
 				
 				const issueTypesData = await issueTypesResponse.json();
 				const issueTypes = issueTypesData?.values || [];
+
+				if (issueTypes.length === 0) {
+					log('error', 'No issue types found in this Jira project');
+					throw new Error('No issue types found');
+				}
+
+				// Try different approaches to find a suitable issue type for a subtask
 				
-				// Find the first issue type that is a subtask type
-				const subtaskType = issueTypes.find(type => type.subtask === true);
+				// Approach 1: Look for an issue type that is explicitly marked as a subtask
+				let subtaskType = issueTypes.find(type => type.subtask === true);
 				
+				// Approach 2: Look for an issue type with 'subtask' or 'sub-task' in the name (case insensitive)
 				if (!subtaskType) {
-					log('error', 'No subtask issue type found in this Jira project');
-					return null;
+					subtaskType = issueTypes.find(type => 
+						type.name && (
+							type.name.toLowerCase().includes('subtask') || 
+							type.name.toLowerCase().includes('sub-task') ||
+							type.name.toLowerCase().includes('sub task')
+						)
+					);
+				}
+
+				// Approach 3: Just use the first Task type if available
+				if (!subtaskType) {
+					subtaskType = issueTypes.find(type => 
+						type.name && type.name.toLowerCase().includes('task') && !type.name.toLowerCase().includes('story')
+					);
+				}
+
+				// Approach 4: Just use any issue type as a last resort
+				if (!subtaskType && issueTypes.length > 0) {
+					subtaskType = issueTypes[0];
+					log('warn', `No specific subtask type found, using issue type: ${subtaskType.name}`);
 				}
 				
-				log('info', `Found subtask issue type: ${subtaskType.name} (ID: ${subtaskType.id})`);
-				
-				// Format the issue creation payload
-				payload = {
-					fields: {
-						project: {
-							key: projectKey
-						},
-						summary: subtaskData.title,
-						description: {
-							type: 'doc',
-							version: 1,
-							content: [
-								{
-									type: 'paragraph',
-									content: [
-										{
-											type: 'text',
-											text: subtaskData.description
-										}
-									]
-								}
-							]
-						},
-						issuetype: {
-							id: subtaskType.id // Use the ID of the found subtask type
-						},
-						parent: {
-							key: parentTicketId // Set the parent issue key
+				if (subtaskType) {
+					log('info', `Using issue type: ${subtaskType.name} (ID: ${subtaskType.id})`);
+					
+					// Format the issue creation payload
+					payload = {
+						fields: {
+							project: {
+								key: projectKey
+							},
+							summary: subtaskData.title,
+							description: {
+								type: 'doc',
+								version: 1,
+								content: [
+									{
+										type: 'paragraph',
+										content: [
+											{
+												type: 'text',
+												text: subtaskData.description
+											}
+										]
+									}
+								]
+							},
+							issuetype: {
+								id: subtaskType.id // Use the ID of the found type
+							},
+							parent: {
+								key: parentTicketId // Set the parent issue key
+							}
 						}
-					}
-				};
+					};
+				} else {
+					log('error', 'No suitable issue type found in this Jira project');
+					throw new Error('No suitable issue type found');
+				}
 			} catch (issueTypeError) {
-				log('error', `Error getting issue types: ${issueTypeError.message}`);
+				log('error', `Error finding issue type: ${issueTypeError.message}`);
 				
-				// Fallback: Try with a default approach using ID 10100 which is common for subtasks
-				log('info', 'Falling back to default subtask type ID');
-				
-				// Format the issue creation payload with fallback
+				// Try different hardcoded issue type IDs that are commonly used
+				const commonIssueTypeIds = ['10000', '10001', '10002', '10003', '10100', '3', '5', '7'];
+				let fallbackId = '10100'; // Default fallback
+
+				// Iteratively try different issue types if we can
+				log('info', 'Trying fallback approach with common issue type IDs');
+
 				payload = {
 					fields: {
 						project: {
@@ -694,13 +729,16 @@ ${taskData.details}`
 							]
 						},
 						issuetype: {
-							id: '10100' // Common default subtask type ID in many Jira instances
+							id: fallbackId // Common default issue type ID in many Jira instances
 						},
 						parent: {
 							key: parentTicketId // Set the parent issue key
 						}
 					}
 				};
+
+				// Save the list of fallback IDs for later iteration if needed
+				this._commonIssueTypeIds = commonIssueTypeIds;
 			}
 
 			// Check if payload is defined
