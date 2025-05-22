@@ -5,7 +5,7 @@
  */
 
 import TicketingSystemInterface from '../ticketing-interface.js';
-import { log } from '../utils.js';
+import { log } from '../../utils.js';
 import {
 	getGitHubToken,
 	getGitHubOwner,

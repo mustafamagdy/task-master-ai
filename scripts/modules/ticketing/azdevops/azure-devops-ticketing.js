@@ -10,7 +10,7 @@ import {
 	getAzureOrganization,
 	getAzurePersonalAccessToken,
 	getAzureProjectName
-} from '../../config-manager.js';
+} from '../config-manager.js';
 
 /**
  * Azure DevOps implementation of the ticketing system interface
