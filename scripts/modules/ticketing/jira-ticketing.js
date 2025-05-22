@@ -490,6 +490,58 @@ ${taskData.details}`
 				return 'medium';
 		}
 	}
+
+	/**
+	 * Find a ticket ID by reference ID
+	 * @param {string} refId - Reference ID to search for
+	 * @param {string|null} explicitRoot - Optional explicit path to the project root
+	 * @returns {Promise<string|null>} Ticket ID if found, null otherwise
+	 */
+	async findTicketByRefId(refId, explicitRoot = null) {
+		if (!refId) return null;
+		
+		// Validate configuration
+		const config = this.validateConfig(explicitRoot);
+		if (!config) return null;
+		
+		const { baseUrl, email, apiToken, projectKey } = config;
+		
+		try {
+			// Search for issues with the reference ID in the summary using JQL
+			const jql = `project = ${projectKey} AND summary ~ "${refId}" ORDER BY created DESC`;
+			const url = `${baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}`;
+			
+			const response = await fetch(url, {
+				method: 'GET',
+				headers: {
+					'Authorization': `Basic ${Buffer.from(`${email}:${apiToken}`).toString('base64')}`,
+					'Accept': 'application/json'
+				}
+			});
+			
+			if (!response.ok) {
+				log('error', `Failed to search for ticket by reference ID: ${response.status} ${response.statusText}`);
+				return null;
+			}
+			
+			const data = await response.json();
+			
+			if (data.issues && data.issues.length > 0) {
+				for (const issue of data.issues) {
+					// Verify that the reference ID appears at the beginning of the summary
+					const summary = issue.fields.summary || '';
+					if (summary.startsWith(refId) || summary.includes(`[${refId}]`)) {
+						return issue.key;
+					}
+				}
+			}
+			
+			return null;
+		} catch (error) {
+			log('error', `Error finding ticket by reference ID: ${error.message}`);
+			return null;
+		}
+	}
 }
 
 export default JiraTicketing;
