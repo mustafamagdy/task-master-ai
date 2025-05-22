@@ -160,8 +160,18 @@ async function syncTickets(tasksPath, options = {}) {
                 if (currentTaskStatus !== jiraStatusInTaskmaster) {
                     console.log(`[SYNC-DEBUG] Status mismatch: TaskMaster=${currentTaskStatus}, Jira=${jiraStatusInTaskmaster}`);
                     
-                    // Case 1: Task was updated more recently than Jira - update Jira
-                    if (taskLastUpdated && (!jiraLastUpdated || new Date(taskLastUpdated) > new Date(jiraLastUpdated))) {
+                    // Determine which status to use based on timestamps
+                    // Case 1: If task has no timestamp, always prefer Jira status (especially for subtasks)
+                    // Case 2: If task has timestamp but Jira doesn't, prefer task status
+                    // Case 3: If both have timestamps, prefer the more recent one
+                    
+                    const shouldUpdateJira = taskLastUpdated && 
+                                            (!jiraLastUpdated || new Date(taskLastUpdated) > new Date(jiraLastUpdated));
+                    
+                    // Special handling for subtasks without timestamps
+                    const isSubtaskWithoutTimestamp = isSubtaskItem && !taskLastUpdated;
+                    
+                    if (shouldUpdateJira && !isSubtaskWithoutTimestamp) {
                         console.log(`[SYNC-DEBUG] TaskMaster has more recent update (${taskLastUpdated}), updating Jira ticket`);
                         
                         try {
@@ -184,8 +194,13 @@ async function syncTickets(tasksPath, options = {}) {
                         }
                     } 
                     // Case 2: Jira was updated more recently than task - update task
+                    // OR subtask has no timestamp - always prefer Jira status
                     else {
-                        console.log(`[SYNC-DEBUG] Jira has more recent update (${jiraLastUpdated}), updating TaskMaster ${isSubtaskItem ? 'subtask' : 'task'}`);
+                        if (isSubtaskWithoutTimestamp) {
+                            console.log(`[SYNC-DEBUG] Subtask has no timestamp, preferring Jira status`);
+                        } else {
+                            console.log(`[SYNC-DEBUG] Jira has more recent update (${jiraLastUpdated}), updating TaskMaster ${isSubtaskItem ? 'subtask' : 'task'}`);
+                        }
                         
                         // Update task status
                         taskItem.status = jiraStatusInTaskmaster;
