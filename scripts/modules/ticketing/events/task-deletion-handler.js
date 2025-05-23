@@ -32,7 +32,7 @@ export function subscribeToTaskDeletion(subscribe) {
                 const ticketId = task && ticketing.getTicketId(task);
                 if (ticketId) {
                     log(
-                        'info',
+                        'debug',
                         `Task ${taskId} with ticket ${ticketId} was deleted. Deleting from ticketing system...`
                     );
 
@@ -52,7 +52,7 @@ export function subscribeToTaskDeletion(subscribe) {
                     }
                 } else {
                     log(
-                        'info',
+                        'debug',
                         `No ticketing system issue found for deleted task ${taskId}. No action needed.`
                     );
                 }
@@ -60,7 +60,7 @@ export function subscribeToTaskDeletion(subscribe) {
                 // Process subtasks of the deleted task
                 if (task && task.subtasks && task.subtasks.length > 0) {
                     log(
-                        'info',
+                        'debug',
                         `Processing ${task.subtasks.length} subtasks of deleted task ${taskId}...`
                     );
 
@@ -69,7 +69,7 @@ export function subscribeToTaskDeletion(subscribe) {
 
                         if (subtaskTicketId) {
                             log(
-                                'info',
+                                'debug',
                                 `Updating ticketing system for subtask ${subtask.id} (ticket ${subtaskTicketId}) of deleted task ${taskId}...`
                             );
 
@@ -100,7 +100,7 @@ export function subscribeToTaskDeletion(subscribe) {
                             }
                         } else {
                             log(
-                                'info',
+                                'debug',
                                 `No ticketing system issue found for subtask ${subtask.id} of deleted task ${taskId}. No action needed.`
                             );
                         }

@@ -37,14 +37,14 @@ export function subscribeToTaskUpdate(subscribe) {
 
                 if (!ticketId) {
                     log(
-                        'info',
+                        'debug',
                         `No ticket ID found for task ${taskId}. Skipping ticketing update.`
                     );
                     return;
                 }
 
                 log(
-                    'info',
+                    'debug',
                     `Task ${taskId} with ticket ${ticketId} was updated. Syncing with ticketing system...`
                 );
 

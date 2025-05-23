@@ -17,6 +17,10 @@ export function subscribeToTaskStatus(subscribe) {
         EVENT_TYPES.TASK_STATUS_CHANGED,
         async ({ taskId, newStatus, data, tasksPath }) => {
             try {
+                log(
+                    'debug',
+                    `Updating ticketing status for task ${taskId} to ${newStatus}`
+                );
                 await updateTicketStatus(taskId, newStatus, data, tasksPath);
             } catch (error) {
                 log(

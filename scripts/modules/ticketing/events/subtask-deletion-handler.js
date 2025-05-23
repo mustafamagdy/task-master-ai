@@ -30,7 +30,7 @@ export function subscribeToSubtaskDeletion(subscribe) {
                         parentTaskId = idParts[0];
                         subtaskId = idParts[1];
                         log(
-                            'info',
+                            'debug',
                             `Extracted parent task ID ${parentTaskId} and subtask ID ${subtaskId} from ${taskId}`
                         );
                     }
@@ -68,7 +68,7 @@ export function subscribeToSubtaskDeletion(subscribe) {
                     if (foundParent) {
                         parentTask = foundParent;
                         log(
-                            'info',
+                            'debug',
                             `Found parent task ${parentTaskId} for subtask ${taskId}`
                         );
                     }
@@ -80,18 +80,18 @@ export function subscribeToSubtaskDeletion(subscribe) {
                         ? ticketing.getTicketId(foundSubtask, { parentTask })
                         : null;
 
-                log('info', `Got ticket ID for subtask ${taskId}: ${subtaskTicketId}`);
+                log('debug', `Got ticket ID for subtask ${taskId}: ${subtaskTicketId}`);
 
                 if (!subtaskTicketId) {
                     log(
-                        'info',
+                        'debug',
                         `No ticket ID found for subtask ${taskId}. Skipping ticketing update.`
                     );
                     return;
                 }
 
                 log(
-                    'info',
+                    'debug',
                     `Subtask ${taskId} with ticket ${subtaskTicketId} was deleted. Deleting from ticketing system...`
                 );
 

@@ -18,7 +18,7 @@ export function subscribeToSubtaskStatus(subscribe) {
         async ({ taskId, subtaskId, newStatus, data, tasksPath }) => {
             try {
                 log(
-                    'info',
+                    'debug',
                     `Processing status update for subtask ${taskId}.${subtaskId} to status: ${newStatus}`
                 );
 
@@ -34,7 +34,7 @@ export function subscribeToSubtaskStatus(subscribe) {
 
                 // Parent task found
                 const parentTask = foundParent;
-                log('info', `Found parent task: ${parentTask.id}`);
+                log('debug', `Found parent task: ${parentTask.id}`);
 
                 // Find the subtask within the parent task
                 const subtask = parentTask.subtasks?.find((st) => st.id === subtaskId);
@@ -63,12 +63,12 @@ export function subscribeToSubtaskStatus(subscribe) {
                 });
 
                 log(
-                    'info',
+                    'debug',
                     `Got ticket ID for subtask ${compoundId}: ${subtaskTicketId}`
                 );
                 if (!subtaskTicketId) {
                     log(
-                        'info',
+                        'debug',
                         `No ticket ID found for subtask ${compoundId}. Skipping ticketing update.`
                     );
                     return;
@@ -76,7 +76,7 @@ export function subscribeToSubtaskStatus(subscribe) {
 
                 // Update the ticket status
                 log(
-                    'info',
+                    'debug',
                     `Updating subtask ${compoundId} with ticket ${subtaskTicketId} to status: ${newStatus}`
                 );
 

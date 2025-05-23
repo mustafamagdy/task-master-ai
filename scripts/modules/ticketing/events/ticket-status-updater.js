@@ -38,7 +38,7 @@ export async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
 		const ticketId = ticketing.getTicketId(task);
 		if (ticketId) {
 			log(
-				'info',
+				'debug',
 				`Updating task ${taskId} with ticket ${ticketId} to status: ${newStatus}`
 			);
 
@@ -63,7 +63,7 @@ export async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
 			}
 		} else {
 			log(
-				'info',
+				'debug',
 				`No ticket ID found for task ${taskId}. Skipping ticketing update.`
 			);
 		}
@@ -71,14 +71,14 @@ export async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
 		// Update subtasks if they exist
 		if (task.subtasks && task.subtasks.length > 0) {
 			log(
-				'info',
+				'debug',
 				`Cascading status update to ${task.subtasks.length} subtasks of task ${taskId}...`
 			);
 			for (const subtask of task.subtasks) {
 				const subtaskTicketId = ticketing.getTicketId(subtask);
 				if (subtaskTicketId) {
 					log(
-						'info',
+						'debug',
 						`Updating subtask ${subtask.id} with ticket ${subtaskTicketId} to status: ${newStatus}`
 					);
 					try {
@@ -108,7 +108,7 @@ export async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
 					}
 				} else {
 					log(
-						'info',
+						'debug',
 						`No ticket ID found for subtask ${subtask.id}. Skipping ticketing update.`
 					);
 				}
