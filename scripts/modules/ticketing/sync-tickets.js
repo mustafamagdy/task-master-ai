@@ -201,7 +201,6 @@ async function syncTickets(tasksPath, options = {}) {
 
                 // Store the original parent task ticketId before processing subtasks
                 originalParentTicketId = getTicketId(task);
-                console.log(`[PARENT-DEBUG] Original parent task ${task.id} ticketId: ${originalParentTicketId || 'undefined'}`);
 
                 // Get reference ID for the task
                 const refId = getRefId(task);
@@ -315,7 +314,6 @@ async function syncTickets(tasksPath, options = {}) {
                     
                     // Store the parent task's ticketId explicitly before processing subtasks
                     const parentTaskTicketId = getTicketId(task);
-                    console.log(`[PARENT-DEBUG] Parent task ${task.id} ticketId: ${parentTaskTicketId || 'undefined'}`);
                     
                     // Check if we have a valid parent ticketId before proceeding
                     if (!parentTaskTicketId) {
@@ -417,8 +415,6 @@ async function syncTickets(tasksPath, options = {}) {
                 
                 // After processing subtasks, synchronize status for main task
                 finalTicketId = getTicketId(task, { debug });
-                console.log(`[FINAL-DEBUG] Task ${task.id} - finalTicketId: ${finalTicketId || 'undefined'}`);
-                console.log(`[FINAL-DEBUG] Task ${task.id} - originalParentTicketId: ${originalParentTicketId || 'undefined'}`);
                 
                 if (finalTicketId) {
                     await synchronizeTaskStatus(task, finalTicketId, false);
