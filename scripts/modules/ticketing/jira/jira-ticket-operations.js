@@ -164,37 +164,107 @@ export async function createTask(subtaskData, parentTicketId, explicitRoot = nul
         let payload;
         
         try {
-            // Get issue type mapping from the mapping manager
-            const subtaskType = getIssueTypeMapping('subtask');
-            log('info', `Using issue type for subtask: ${subtaskType}`);
-            
-            // Create the payload with the proper issue type
-            payload = {
-                fields: {
-                    project: {
-                        key: projectKey
-                    },
-                    summary: title, // Use formatted title with refId
-                    description: {
-                        type: 'doc',
-                        version: 1,
-                        content: [
-                            {
-                                type: 'paragraph',
+            // Fetch the available issue types for the Jira project from config
+            if (!config.issueTypes || !Array.isArray(config.issueTypes) || config.issueTypes.length === 0) {
+                // If we don't have issue types info, use the default subtask type
+                const subtaskType = 'Sub-task'; // Standard Jira type name
+                log('info', `Using default issue type for subtask: ${subtaskType}`);
+                
+                // Create the payload with the default issue type
+                payload = {
+                    fields: {
+                        project: {
+                            key: projectKey
+                        },
+                        summary: title, // Use formatted title with refId
+                        description: {
+                            type: 'doc',
+                            version: 1,
+                            content: [
+                                {
+                                    type: 'paragraph',
+                                    content: [
+                                        {
+                                            type: 'text',
+                                            text: subtaskData.description || ''
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        issuetype: {
+                            name: subtaskType
+                        }
+                    }
+                };
+            } else {
+                // Find a suitable subtask issue type
+                const subtaskTypes = config.issueTypes.filter(type => type.subtask);
+                
+                if (subtaskTypes.length === 0) {
+                    // No subtask types found, use first available type
+                    const fallbackType = config.issueTypes[0];
+                    log('warn', `No subtask issue types found. Using fallback type: ${fallbackType.name}`);
+                    
+                    payload = {
+                        fields: {
+                            project: {
+                                key: projectKey
+                            },
+                            summary: title,
+                            description: {
+                                type: 'doc',
+                                version: 1,
                                 content: [
                                     {
-                                        type: 'text',
-                                        text: subtaskData.description || ''
+                                        type: 'paragraph',
+                                        content: [
+                                            {
+                                                type: 'text',
+                                                text: subtaskData.description || ''
+                                            }
+                                        ]
                                     }
                                 ]
+                            },
+                            issuetype: {
+                                id: fallbackType.id
                             }
-                        ]
-                    },
-                    issuetype: {
-                        name: subtaskType // Use the mapped issue type name
-                    }
+                        }
+                    };
+                } else {
+                    // Use the first available subtask type
+                    const selectedType = subtaskTypes[0];
+                    log('info', `Using issue type for subtask: ${selectedType.name} (ID: ${selectedType.id})`);
+                    
+                    payload = {
+                        fields: {
+                            project: {
+                                key: projectKey
+                            },
+                            summary: title,
+                            description: {
+                                type: 'doc',
+                                version: 1,
+                                content: [
+                                    {
+                                        type: 'paragraph',
+                                        content: [
+                                            {
+                                                type: 'text',
+                                                text: subtaskData.description || ''
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            issuetype: {
+                                id: selectedType.id // Use ID for accuracy
+                            }
+                        }
+                    };
                 }
-            };
+            }
 
             // Add the parent relationship
             payload.fields.parent = {
