@@ -49,36 +49,30 @@ async function initializeTicketingSubscribers() {
   // Subscribe to subtask status changes
   const unsubscribeSubtaskStatus = subscribe(
     EVENT_TYPES.SUBTASK_STATUS_CHANGED,
-    async ({ taskId, newStatus, data, tasksPath }) => {
+    async ({ taskId, subtaskId, newStatus, data, tasksPath }) => {
       try {
-        // Using static imports now
+        log('info', `Updating subtask ${taskId}.${subtaskId} with ticket ${subtaskTicketId} to status: ${newStatus}`);
         
-        // Find the subtask directly using the utility function which handles compound IDs
-        const { task: subtask } = findTaskById(data.tasks, taskId);
-        if (!subtask) {
-          log('warn', `Subtask ${taskId} not found. Skipping ticketing update.`);
+        // Find the parent task
+        const { task: foundParent } = findTaskById(data.tasks, taskId);
+        if (!foundParent) {
+          log('warn', `Parent task ${taskId} not found. Skipping ticketing update.`);
           return;
         }
-
-        // Extract parent task ID from the subtask ID (e.g., "1.2" -> "1")
-        let parentTask = null;
-        let parentTaskId = null;
         
-        if (taskId && taskId.toString().includes('.')) {
-          parentTaskId = taskId.toString().split('.')[0];
-          log('info', `Extracted parent task ID ${parentTaskId} from subtask ID ${taskId}`);
-          
-          // Get the parent task using findTaskById
-          const { task: foundParent } = findTaskById(data.tasks, parentTaskId);
-          if (foundParent) {
-            parentTask = foundParent;
-            log('info', `Found parent task: ${parentTask.id}`);
-          } else {
-            log('warn', `Parent task ${parentTaskId} not found for subtask ${taskId}`);
-          }
-        } else {
-          log('warn', `Subtask ID ${taskId} is not in the expected format (parentId.subtaskId)`);
+        // Parent task found
+        const parentTask = foundParent;
+        log('info', `Found parent task: ${parentTask.id}`);
+        
+        // Find the subtask within the parent task
+        const subtask = parentTask.subtasks?.find(st => st.id === subtaskId);
+        if (!subtask) {
+          log('warn', `Subtask ${subtaskId} not found in parent task ${taskId}. Skipping ticketing update.`);
+          return;
         }
+        
+        // For logging and reference, create the compound ID format
+        const compoundId = `${taskId}.${subtaskId}`;
                 
         // Get ticketing instance with explicit project root
         const projectRoot = findProjectRoot();
@@ -94,14 +88,14 @@ async function initializeTicketingSubscribers() {
           debug: true  // Enable debug logging to see what's happening
         });
         
-        log('info', `Got ticket ID for subtask ${taskId}: ${subtaskTicketId}`);
+        log('info', `Got ticket ID for subtask ${compoundId}: ${subtaskTicketId}`);
         if (!subtaskTicketId) {
-          log('info', `No ticket ID found for subtask ${taskId}. Skipping ticketing update.`);
+          log('info', `No ticket ID found for subtask ${compoundId}. Skipping ticketing update.`);
           return;
         }
         
         // Update the ticket status
-        log('info', `Updating subtask ${taskId} with ticket ${subtaskTicketId} to status: ${newStatus}`);
+        log('info', `Updating subtask ${compoundId} with ticket ${subtaskTicketId} to status: ${newStatus}`);
 
         const success = await ticketing.updateTicketStatus(
           subtaskTicketId,
@@ -111,9 +105,9 @@ async function initializeTicketingSubscribers() {
         );
         
         if (!success) {
-          log('warn', `Failed to update ticketing system issue ${subtaskTicketId} status for subtask ${taskId}`);
+          log('warn', `Failed to update ticketing system issue ${subtaskTicketId} status for subtask ${compoundId}`);
         } else {
-          log('success', `Successfully updated ticketing system issue ${subtaskTicketId} for subtask ${taskId}`);
+          log('success', `Successfully updated ticketing system issue ${subtaskTicketId} for subtask ${compoundId}`);
         }
       } catch (error) {
         log('error', `Error handling subtask status change event: ${error.message}`);
