@@ -12,9 +12,9 @@ let ticketingUnsubscribe = null;
 /**
  * Initialize the event system and register all subscribers
  * This should be called when the application starts
- * @returns {boolean} Success status
+ * @returns {Promise<boolean>} Success status
  */
-function initializeEventSystem() {
+async function initializeEventSystem() {
   if (initialized) {
     log('info', 'Event system already initialized.');
     return true;
@@ -23,8 +23,8 @@ function initializeEventSystem() {
   try {
     log('info', 'Initializing event system...');
     
-    // Initialize ticketing subscribers
-    ticketingUnsubscribe = initializeTicketingSubscribers();
+    // Initialize ticketing subscribers (now returns a Promise)
+    ticketingUnsubscribe = await initializeTicketingSubscribers();
     
     // Initialize other subscribers here as needed
     
@@ -40,8 +40,9 @@ function initializeEventSystem() {
 /**
  * Shutdown the event system and unregister all subscribers
  * This should be called when the application shuts down
+ * @returns {Promise<void>} A promise that resolves when shutdown is complete
  */
-function shutdownEventSystem() {
+async function shutdownEventSystem() {
   if (!initialized) {
     return;
   }
@@ -50,9 +51,13 @@ function shutdownEventSystem() {
     log('info', 'Shutting down event system...');
     
     // Unsubscribe ticketing subscribers
-    if (ticketingUnsubscribe) {
-      ticketingUnsubscribe();
+    if (typeof ticketingUnsubscribe === 'function') {
+      await Promise.resolve(ticketingUnsubscribe()).catch(err => {
+        log('warn', `Error during ticketing unsubscribe: ${err.message}`);
+      });
       ticketingUnsubscribe = null;
+    } else if (ticketingUnsubscribe !== null) {
+      log('warn', 'Ticketing unsubscribe is not a function, skipping');
     }
     
     // Unsubscribe other subscribers here as needed

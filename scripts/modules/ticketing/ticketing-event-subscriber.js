@@ -102,24 +102,42 @@ async function initializeTicketingSubscribers() {
   );
   unsubscribeFunctions.push(unsubscribeSubtaskStatus);
   
-  // Subscribe to task creation
-  const unsubscribeTaskCreated = subscribe(
+  // Subscribe to task creation events
+  const unsubscribeTaskCreation = subscribe(
     EVENT_TYPES.TASK_CREATED,
     async ({ taskId, data, tasksPath, task }) => {
       try {
-        // Import required modules dynamically to avoid circular dependencies
+        // Only proceed with task if it was provided directly
+        if (!task) {
+          // Import findTaskById to avoid circular dependencies
+          const { findTaskById } = await import('../utils.js');
+          
+          // Find the task by ID
+          task = findTaskById(data.tasks, taskId);
+          if (!task) {
+            log('warn', `Task ${taskId} not found. Skipping ticket creation.`);
+            return;
+          }
+        }
+
+        const projectRoot = path.dirname(tasksPath);
+        
+        // Get all required modules dynamically to avoid circular dependencies
         const { getTicketingSystemEnabled } = await import('../config-manager.js');
         const { isTicketingSystemConfigured } = await import('./ticketing-interface.js');
         const { getTicketingInstance } = await import('./ticketing-factory.js');
         const { generateUserStoryRefId, storeRefId } = await import('./utils/id-utils.js');
         const { writeJSON } = await import('../utils.js');
         
-        // Check if ticketing system integration is enabled and configured
-        const projectRoot = tasksPath ? path.dirname(tasksPath) : null;
-        const ticketingEnabled = getTicketingSystemEnabled(projectRoot);
-        
-        if (!ticketingEnabled) {
-          log('info', 'Ticketing integration is disabled. Skipping ticket creation.');
+        try {
+          const ticketingEnabled = getTicketingSystemEnabled(projectRoot);
+          
+          if (!ticketingEnabled) {
+            log('info', 'Ticketing system is not enabled. Skipping ticket creation.');
+            return;
+          }
+        } catch (configError) {
+          log('error', `Error checking ticketing system configuration: ${configError.message}`);
           return;
         }
         
@@ -221,13 +239,16 @@ async function initializeTicketingSubscribers() {
       }
     }
   );
-  unsubscribeFunctions.push(unsubscribeTaskCreated);
+  unsubscribeFunctions.push(unsubscribeTaskCreation);
 
   // Subscribe to task deletion
   const unsubscribeTaskDeleted = subscribe(
     EVENT_TYPES.TASK_DELETED,
     async ({ taskId, task, data, tasksPath }) => {
       try {
+        // Import required modules dynamically to avoid circular dependencies
+        const { getTicketingInstance } = await import('./ticketing-factory.js');
+        
         // Get ticketing instance
         const ticketing = await getTicketingInstance('jira');
         if (!ticketing) {

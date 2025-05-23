@@ -2577,7 +2577,7 @@ function displayUpgradeNotification(currentVersion, latestVersion) {
 async function runCLI(argv = process.argv) {
 	try {
 		// Initialize event system
-		initializeEventSystem();
+		await initializeEventSystem();
 		// Display banner if not in a pipe
 		if (process.stdout.isTTY) {
 			displayBanner();
@@ -2660,21 +2660,28 @@ async function runCLI(argv = process.argv) {
 		}
 
 		// Shutdown event system even if there was an error
-		shutdownEventSystem();
+		await shutdownEventSystem();
 		process.exit(1);
 	}
 	
-	// Make sure we add a process exit handler to shut down the event system
+	// Process.on('exit') cannot be async, so we can only do our best effort here
 	process.on('exit', () => {
-		shutdownEventSystem();
+		console.log('Process exiting, attempting to clean up event system...');
+		// In an exit handler we can't await, so this is a best-effort cleanup
+		try {
+			// We'll start the shutdown process but can't wait for it
+			shutdownEventSystem();
+		} catch (err) {
+			console.error('Error during cleanup:', err);
+		}
 	});
 	
-	// Handle graceful shutdown on signals
+	// Handle graceful shutdown on signals - these can be async
 	['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach(signal => {
-		process.on(signal, () => {
+		process.on(signal, async () => {
 			console.log(`
 Received ${signal}, shutting down...`);
-			shutdownEventSystem();
+			await shutdownEventSystem();
 			process.exit(0);
 		});
 	});
