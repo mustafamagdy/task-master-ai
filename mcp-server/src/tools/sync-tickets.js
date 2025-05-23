@@ -10,9 +10,9 @@ import {
 	withNormalizedProjectRoot
 } from './utils.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
-import { getTicketingInstance } from '../../scripts/modules/ticketing/ticketing-factory.js';
-import { readJSON, writeJSON, log as consoleLog } from '../../scripts/modules/utils.js';
-import { findProjectRoot } from '../../scripts/modules/utils.js';
+import { getTicketingInstance } from '../../../scripts/modules/ticketing/ticketing-factory.js';
+import { readJSON, writeJSON, log as consoleLog } from '../../../scripts/modules/utils.js';
+import { findProjectRoot } from '../../../scripts/modules/utils.js';
 
 /**
  * Synchronizes Task Master tasks with the configured external ticketing system
