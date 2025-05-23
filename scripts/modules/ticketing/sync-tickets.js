@@ -27,7 +27,8 @@ import {
     storeTicketId, 
     synchronizeTaskStatus as syncTaskStatus,
     createTicketForTask,
-    createSubtaskTicket
+    createSubtaskTicket,
+    displaySyncTable
 } from './utils/index.js';
 
 // Default debug mode - set to false in production
@@ -89,14 +90,34 @@ async function syncTickets(tasksPath, options = {}) {
                 customLog.error('No ticketing system configured');
                 return {
                     success: false,
-                    message: 'Error: No ticketing system configured'
+                    message: 'Error: No ticketing system configured',
+                    stats: {
+                        tasksCreated: 0,
+                        subtasksCreated: 0,
+                        tasksUpdated: 0,
+                        subtasksUpdated: 0,
+                        ticketsUpdated: 0,
+                        tasksWithTimestampsAdded: 0,
+                        errors: 0
+                    },
+                    formattedDisplay: false // Flag indicating that formatted display has not been shown
                 };
             }
         } catch (error) {
             customLog.error(`Error getting ticketing system: ${error.message}`);
             return {
                 success: false,
-                message: `Error: ${error.message}`
+                message: `Error: ${error.message}`,
+                stats: {
+                    tasksCreated: 0,
+                    subtasksCreated: 0,
+                    tasksUpdated: 0,
+                    subtasksUpdated: 0,
+                    ticketsUpdated: 0,
+                    tasksWithTimestampsAdded: 0,
+                    errors: 1
+                },
+                formattedDisplay: false // Flag indicating that formatted display has not been shown
             };
         }
         
@@ -431,6 +452,9 @@ async function syncTickets(tasksPath, options = {}) {
             }
         }
 
+        // Display the sync stats in a stylish table format
+        displaySyncTable(stats, { logger: customLog.info, colorize: true });
+        
         // Return success with statistics
         const message = `Synchronization complete: ${stats.tasksCreated} tasks created, ${stats.subtasksCreated} subtasks created, ${stats.tasksUpdated} tasks updated, ${stats.subtasksUpdated} subtasks updated, ${stats.ticketsUpdated} tickets updated, ${stats.tasksWithTimestampsAdded} timestamps initialized, ${stats.errors} errors`;
         customLog.success(message);
@@ -438,14 +462,19 @@ async function syncTickets(tasksPath, options = {}) {
         return {
             success: true,
             stats,
-            message
+            message,
+            formattedDisplay: true // Flag indicating that formatted display has been shown
         };
     } catch (error) {
         customLog.error(`Synchronization error: ${error.message}`);
-        return {
+        // Display error stats in table format
+    displaySyncTable(stats, { logger: customLog.info, colorize: true });
+    
+    return {
             success: false,
             stats,
-            message: `Error: ${error.message}`
+            message: `Error: ${error.message}`,
+            formattedDisplay: true // Flag indicating that formatted display has been shown
         };
     }
 }
