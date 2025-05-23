@@ -5,19 +5,19 @@
 
 // ID management (combined ticket IDs and reference IDs)
 export {
-    // Ticket ID functions
-    getTicketId,
-    storeTicketId,
-    
-    // Reference ID functions
-    generateUserStoryRefId,
-    generateSubtaskRefId,
-    extractRefIdFromTitle,
-    storeRefId,
-    getRefId,
-    formatTitleForJira,
-    formatTitleForTicket,
-    findTaskByRefId
+	// Ticket ID functions
+	getTicketId,
+	storeTicketId,
+
+	// Reference ID functions
+	generateUserStoryRefId,
+	generateSubtaskRefId,
+	extractRefIdFromTitle,
+	storeRefId,
+	getRefId,
+	formatTitleForJira,
+	formatTitleForTicket,
+	findTaskByRefId
 } from './id-utils.js';
 
 // Status synchronization
@@ -27,12 +27,15 @@ export { synchronizeTaskStatus } from './status-utils.js';
 export { findTasksFile } from './task-file-utils.js';
 
 // Ticket operations
-export { createTicketForTask, createSubtaskTicket } from './ticket-operations-utils.js';
+export {
+	createTicketForTask,
+	createSubtaskTicket
+} from './ticket-operations-utils.js';
 
 // Mapping utilities
 export {
-    mapStatusToTicket,
-    mapTicketStatusToTaskmaster,
-    mapPriorityToTicket,
-    mapTicketPriorityToTaskmaster
+	mapStatusToTicket,
+	mapTicketStatusToTaskmaster,
+	mapPriorityToTicket,
+	mapTicketPriorityToTaskmaster
 } from './mapping-utils.js';

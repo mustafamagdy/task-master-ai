@@ -1,7 +1,10 @@
 import chalk from 'chalk';
 
 import { log } from '../utils.js';
-import { isValidTaskStatus, TASK_STATUS_OPTIONS } from '../../../src/constants/task-status.js';
+import {
+	isValidTaskStatus,
+	TASK_STATUS_OPTIONS
+} from '../../../src/constants/task-status.js';
 import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 
 /**
@@ -155,7 +158,7 @@ async function updateSingleTaskStatus(
 				pendingSubtasks.forEach((subtask) => {
 					const oldSubtaskStatus = subtask.status || 'pending';
 					subtask.status = newStatus;
-					
+
 					// Emit subtask status changed event for each auto-updated subtask
 					emit(EVENT_TYPES.SUBTASK_STATUS_CHANGED, {
 						taskId,

@@ -39,11 +39,13 @@ export function displayTicketSyncResults(results) {
 	// Calculate totals
 	const totalCreated = stats.tasksCreated + stats.subtasksCreated;
 	const totalUpdated = stats.tasksUpdated + stats.subtasksUpdated;
-	
+
 	// Get the active ticketing system name (defaults to 'External' if not available)
-	const ticketingSystemType = results.ticketingSystemType || getTicketingSystemType() || 'External';
-	const ticketingSystemName = ticketingSystemType.charAt(0).toUpperCase() + ticketingSystemType.slice(1);
-	
+	const ticketingSystemType =
+		results.ticketingSystemType || getTicketingSystemType() || 'External';
+	const ticketingSystemName =
+		ticketingSystemType.charAt(0).toUpperCase() + ticketingSystemType.slice(1);
+
 	// Determine external system numbers (assuming they match the TaskMaster numbers for now)
 	// In a real implementation, these would be derived from the results object
 	const externalCreated = totalCreated;
@@ -62,7 +64,7 @@ export function displayTicketSyncResults(results) {
 			border: [] // No special styling for border
 		}
 	});
-	
+
 	// Add rows to the table
 	table.push(
 		[chalk.bold('Created'), totalCreated, externalCreated],
@@ -79,7 +81,9 @@ export function displayTicketSyncResults(results) {
 	if (stats.errors > 0) {
 		console.log('');
 		console.log(
-			chalk.yellow(`Errors: ${stats.errors}. Some operations failed. Check the logs for details.`)
+			chalk.yellow(
+				`Errors: ${stats.errors}. Some operations failed. Check the logs for details.`
+			)
 		);
 	}
 }

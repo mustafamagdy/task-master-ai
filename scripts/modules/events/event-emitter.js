@@ -13,24 +13,24 @@ const subscribers = new Map();
  * @returns {Function} Unsubscribe function
  */
 function subscribe(eventType, callback) {
-  if (!subscribers.has(eventType)) {
-    subscribers.set(eventType, new Set());
-  }
-  
-  subscribers.get(eventType).add(callback);
-  
-  // Return unsubscribe function
-  return () => {
-    const eventSubscribers = subscribers.get(eventType);
-    if (eventSubscribers) {
-      eventSubscribers.delete(callback);
-      
-      // Clean up if no subscribers left
-      if (eventSubscribers.size === 0) {
-        subscribers.delete(eventType);
-      }
-    }
-  };
+	if (!subscribers.has(eventType)) {
+		subscribers.set(eventType, new Set());
+	}
+
+	subscribers.get(eventType).add(callback);
+
+	// Return unsubscribe function
+	return () => {
+		const eventSubscribers = subscribers.get(eventType);
+		if (eventSubscribers) {
+			eventSubscribers.delete(callback);
+
+			// Clean up if no subscribers left
+			if (eventSubscribers.size === 0) {
+				subscribers.delete(eventType);
+			}
+		}
+	};
 }
 
 /**
@@ -39,32 +39,32 @@ function subscribe(eventType, callback) {
  * @param {any} data - Data to pass to subscribers
  */
 function emit(eventType, data) {
-  const eventSubscribers = subscribers.get(eventType);
-  
-  if (eventSubscribers) {
-    // Clone the set to avoid issues if subscribers unsubscribe during emit
-    [...eventSubscribers].forEach(callback => {
-      try {
-        callback(data);
-      } catch (error) {
-        console.error(`Error in event subscriber for ${eventType}:`, error);
-      }
-    });
-  }
+	const eventSubscribers = subscribers.get(eventType);
+
+	if (eventSubscribers) {
+		// Clone the set to avoid issues if subscribers unsubscribe during emit
+		[...eventSubscribers].forEach((callback) => {
+			try {
+				callback(data);
+			} catch (error) {
+				console.error(`Error in event subscriber for ${eventType}:`, error);
+			}
+		});
+	}
 }
 
 /**
  * Task status event types
  */
 const EVENT_TYPES = {
-  TASK_CREATED: 'task:created',
-  TASK_UPDATED: 'task:updated',
-  TASK_STATUS_CHANGED: 'task:status:changed',
-  TASK_DELETED: 'task:deleted',
-  SUBTASK_CREATED: 'subtask:created',
-  SUBTASK_UPDATED: 'subtask:updated',
-  SUBTASK_STATUS_CHANGED: 'subtask:status:changed',
-  SUBTASK_DELETED: 'subtask:deleted'
+	TASK_CREATED: 'task:created',
+	TASK_UPDATED: 'task:updated',
+	TASK_STATUS_CHANGED: 'task:status:changed',
+	TASK_DELETED: 'task:deleted',
+	SUBTASK_CREATED: 'subtask:created',
+	SUBTASK_UPDATED: 'subtask:updated',
+	SUBTASK_STATUS_CHANGED: 'subtask:status:changed',
+	SUBTASK_DELETED: 'subtask:deleted'
 };
 
 export { subscribe, emit, EVENT_TYPES };

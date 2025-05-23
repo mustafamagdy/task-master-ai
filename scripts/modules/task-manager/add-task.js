@@ -13,9 +13,7 @@ import {
 } from '../ui.js';
 import { readJSON, writeJSON, log as consoleLog, truncate } from '../utils.js';
 import { generateObjectService } from '../ai-services-unified.js';
-import {
-	getDefaultPriority
-} from '../config-manager.js';
+import { getDefaultPriority } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 

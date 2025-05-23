@@ -15,16 +15,16 @@ import { findTasksJsonPath } from '../../../../mcp-server/src/core/utils/path-ut
  * @throws {Error} If the tasks.json file cannot be found
  */
 export function findTasksFile(options, logger = console) {
-    try {
-        return findTasksJsonPath(
-            { 
-                projectRoot: options.projectRoot, 
-                file: options.file 
-            },
-            logger
-        );
-    } catch (error) {
-        logger.error(`Error finding tasks.json: ${error.message}`);
-        throw new Error(`Failed to find tasks.json: ${error.message}`);
-    }
+	try {
+		return findTasksJsonPath(
+			{
+				projectRoot: options.projectRoot,
+				file: options.file
+			},
+			logger
+		);
+	} catch (error) {
+		logger.error(`Error finding tasks.json: ${error.message}`);
+		throw new Error(`Failed to find tasks.json: ${error.message}`);
+	}
 }

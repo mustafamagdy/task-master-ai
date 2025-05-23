@@ -86,7 +86,10 @@ import {
 	TASK_STATUS_OPTIONS
 } from '../../src/constants/task-status.js';
 import { getTaskMasterVersion } from '../../src/utils/getVersion.js';
-import { initializeEventSystem, shutdownEventSystem } from './events/initialize-events.js';
+import {
+	initializeEventSystem,
+	shutdownEventSystem
+} from './events/initialize-events.js';
 /**
  * Runs the interactive setup process for model configuration.
  * @param {string|null} projectRoot - The resolved project root directory.
@@ -2663,7 +2666,7 @@ async function runCLI(argv = process.argv) {
 		await shutdownEventSystem();
 		process.exit(1);
 	}
-	
+
 	// Process.on('exit') cannot be async, so we can only do our best effort here
 	process.on('exit', () => {
 		// In an exit handler we can't await, so this is a best-effort cleanup
@@ -2674,9 +2677,9 @@ async function runCLI(argv = process.argv) {
 			console.error('Error during cleanup:', err);
 		}
 	});
-	
+
 	// Handle graceful shutdown on signals - these can be async
-	['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach(signal => {
+	['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach((signal) => {
 		process.on(signal, async () => {
 			console.log(`
 Received ${signal}, shutting down...`);

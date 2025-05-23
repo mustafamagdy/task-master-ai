@@ -22,20 +22,22 @@ const TASK_PREFIX = 'T';
  * @returns {Object} Updated task object
  */
 export function storeTicketId(task, ticketId) {
-    if (!task || !ticketId) {
-        console.log('[ID-UTILS] Cannot store ticket ID: task or ticketId is null or undefined');
-        return task;
-    }
-    
-    // Initialize metadata if it doesn't exist
-    if (!task.metadata) {
-        task.metadata = {};
-    }
-    
-    // Store the ticket ID
-    task.metadata.jiraKey = ticketId;
-    console.log(`[ID-UTILS] Stored ticket ID ${ticketId} in task ${task.id}`);
-    return task;
+	if (!task || !ticketId) {
+		console.log(
+			'[ID-UTILS] Cannot store ticket ID: task or ticketId is null or undefined'
+		);
+		return task;
+	}
+
+	// Initialize metadata if it doesn't exist
+	if (!task.metadata) {
+		task.metadata = {};
+	}
+
+	// Store the ticket ID
+	task.metadata.jiraKey = ticketId;
+	console.log(`[ID-UTILS] Stored ticket ID ${ticketId} in task ${task.id}`);
+	return task;
 }
 
 /**
@@ -47,50 +49,62 @@ export function storeTicketId(task, ticketId) {
  * @returns {string|null} The ticket ID or null if not found
  */
 export function getTicketId(task, options = {}) {
-    const { debug = false, parentTask = null } = options;
-    
-    if (!task) {
-        if (debug) console.log('[ID-UTILS] getTicketId: task is null or undefined');
-        return null;
-    }
-    
-    const isSubtask = task && task.id && task.id.toString().includes('.');
-    
-    if (debug) {
-        console.log(`[ID-UTILS] Getting ticket ID for ${isSubtask ? 'subtask' : 'task'}: ${task.id || 'undefined'}`);
-    }
-    
-    // First try to get the ticket ID from the task's own metadata
-    if (task.metadata && task.metadata.jiraKey) {
-        if (debug) {
-            console.log(`[ID-UTILS] ${isSubtask ? 'Subtask' : 'Task'} ${task.id} has jiraKey: ${task.metadata.jiraKey}`);
-        }
-        return task.metadata.jiraKey;
-    }
-    
-    // If this is a subtask and it doesn't have its own jiraKey, try to use the parent task's jiraKey
-    if (isSubtask) {
-        // If a parent task was provided, use its jiraKey
-        if (parentTask && parentTask.metadata && parentTask.metadata.jiraKey) {
-            if (debug) {
-                console.log(`[ID-UTILS] Using parent task ${parentTask.id} jiraKey for subtask ${task.id}: ${parentTask.metadata.jiraKey}`);
-            }
-            return parentTask.metadata.jiraKey;
-        }
-        
-        // Extract parent task ID from subtask ID (e.g., "1.2" -> "1")
-        const parentTaskId = task.id.toString().split('.')[0];
-        if (debug) {
-            console.log(`[ID-UTILS] Subtask ${task.id} has no jiraKey, parent task ID would be: ${parentTaskId}`);
-            console.log(`[ID-UTILS] However, parent task object not provided, cannot get jiraKey from parent`);
-        }
-    }
-    
-    // If we get here, no ticket ID was found
-    if (debug) {
-        console.log(`[ID-UTILS] No jiraKey found for ${isSubtask ? 'subtask' : 'task'} ${task.id}`);
-    }
-    return null;
+	const { debug = false, parentTask = null } = options;
+
+	if (!task) {
+		if (debug) console.log('[ID-UTILS] getTicketId: task is null or undefined');
+		return null;
+	}
+
+	const isSubtask = task && task.id && task.id.toString().includes('.');
+
+	if (debug) {
+		console.log(
+			`[ID-UTILS] Getting ticket ID for ${isSubtask ? 'subtask' : 'task'}: ${task.id || 'undefined'}`
+		);
+	}
+
+	// First try to get the ticket ID from the task's own metadata
+	if (task.metadata && task.metadata.jiraKey) {
+		if (debug) {
+			console.log(
+				`[ID-UTILS] ${isSubtask ? 'Subtask' : 'Task'} ${task.id} has jiraKey: ${task.metadata.jiraKey}`
+			);
+		}
+		return task.metadata.jiraKey;
+	}
+
+	// If this is a subtask and it doesn't have its own jiraKey, try to use the parent task's jiraKey
+	if (isSubtask) {
+		// If a parent task was provided, use its jiraKey
+		if (parentTask && parentTask.metadata && parentTask.metadata.jiraKey) {
+			if (debug) {
+				console.log(
+					`[ID-UTILS] Using parent task ${parentTask.id} jiraKey for subtask ${task.id}: ${parentTask.metadata.jiraKey}`
+				);
+			}
+			return parentTask.metadata.jiraKey;
+		}
+
+		// Extract parent task ID from subtask ID (e.g., "1.2" -> "1")
+		const parentTaskId = task.id.toString().split('.')[0];
+		if (debug) {
+			console.log(
+				`[ID-UTILS] Subtask ${task.id} has no jiraKey, parent task ID would be: ${parentTaskId}`
+			);
+			console.log(
+				`[ID-UTILS] However, parent task object not provided, cannot get jiraKey from parent`
+			);
+		}
+	}
+
+	// If we get here, no ticket ID was found
+	if (debug) {
+		console.log(
+			`[ID-UTILS] No jiraKey found for ${isSubtask ? 'subtask' : 'task'} ${task.id}`
+		);
+	}
+	return null;
 }
 
 // ============================================================
@@ -104,13 +118,13 @@ export function getTicketId(task, options = {}) {
  * @returns {string|null} Reference ID for the user story (e.g., US001) or null if ticketing is disabled
  */
 export function generateUserStoryRefId(taskId, ticketingEnabled = true) {
-    if (!ticketingEnabled) {
-        return null;
-    }
+	if (!ticketingEnabled) {
+		return null;
+	}
 
-    // Format the task ID with leading zeros (e.g., 001, 012, 123)
-    const formattedId = String(taskId).padStart(3, '0');
-    return `${USER_STORY_PREFIX}${formattedId}`;
+	// Format the task ID with leading zeros (e.g., 001, 012, 123)
+	const formattedId = String(taskId).padStart(3, '0');
+	return `${USER_STORY_PREFIX}${formattedId}`;
 }
 
 /**
@@ -120,17 +134,21 @@ export function generateUserStoryRefId(taskId, ticketingEnabled = true) {
  * @param {boolean} ticketingEnabled - Whether ticketing integration is enabled
  * @returns {string|null} Reference ID for the subtask (e.g., T001-01) or null if ticketing is disabled
  */
-export function generateSubtaskRefId(parentTaskId, subtaskId, ticketingEnabled = true) {
-    if (!ticketingEnabled) {
-        return null;
-    }
+export function generateSubtaskRefId(
+	parentTaskId,
+	subtaskId,
+	ticketingEnabled = true
+) {
+	if (!ticketingEnabled) {
+		return null;
+	}
 
-    // Format the parent task ID with leading zeros (e.g., 001, 012, 123)
-    const formattedParentId = String(parentTaskId).padStart(3, '0');
-    // Format the subtask ID with leading zeros (e.g., 01, 02, 10)
-    const formattedSubtaskId = String(subtaskId).padStart(2, '0');
-    // Keep the hyphen between parent and subtask IDs
-    return `${TASK_PREFIX}${formattedParentId}-${formattedSubtaskId}`;
+	// Format the parent task ID with leading zeros (e.g., 001, 012, 123)
+	const formattedParentId = String(parentTaskId).padStart(3, '0');
+	// Format the subtask ID with leading zeros (e.g., 01, 02, 10)
+	const formattedSubtaskId = String(subtaskId).padStart(2, '0');
+	// Keep the hyphen between parent and subtask IDs
+	return `${TASK_PREFIX}${formattedParentId}-${formattedSubtaskId}`;
 }
 
 /**
@@ -139,11 +157,11 @@ export function generateSubtaskRefId(parentTaskId, subtaskId, ticketingEnabled =
  * @returns {string|null} Reference ID if found, null otherwise
  */
 export function extractRefIdFromTitle(title) {
-    if (!title) return null;
+	if (!title) return null;
 
-    // Match patterns like US001- or T001-01- at the beginning of the title
-    const match = title.match(/^((?:US\d{3})|(?:T\d{3}-\d{2}))-/);
-    return match ? match[1] : null;
+	// Match patterns like US001- or T001-01- at the beginning of the title
+	const match = title.match(/^((?:US\d{3})|(?:T\d{3}-\d{2}))-/);
+	return match ? match[1] : null;
 }
 
 /**
@@ -153,17 +171,17 @@ export function extractRefIdFromTitle(title) {
  * @returns {Object} Updated task object
  */
 export function storeRefId(task, refId) {
-    if (!task || !refId) return task;
+	if (!task || !refId) return task;
 
-    // Initialize metadata if it doesn't exist
-    if (!task.metadata) {
-        task.metadata = {};
-    }
+	// Initialize metadata if it doesn't exist
+	if (!task.metadata) {
+		task.metadata = {};
+	}
 
-    // Store reference ID in metadata
-    task.metadata.refId = refId;
+	// Store reference ID in metadata
+	task.metadata.refId = refId;
 
-    return task;
+	return task;
 }
 
 /**
@@ -172,7 +190,7 @@ export function storeRefId(task, refId) {
  * @returns {string|null} Reference ID or null if not found
  */
 export function getRefId(task) {
-    return task?.metadata?.refId || null;
+	return task?.metadata?.refId || null;
 }
 
 /**
@@ -181,13 +199,13 @@ export function getRefId(task) {
  * @returns {string} Formatted title with reference ID for Jira
  */
 export function formatTitleForJira(task) {
-    if (!task || !task.title) return '';
+	if (!task || !task.title) return '';
 
-    const refId = getRefId(task);
-    if (!refId) return task.title;
+	const refId = getRefId(task);
+	if (!refId) return task.title;
 
-    // Format as 'US001-Title' instead of '[US-001] Title'
-    return `${refId}-${task.title}`;
+	// Format as 'US001-Title' instead of '[US-001] Title'
+	return `${refId}-${task.title}`;
 }
 
 /**
@@ -197,19 +215,19 @@ export function formatTitleForJira(task) {
  * @returns {string} Formatted title with reference ID
  */
 export function formatTitleForTicket(task, systemType = 'jira') {
-    // Select appropriate formatter based on the ticketing system type
-    switch (systemType.toLowerCase()) {
-        case 'jira':
-            return formatTitleForJira(task);
-        case 'github':
-            // GitHub might use a different format, like: [US001] Title
-            const refId = getRefId(task);
-            if (!refId || !task.title) return task?.title || '';
-            return `[${refId}] ${task.title}`;
-        default:
-            // Default to Jira format
-            return formatTitleForJira(task);
-    }
+	// Select appropriate formatter based on the ticketing system type
+	switch (systemType.toLowerCase()) {
+		case 'jira':
+			return formatTitleForJira(task);
+		case 'github':
+			// GitHub might use a different format, like: [US001] Title
+			const refId = getRefId(task);
+			if (!refId || !task.title) return task?.title || '';
+			return `[${refId}] ${task.title}`;
+		default:
+			// Default to Jira format
+			return formatTitleForJira(task);
+	}
 }
 
 /**
@@ -219,48 +237,48 @@ export function formatTitleForTicket(task, systemType = 'jira') {
  * @returns {Object|null} Task object if found, null otherwise
  */
 export function findTaskByRefId(tasks, refId) {
-    if (!tasks || !Array.isArray(tasks) || !refId) return null;
+	if (!tasks || !Array.isArray(tasks) || !refId) return null;
 
-    // Search for the task with the matching reference ID in metadata
-    for (const task of tasks) {
-        const taskRefId = getRefId(task);
-        if (taskRefId === refId) {
-            return task;
-        }
+	// Search for the task with the matching reference ID in metadata
+	for (const task of tasks) {
+		const taskRefId = getRefId(task);
+		if (taskRefId === refId) {
+			return task;
+		}
 
-        // Also search in subtasks if available
-        if (task.subtasks && Array.isArray(task.subtasks)) {
-            for (const subtask of task.subtasks) {
-                const subtaskRefId = getRefId(subtask);
-                if (subtaskRefId === refId) {
-                    return subtask;
-                }
-            }
-        }
-    }
+		// Also search in subtasks if available
+		if (task.subtasks && Array.isArray(task.subtasks)) {
+			for (const subtask of task.subtasks) {
+				const subtaskRefId = getRefId(subtask);
+				if (subtaskRefId === refId) {
+					return subtask;
+				}
+			}
+		}
+	}
 
-    // Fallback to searching in titles if metadata is missing
-    // This helps in migrating from old format to new format
-    const oldFormatRefId = refId
-        .replace(/US(\d{3})/, 'US-$1')
-        .replace(/T(\d{3}-\d{2})/, 'T$1');
-    
-    for (const task of tasks) {
-        const title = task.title || '';
-        if (title.includes(`[${oldFormatRefId}]`)) {
-            return task;
-        }
+	// Fallback to searching in titles if metadata is missing
+	// This helps in migrating from old format to new format
+	const oldFormatRefId = refId
+		.replace(/US(\d{3})/, 'US-$1')
+		.replace(/T(\d{3}-\d{2})/, 'T$1');
 
-        // Also check subtasks
-        if (task.subtasks && Array.isArray(task.subtasks)) {
-            for (const subtask of task.subtasks) {
-                const subtaskTitle = subtask.title || '';
-                if (subtaskTitle.includes(`[${oldFormatRefId}]`)) {
-                    return subtask;
-                }
-            }
-        }
-    }
+	for (const task of tasks) {
+		const title = task.title || '';
+		if (title.includes(`[${oldFormatRefId}]`)) {
+			return task;
+		}
 
-    return null;
+		// Also check subtasks
+		if (task.subtasks && Array.isArray(task.subtasks)) {
+			for (const subtask of task.subtasks) {
+				const subtaskTitle = subtask.title || '';
+				if (subtaskTitle.includes(`[${oldFormatRefId}]`)) {
+					return subtask;
+				}
+			}
+		}
+	}
+
+	return null;
 }

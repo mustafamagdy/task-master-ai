@@ -169,7 +169,7 @@ function getProjectRoot(explicitRoot = null) {
 function getMappingFilePath(ticketingSystem, explicitRoot = null) {
 	// Normalize ticketing system name
 	let systemFolder = ticketingSystem;
-	
+
 	// Handle Azure DevOps special case (the folder is named 'azdevops' but system type might be 'azure')
 	if (systemFolder === 'azure') {
 		systemFolder = 'azdevops';

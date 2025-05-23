@@ -176,8 +176,15 @@ class TicketingSystemInterface {
 	 * @returns {Promise<boolean>} True if successful, false otherwise
 	 * @abstract
 	 */
-	updateTicketDetails(ticketId, taskData, previousTaskData, explicitRoot = null) {
-		throw new Error('Method updateTicketDetails must be implemented by subclass');
+	updateTicketDetails(
+		ticketId,
+		taskData,
+		previousTaskData,
+		explicitRoot = null
+	) {
+		throw new Error(
+			'Method updateTicketDetails must be implemented by subclass'
+		);
 	}
 
 	/**

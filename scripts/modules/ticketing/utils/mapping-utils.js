@@ -12,20 +12,20 @@
  * @returns {string} Ticketing system status
  */
 export function mapStatusToTicket(taskmasterStatus, mappingConfig = {}) {
-    // Default mapping if none provided
-    const defaultMap = {
-        'pending': 'To Do',
-        'in-progress': 'In Progress',
-        'review': 'In Review',
-        'done': 'Done',
-        'deferred': 'Backlog',
-        'cancelled': 'Won\'t Do'
-    };
-    
-    const statusMap = mappingConfig.statusMap || defaultMap;
-    const defaultStatus = mappingConfig.defaultStatus || 'To Do';
-    
-    return statusMap[taskmasterStatus] || defaultStatus;
+	// Default mapping if none provided
+	const defaultMap = {
+		pending: 'To Do',
+		'in-progress': 'In Progress',
+		review: 'In Review',
+		done: 'Done',
+		deferred: 'Backlog',
+		cancelled: "Won't Do"
+	};
+
+	const statusMap = mappingConfig.statusMap || defaultMap;
+	const defaultStatus = mappingConfig.defaultStatus || 'To Do';
+
+	return statusMap[taskmasterStatus] || defaultStatus;
 }
 
 /**
@@ -37,23 +37,23 @@ export function mapStatusToTicket(taskmasterStatus, mappingConfig = {}) {
  * @returns {string} TaskMaster status
  */
 export function mapTicketStatusToTaskmaster(ticketStatus, mappingConfig = {}) {
-    // Default mapping if none provided
-    const defaultMap = {
-        'To Do': 'pending',
-        'In Progress': 'in-progress',
-        'In Review': 'review',
-        'Done': 'done',
-        'Resolved': 'done',
-        'Closed': 'done',
-        'Backlog': 'deferred',
-        'Won\'t Do': 'cancelled',
-        'Won\'t Fix': 'cancelled'
-    };
-    
-    const reverseStatusMap = mappingConfig.reverseStatusMap || defaultMap;
-    const defaultStatus = mappingConfig.defaultStatus || 'pending';
-    
-    return reverseStatusMap[ticketStatus] || defaultStatus;
+	// Default mapping if none provided
+	const defaultMap = {
+		'To Do': 'pending',
+		'In Progress': 'in-progress',
+		'In Review': 'review',
+		Done: 'done',
+		Resolved: 'done',
+		Closed: 'done',
+		Backlog: 'deferred',
+		"Won't Do": 'cancelled',
+		"Won't Fix": 'cancelled'
+	};
+
+	const reverseStatusMap = mappingConfig.reverseStatusMap || defaultMap;
+	const defaultStatus = mappingConfig.defaultStatus || 'pending';
+
+	return reverseStatusMap[ticketStatus] || defaultStatus;
 }
 
 /**
@@ -65,17 +65,17 @@ export function mapTicketStatusToTaskmaster(ticketStatus, mappingConfig = {}) {
  * @returns {string} Ticketing system priority
  */
 export function mapPriorityToTicket(taskmasterPriority, mappingConfig = {}) {
-    // Default mapping if none provided
-    const defaultMap = {
-        'high': 'High',
-        'medium': 'Medium',
-        'low': 'Low'
-    };
-    
-    const priorityMap = mappingConfig.priorityMap || defaultMap;
-    const defaultPriority = mappingConfig.defaultPriority || 'Medium';
-    
-    return priorityMap[taskmasterPriority] || defaultPriority;
+	// Default mapping if none provided
+	const defaultMap = {
+		high: 'High',
+		medium: 'Medium',
+		low: 'Low'
+	};
+
+	const priorityMap = mappingConfig.priorityMap || defaultMap;
+	const defaultPriority = mappingConfig.defaultPriority || 'Medium';
+
+	return priorityMap[taskmasterPriority] || defaultPriority;
 }
 
 /**
@@ -86,18 +86,21 @@ export function mapPriorityToTicket(taskmasterPriority, mappingConfig = {}) {
  * @param {string} mappingConfig.defaultPriority - Default priority to use if no mapping is found
  * @returns {string} TaskMaster priority
  */
-export function mapTicketPriorityToTaskmaster(ticketPriority, mappingConfig = {}) {
-    // Default mapping if none provided
-    const defaultMap = {
-        'Highest': 'high',
-        'High': 'high',
-        'Medium': 'medium',
-        'Low': 'low',
-        'Lowest': 'low'
-    };
-    
-    const reversePriorityMap = mappingConfig.reversePriorityMap || defaultMap;
-    const defaultPriority = mappingConfig.defaultPriority || 'medium';
-    
-    return reversePriorityMap[ticketPriority] || defaultPriority;
+export function mapTicketPriorityToTaskmaster(
+	ticketPriority,
+	mappingConfig = {}
+) {
+	// Default mapping if none provided
+	const defaultMap = {
+		Highest: 'high',
+		High: 'high',
+		Medium: 'medium',
+		Low: 'low',
+		Lowest: 'low'
+	};
+
+	const reversePriorityMap = mappingConfig.reversePriorityMap || defaultMap;
+	const defaultPriority = mappingConfig.defaultPriority || 'medium';
+
+	return reversePriorityMap[ticketPriority] || defaultPriority;
 }
