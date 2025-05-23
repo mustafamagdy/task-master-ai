@@ -107,36 +107,64 @@ export function subscribeToTaskCreation(subscribe) {
                 }
 
                 // Ensure the task has a valid reference ID before creating a ticket
+                log('debug', `[TICKETING] Raw task data received: ${JSON.stringify(task)}`);
+                
+                // Clone and ensure metadata exists
                 let updatedTask = { ...task };
-                if (!updatedTask.metadata?.refId) {
+                
+                // CRITICAL: Explicitly ensure metadata object exists
+                if (!updatedTask.metadata) {
+                    log('warn', '[TICKETING] Task has no metadata object at all, creating one');
+                    updatedTask.metadata = {};
+                }
+                
+                if (!updatedTask.metadata.refId) {
                     log(
                         'info',
-                        '[TICKETING] Task is missing a reference ID. Attempting to generate one...'
+                        `[TICKETING] Task ${taskId} is missing a reference ID. Attempting to generate one...`
                     );
                     try {
                         const refId = await generateUserStoryRefId(taskId, projectRoot);
+                        log('debug', `[TICKETING] Generated reference ID: ${refId}`);
+                        
                         if (refId) {
+                            // Store refId directly here for debugging
+                            if (!updatedTask.metadata) {
+                                updatedTask.metadata = {};
+                            }
+                            updatedTask.metadata.refId = refId;
+                            
+                            // Also use the utility function
                             updatedTask = storeRefId(updatedTask, refId);
+                            
                             log(
                                 'info',
                                 `[TICKETING] Generated and stored reference ID ${refId} in task metadata`
                             );
+                            log('debug', `[TICKETING] Updated task data: ${JSON.stringify(updatedTask)}`);
 
                             // Update the task in the data
                             const taskIndex = data.tasks.findIndex(
                                 (t) => t.id === parseInt(taskId, 10)
                             );
                             if (taskIndex !== -1) {
+                                log('debug', `[TICKETING] Found task at index ${taskIndex}, updating...`);
                                 data.tasks[taskIndex] = updatedTask;
                                 // Write changes back to file
                                 writeJSON(tasksPath, data);
+                                log('debug', `[TICKETING] Successfully wrote updated task data to file`);
+                            } else {
+                                log('warn', `[TICKETING] Could not find task with ID ${taskId} in data array`);
                             }
                         } else {
                             log('warn', '[TICKETING] Could not generate a reference ID for the task');
                         }
                     } catch (error) {
                         log('error', `[TICKETING] Error generating reference ID: ${error.message}`);
+                        console.error('[TICKETING] Full error:', error);
                     }
+                } else {
+                    log('info', `[TICKETING] Task ${taskId} already has reference ID: ${updatedTask.metadata.refId}`);
                 }
 
                 try {
