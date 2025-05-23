@@ -17,6 +17,7 @@ import {
 	getDebugFlag
 } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
+import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 
 // --- Zod Schemas (Keep from previous step) ---
 const subtaskSchema = z
@@ -634,6 +635,18 @@ async function expandTask(
 
 		data.tasks[taskIndex] = task; // Assign the modified task back
 		writeJSON(tasksPath, data);
+
+		// Emit subtask creation events for each new subtask
+		generatedSubtasks.forEach(subtask => {
+			emit(EVENT_TYPES.SUBTASK_CREATED, {
+				parentTaskId: task.id,
+				subtask,
+				tasksPath,
+				data
+			});
+			logger.debug(`Emitted SUBTASK_CREATED event for subtask ${subtask.id} of task ${task.id}`);
+		});
+
 		await generateTaskFiles(tasksPath, path.dirname(tasksPath));
 
 		// Display AI Usage Summary for CLI
