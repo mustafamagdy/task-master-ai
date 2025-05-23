@@ -26,13 +26,15 @@
 		"defaultPriority": "medium",
 		"projectName": "Taskmaster",
 		"ollamaBaseUrl": "http://localhost:11434/api",
-		"azureOpenaiBaseUrl": "https://your-endpoint.openai.azure.com/",
-		"ticketingSystem": "{{ticketingSystem}}",
+		"azureOpenaiBaseUrl": "https://your-endpoint.openai.azure.com/"
+	},
+	"ticketing": {
+		"system": "{{ticketingSystem}}",
+		"integrationEnabled": false,
 		"jiraProjectKey": "{{jiraProjectKey}}",
 		"jiraBaseUrl": "{{jiraBaseUrl}}",
 		"jiraEmail": "{{jiraEmail}}",
 		"jiraApiToken": "{{jiraApiToken}}",
-		"ticketingIntegrationEnabled": false,
 		"azureOrganization": "{{azureOrganization}}",
 		"azurePersonalAccessToken": "{{azurePersonalAccessToken}}",
 		"azureProjectName": "{{azureProjectName}}",
