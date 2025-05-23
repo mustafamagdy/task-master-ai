@@ -103,7 +103,7 @@ export async function addTaskDirect(args, log, context = {}) {
 				description: args.description,
 				details: args.details || '',
 				testStrategy: args.testStrategy || '',
-				metadata: {} // Initialize empty metadata object to ensure refId can be stored
+				metadata: {}
 			};
 
 			log.info(

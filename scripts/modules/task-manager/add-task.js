@@ -288,10 +288,10 @@ async function addTask(
 			details: taskData.details || '',
 			testStrategy: taskData.testStrategy || '',
 			status: 'pending',
-			dependencies: numericDependencies, // Use validated numeric dependencies
+			dependencies: numericDependencies,
 			priority: effectivePriority,
-			metadata: {}, // Initialize with empty metadata object to ensure refId can be stored
-			subtasks: [] // Initialize with empty subtasks array
+			metadata: {}, 
+			subtasks: [] 
 		};
 
 		// Add the task to the tasks array
