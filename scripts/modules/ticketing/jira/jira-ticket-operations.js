@@ -9,7 +9,8 @@ import {
     mapPriorityToTicket, 
     mapStatusToTicket, 
     mapTicketStatusToTaskmaster,
-    mapTicketPriorityToTaskmaster
+    mapTicketPriorityToTaskmaster,
+    formatTitleForTicket
 } from './jira-mapping.js';
 import { 
     createIssue, 
@@ -74,8 +75,17 @@ export async function createStory(taskData, explicitRoot = null) {
             return null;
         }
 
-        // Format the title for Jira if needed
-        const title = formatTitleForJira ? formatTitleForJira(taskData.title) : taskData.title;
+        // Use our formatTitleForTicket function to get a valid title
+        const title = formatTitleForTicket(taskData);
+        
+        // Log the title being used
+        log('info', `Using title for Jira issue: "${title}"`);
+        
+        // Ensure title is not empty (this should never happen with our improved function)
+        if (!title || title.trim() === '') {
+            log('error', 'Task title is empty or undefined. Cannot create Jira issue without a summary.');
+            return null;
+        }
 
         // Prepare the issue data
         const issueData = {
@@ -83,7 +93,7 @@ export async function createStory(taskData, explicitRoot = null) {
                 project: {
                     key: projectKey
                 },
-                summary: title,
+                summary: title, // This is required by Jira
                 description: {
                     type: 'doc',
                     version: 1,

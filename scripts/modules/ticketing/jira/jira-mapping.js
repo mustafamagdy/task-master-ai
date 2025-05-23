@@ -41,7 +41,18 @@ export function mapPriorityToTicket(priority) {
  * @returns {string} Formatted title
  */
 export function formatTitleForTicket(task) {
-    // Use the formatTitleForJira function if available, otherwise just return the title
+    // Ensure we have a valid task object
+    if (!task) {
+        return 'Untitled Task';
+    }
+    
+    // Check if title exists and is not empty
+    if (!task.title || typeof task.title !== 'string' || task.title.trim() === '') {
+        // If no title, try to use the task ID or a default title
+        return task.id ? `Task ${task.id}` : 'Untitled Task';
+    }
+    
+    // Return the task title
     return task.title;
 }
 
