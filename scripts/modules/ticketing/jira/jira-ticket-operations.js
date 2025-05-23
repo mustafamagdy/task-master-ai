@@ -312,9 +312,6 @@ export async function createTask(
 			return null;
 		}
 
-		// Log the final payload for debugging
-		log('info', `Subtask payload: ${JSON.stringify(payload)}`);
-
 		// Skip priority field for now as it's causing Jira API errors
 		if (subtaskData.priority) {
 			log(
