@@ -4,7 +4,7 @@
  */
 
 import { log } from '../utils.js';
-import { initializeTicketingSubscribers } from '../ticketing/ticketing-event-subscriber.js';
+import { initializeTicketingSubscribers } from '../ticketing/events/ticketing-event-subscriber.js';
 
 let initialized = false;
 let ticketingUnsubscribe = null;
