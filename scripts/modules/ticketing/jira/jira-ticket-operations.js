@@ -105,13 +105,20 @@ export async function createStory(taskData, explicitRoot = null) {
             }
         };
 
-        // Add priority if specified
+        // Add priority if specified - but only if configured correctly
         if (taskData.priority) {
             const jiraPriority = mapPriorityToTicket(taskData.priority);
             if (jiraPriority) {
-                issueData.fields.priority = {
-                    name: jiraPriority
-                };
+                // Check if the field is allowed by the screen configuration
+                if (!shouldIgnoreField('priority')) {
+                    // Use the field mapping if available
+                    const priorityField = getFieldMapping('priority') || 'priority';
+                    issueData.fields[priorityField] = {
+                        name: jiraPriority
+                    };
+                } else {
+                    log('info', 'Priority field is ignored or not available on the Jira screen, skipping');
+                }
             }
         }
 
@@ -216,13 +223,20 @@ export async function createTask(subtaskData, parentTicketId, explicitRoot = nul
             return null;
         }
 
-        // Add priority if specified
+        // Add priority if specified - but only if configured correctly
         if (subtaskData.priority) {
             const jiraPriority = mapPriorityToTicket(subtaskData.priority);
             if (jiraPriority) {
-                payload.fields.priority = {
-                    name: jiraPriority
-                };
+                // Check if the field is allowed by the screen configuration
+                if (!shouldIgnoreField('priority')) {
+                    // Use the field mapping if available
+                    const priorityField = getFieldMapping('priority') || 'priority';
+                    payload.fields[priorityField] = {
+                        name: jiraPriority
+                    };
+                } else {
+                    log('info', 'Priority field is ignored or not available on the Jira screen, skipping');
+                }
             }
         }
 

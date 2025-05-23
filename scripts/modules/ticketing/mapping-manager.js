@@ -57,7 +57,7 @@ const DEFAULT_MAPPINGS = {
 			'depends-on': 'Blocks',
 			'related-to': 'Relates to'
 		},
-		fieldsToIgnore: []
+		fieldsToIgnore: ['priority']
 	},
 
 	// Azure DevOps default mappings
