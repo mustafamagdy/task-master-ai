@@ -20,10 +20,8 @@ export function subscribeToTaskCreation(subscribe) {
     // First verify that ticketing is enabled before even subscribing
     try {
         const projectRoot = findProjectRoot();
-        log('debug', `[TICKETING-DEBUG] Task creation handler checking project root: ${projectRoot}`);
         
         const ticketingEnabled = getTicketingIntegrationEnabled(projectRoot);
-        log('debug', `[TICKETING-DEBUG] Task creation handler ticketing enabled: ${ticketingEnabled}`);
         
         if (!ticketingEnabled) {
             log('debug', '[TICKETING] Ticketing integration is disabled, not subscribing to task creation events');
@@ -42,7 +40,6 @@ export function subscribeToTaskCreation(subscribe) {
         async ({ taskId, data, tasksPath, task }) => {
 
             log('debug', `[TICKETING] Received task created event for task ${taskId}`);
-            log('debug', `[TICKETING-DEBUG] Task data received: ${JSON.stringify({id: taskId, title: task?.title || data?.tasks?.find(t => t.id === parseInt(taskId, 10))?.title || 'unknown'})}`);
             
             // Double-check ticketing is still enabled at event time
             try {
@@ -73,20 +70,13 @@ export function subscribeToTaskCreation(subscribe) {
                 // Use findProjectRoot for consistent path resolution
                 const projectRoot = findProjectRoot();
                 log('debug', `[TICKETING] Using project root: ${projectRoot}`);
-                log('debug', `[TICKETING-DEBUG] Task object available: ${!!task}, Task ID: ${taskId}`);
-                if (task) {
-                    log('debug', `[TICKETING-DEBUG] Task details: title=${task.title}, status=${task.status}, priority=${task.priority}`);
-                }
 
                 // Instead of relying on getTicketingSystemEnabled which looks for the config file,
                 // check if a ticketing instance can be created directly
                 let ticketingInstance;
                 try {
                     log('debug', '[TICKETING] Attempting to get ticketing instance');
-                    log('debug', `[TICKETING-DEBUG] Attempting to get ticketing instance with projectRoot=${projectRoot}`);
                     ticketingInstance = await getTicketingInstance(null, projectRoot);
-                    
-                    log('debug', `[TICKETING-DEBUG] Ticketing instance result: ${!!ticketingInstance}`);
                     if (!ticketingInstance) {
                         log(
                             'info',
@@ -175,7 +165,6 @@ export function subscribeToTaskCreation(subscribe) {
                         `Ticket creation result: ${JSON.stringify(ticketingIssue)}`
                     );
 
-                    log('debug', `[TICKETING-DEBUG] Ticketing creation result: ${JSON.stringify(ticketingIssue || {error: 'No result'})}`);
                     if (ticketingIssue && ticketingIssue.key) {
                         // Store ticketing issue key in task metadata
                         log(
@@ -221,8 +210,6 @@ export function subscribeToTaskCreation(subscribe) {
                         'error',
                         `Error creating ticketing user story: ${ticketingError.message}`
                     );
-                    log('debug', `[TICKETING-DEBUG] Full ticketing error: ${JSON.stringify({name: ticketingError.name, message: ticketingError.message, stack: ticketingError.stack})}`);
-                    console.error('[TICKETING-DEBUG] Ticketing creation error:', ticketingError);
                 }
             } catch (error) {
                 log('error', `Error handling task created event: ${error.message}`);

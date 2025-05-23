@@ -195,8 +195,9 @@ export function subscribeToSubtaskCreation(subscribe) {
                         'info',
                         `Creating ticketing subtask for subtask ${subtaskId} of task ${parentTaskId}...`
                     );
-                    const ticketingIssue = await ticketingInstance.createSubtask(
+                    const ticketingIssue = await ticketingInstance.createTask(
                         subtaskData,
+                        parentTicketId,
                         projectRoot
                     );
                     log(
