@@ -20,9 +20,9 @@ import {
 export function isConfigured(explicitRoot = null) {
 	const jiraProjectKey = getJiraProjectKey(explicitRoot);
 	const config = getConfig(explicitRoot);
-	const jiraBaseUrl = config?.global?.jiraBaseUrl;
-	const jiraEmail = config?.global?.jiraEmail;
-	const jiraApiToken = config?.global?.jiraApiToken;
+	const jiraBaseUrl = config?.ticketing?.jiraBaseUrl;
+	const jiraEmail = config?.ticketing?.jiraEmail;
+	const jiraApiToken = config?.ticketing?.jiraApiToken;
 
 	return !!jiraProjectKey && !!jiraBaseUrl && !!jiraEmail && !!jiraApiToken;
 }
