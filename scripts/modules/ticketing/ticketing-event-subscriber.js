@@ -4,8 +4,12 @@
  */
 
 import path from 'path';
-import { log } from '../utils.js';
+import { log, findTaskById, findProjectRoot, writeJSON } from '../utils.js';
 import { subscribe, EVENT_TYPES } from '../events/event-emitter.js';
+import { getTicketingIntegrationEnabled, getTicketingSystemEnabled } from '../config-manager.js';
+import { getTicketingInstance } from './ticketing-factory.js';
+import { isTicketingSystemConfigured } from './ticketing-interface.js';
+import { generateUserStoryRefId, storeRefId } from './utils/id-utils.js';
 
 /**
  * Initialize ticketing event subscribers
@@ -13,12 +17,8 @@ import { subscribe, EVENT_TYPES } from '../events/event-emitter.js';
  */
 async function initializeTicketingSubscribers() {
   try {
-    // Find project root first to ensure it's consistent across all imports
-    const { findProjectRoot } = await import('../utils.js');
+    // Use static imports now
     const projectRoot = findProjectRoot();
-    
-    // Dynamically import the configuration functions to avoid circular dependencies
-    const { getTicketingIntegrationEnabled } = await import('../config-manager.js');
     
     // Only subscribe if ticketing integration is enabled - explicitly pass project root
     if (!getTicketingIntegrationEnabled(projectRoot)) {
@@ -51,32 +51,19 @@ async function initializeTicketingSubscribers() {
   // Subscribe to subtask status changes
   const unsubscribeSubtaskStatus = subscribe(
     EVENT_TYPES.SUBTASK_STATUS_CHANGED,
-    async ({ taskId, subtaskId, newStatus, data, tasksPath }) => {
+    async ({ taskId, newStatus, data, tasksPath }) => {
       try {
-        // Import required modules dynamically to avoid circular dependencies
-        const { findTaskById } = await import('../utils.js');
-        const { getTicketingInstance } = await import('./ticketing-factory.js');
+        // Using static imports now
         
-        // If the event includes the subtask object directly, use it
-        let subtask = data.subtask;
-        
-        log('info', `subtask: ${JSON.stringify(data)}`);
-        // Otherwise find the subtask in the task
-        if (!subtask) {
+        if (taskId) {
           const task = findTaskById(data.tasks, taskId);
           if (!task) {
-            log('warn', `Task ${taskId} not found for subtask ${subtaskId}. Skipping ticketing update.`);
+            log('warn', `Task ${taskId} not found. Skipping ticketing update.`);
             return;
-          }
-          subtask = task.subtasks?.find(st => st.id === subtaskId);
-          if (!subtask) {
-            log('warn', `Subtask ${subtaskId} not found in task ${taskId}. Skipping ticketing update.`);
-            return;
-          }
+          }          
         }
         
         // Get ticketing instance with explicit project root
-        const { findProjectRoot } = await import('../utils.js');
         const projectRoot = findProjectRoot();
         const ticketing = await getTicketingInstance('jira', projectRoot);
         if (!ticketing) {
@@ -85,7 +72,7 @@ async function initializeTicketingSubscribers() {
         }
         
         // Get the ticket ID from the subtask metadata
-        const subtaskTicketId = ticketing.getTicketId(subtask);
+        const subtaskTicketId = ticketing.getTicketId(task);
         if (!subtaskTicketId) {
   
           return;
@@ -97,11 +84,11 @@ async function initializeTicketingSubscribers() {
           subtaskTicketId,
           newStatus,
           null,
-          subtask
+          task
         );
         
         if (!success) {
-          log('warn', `Failed to update ticketing system issue ${subtaskTicketId} status for subtask ${subtaskId}`);
+          log('warn', `Failed to update ticketing system issue ${subtaskTicketId} status for task ${taskId}`);
         }
       } catch (error) {
         log('error', `Error handling subtask status change event: ${error.message}`);
@@ -117,8 +104,7 @@ async function initializeTicketingSubscribers() {
       try {
         // Only proceed with task if it was provided directly
         if (!task) {
-          // Import findTaskById to avoid circular dependencies
-          const { findTaskById, findProjectRoot } = await import('../utils.js');
+          // Using static imports now
           const projectRoot = findProjectRoot();
           
           // Find the task by ID
@@ -130,15 +116,9 @@ async function initializeTicketingSubscribers() {
         }
 
         // Use findProjectRoot for consistent path resolution
-        const { findProjectRoot } = await import('../utils.js');
         const projectRoot = findProjectRoot();
         
-        // Get all required modules dynamically to avoid circular dependencies
-        const { getTicketingSystemEnabled } = await import('../config-manager.js');
-        const { isTicketingSystemConfigured } = await import('./ticketing-interface.js');
-        const { getTicketingInstance } = await import('./ticketing-factory.js');
-        const { generateUserStoryRefId, storeRefId } = await import('./utils/id-utils.js');
-        const { writeJSON } = await import('../utils.js');
+        // Using static imports now
         
         // Instead of relying on getTicketingSystemEnabled which looks for the config file,
         // check if a ticketing instance can be created directly
@@ -251,11 +231,8 @@ async function initializeTicketingSubscribers() {
     EVENT_TYPES.SUBTASK_CREATED,
     async ({ taskId, subtaskId, subtask, data, tasksPath }) => {
       try {
-        // Import required modules dynamically to avoid circular dependencies
-        const { findTaskById, findProjectRoot } = await import('../utils.js');
+        // Using static imports now
         const projectRoot = findProjectRoot();
-        const { getTicketingInstance } = await import('./ticketing-factory.js');
-        const { writeJSON } = await import('../utils.js');
         
         // Find the parent task first
         const parentTask = findTaskById(data.tasks, taskId);
@@ -355,11 +332,9 @@ async function initializeTicketingSubscribers() {
     EVENT_TYPES.TASK_DELETED,
     async ({ taskId, task, data, tasksPath }) => {
       try {
-        // Import required modules dynamically to avoid circular dependencies
-        const { getTicketingInstance } = await import('./ticketing-factory.js');
+        // Using static imports now
         
         // Get ticketing instance with explicit project root
-        const { findProjectRoot } = await import('../utils.js');
         const projectRoot = findProjectRoot();
         const ticketing = await getTicketingInstance('jira', projectRoot);
         if (!ticketing) {
@@ -430,10 +405,8 @@ async function initializeTicketingSubscribers() {
     EVENT_TYPES.SUBTASK_DELETED,
     async ({ taskId, subtaskId, subtask, data, tasksPath }) => {
       try {
-        // Import required modules dynamically to avoid circular dependencies
-        const { findProjectRoot } = await import('../utils.js');
+        // Using static imports now
         const projectRoot = findProjectRoot();
-        const { getTicketingInstance } = await import('./ticketing-factory.js');
         
         // Get ticketing instance
         const ticketing = await getTicketingInstance('jira', projectRoot);
@@ -479,10 +452,8 @@ async function initializeTicketingSubscribers() {
     EVENT_TYPES.TASK_UPDATED,
     async ({ taskId, task, previousTask, data, tasksPath }) => {
       try {
-        // Import required modules dynamically to avoid circular dependencies
-        const { findProjectRoot } = await import('../utils.js');
+        // Using static imports now
         const projectRoot = findProjectRoot();
-        const { getTicketingInstance } = await import('./ticketing-factory.js');
         
         // Get ticketing instance
         const ticketing = await getTicketingInstance('jira', projectRoot);
@@ -526,10 +497,8 @@ async function initializeTicketingSubscribers() {
     EVENT_TYPES.SUBTASK_UPDATED,
     async ({ taskId, subtaskId, subtask, previousSubtask, data, tasksPath }) => {
       try {
-        // Import required modules dynamically to avoid circular dependencies
-        const { findProjectRoot } = await import('../utils.js');
+        // Using static imports now
         const projectRoot = findProjectRoot();
-        const { getTicketingInstance } = await import('./ticketing-factory.js');
         
         // Get ticketing instance
         const ticketing = await getTicketingInstance('jira', projectRoot);
@@ -591,10 +560,8 @@ async function initializeTicketingSubscribers() {
  */
 async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
   try {
-    // Import required modules dynamically to avoid circular dependencies
-    const { findTaskById, findProjectRoot } = await import('../utils.js');
+    // Using static imports now
     const projectRoot = findProjectRoot();
-    const { getTicketingInstance } = await import('./ticketing-factory.js');
     
     // Find the task by ID
     const task = findTaskById(data.tasks, taskId);

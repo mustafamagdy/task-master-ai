@@ -106,7 +106,7 @@ async function updateSingleTaskStatus(
 		}
 	} else {
 		// Handle regular task
-		const taskId = parseInt(taskIdInput, 10);
+		let taskId = parseInt(taskIdInput, 10);
 		const task = data.tasks.find((t) => t.id === taskId);
 
 		if (!task) {
