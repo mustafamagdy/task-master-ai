@@ -17,7 +17,7 @@ export function subscribeToSubtaskCreation(subscribe) {
         EVENT_TYPES.SUBTASK_CREATED,
         async ({ taskId, subtask, data, tasksPath }) => {
             try {
-                log('info', `Received SUBTASK_CREATED event for subtask ${taskId}`);
+                log('debug', `Received SUBTASK_CREATED event for subtask ${taskId}`);
                 const projectRoot = findProjectRoot();
 
                 // Extract parent task ID and subtask ID directly from the task ID
@@ -33,7 +33,7 @@ export function subscribeToSubtaskCreation(subscribe) {
                         parentTaskId = idParts[0];
                         subtaskId = idParts[1];
                         log(
-                            'info',
+                            'debug',
                             `Extracted parent task ID ${parentTaskId} and subtask ID ${subtaskId} from ${taskId}`
                         );
 
@@ -44,7 +44,7 @@ export function subscribeToSubtaskCreation(subscribe) {
                         );
                         if (foundParent) {
                             parentTask = foundParent;
-                            log('info', `Found parent task: ${parentTask.id}`);
+                            log('debug', `Found parent task: ${parentTask.id}`);
                         } else {
                             log(
                                 'warn',
@@ -193,7 +193,7 @@ export function subscribeToSubtaskCreation(subscribe) {
                 try {
                     log(
                         'info',
-                        `Creating ticketing subtask for subtask ${subtaskId} of task ${parentTaskId}...`
+                        `Creating ticketing subtask for subtask ${subtaskId} of task ${parentTaskId}`
                     );
                     const ticketingIssue = await ticketingInstance.createTask(
                         subtaskData,
@@ -243,7 +243,7 @@ export function subscribeToSubtaskCreation(subscribe) {
                                 data.tasks[taskIndex] = parentTask;
                                 // Write changes back to file
                                 log(
-                                    'info',
+                                    'debug',
                                     `Updating tasks.json with new ticket ID ${ticketingIssue.key} for subtask ${taskId}`
                                 );
                                 writeJSON(tasksPath, data);
