@@ -425,21 +425,15 @@ async function syncTickets(tasksPath, options = {}) {
             }
         }
 
-        // Return success with statistics
-        const message = `Synchronization complete: ${stats.tasksCreated} tasks created, ${stats.subtasksCreated} subtasks created, ${stats.tasksUpdated} tasks updated, ${stats.subtasksUpdated} subtasks updated, ${stats.ticketsUpdated} tickets updated, ${stats.tasksWithTimestampsAdded} timestamps initialized, ${stats.errors} errors`;
-        customLog.success(message);
-
         return {
             success: true,
             stats,
-            message
         };
     } catch (error) {
         customLog.error(`Synchronization error: ${error.message}`);
         return {
             success: false,
             stats,
-            message: `Error: ${error.message}`
         };
     }
 }

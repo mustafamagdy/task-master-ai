@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import Table from 'cli-table3';
-import { getTicketingSystemType } from '../../config-manager.js';
+import { getTicketingSystemType } from '../config-manager.js';
 
 /**
  * Display the results of ticket synchronization
