@@ -52,7 +52,24 @@ export function formatTitleForTicket(task) {
         return task.id ? `Task ${task.id}` : 'Untitled Task';
     }
     
-    // Return the task title
+    // Check if the task has a reference ID in metadata
+    let refId = null;
+    
+    // Look for refId in various possible locations
+    if (task.metadata && task.metadata.refId) {
+        refId = task.metadata.refId;
+    } else if (task.meta && task.meta.refId) {
+        refId = task.meta.refId;
+    } else if (task.refId) {
+        refId = task.refId;
+    }
+    
+    // If we found a reference ID, include it in the title
+    if (refId) {
+        return `[${refId}] ${task.title}`;
+    }
+    
+    // Otherwise just return the title
     return task.title;
 }
 
