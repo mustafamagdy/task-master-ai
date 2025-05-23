@@ -638,13 +638,22 @@ async function expandTask(
 
 		// Emit subtask creation events for each new subtask
 		generatedSubtasks.forEach(subtask => {
+			// Create compound ID in the format expected by the ticketing subscriber (parentId.subtaskId)
+			const compoundId = `${task.id}.${subtask.id}`;
+			
+			// Make sure subtask has reference to parent task
+			const subtaskWithParent = {
+				...subtask,
+				parentTask: { id: task.id }
+			};
+			
 			emit(EVENT_TYPES.SUBTASK_CREATED, {
-				taskId: task.id, // Changed from parentTaskId to taskId to match subscriber expectation
-				subtask,
+				taskId: compoundId, // Use compound ID format that ticketing subscriber expects
+				subtask: subtaskWithParent, // Include parent reference
 				tasksPath,
 				data
 			});
-			logger.info(`Emitted SUBTASK_CREATED event for subtask ${subtask.id} of task ${task.id}`);
+			logger.info(`Emitted SUBTASK_CREATED event for subtask ${compoundId}`);
 		});
 
 		await generateTaskFiles(tasksPath, path.dirname(tasksPath));
