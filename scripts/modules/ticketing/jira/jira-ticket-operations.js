@@ -16,6 +16,7 @@ import {
     createIssue, 
     getTicketStatus, 
     updateTicketStatus, 
+    deleteTicket as deleteJiraTicket,
     ticketExists as checkTicketExists,
     getAllTickets as fetchAllTickets
 } from './jira-api.js';
@@ -377,6 +378,42 @@ export async function ticketExists(ticketId, explicitRoot = null) {
     }
 
     return checkTicketExists(ticketId, config);
+}
+
+/**
+ * Delete a ticket in Jira
+ * @param {string} ticketId - Jira ticket ID/key (e.g., 'PROJ-123')
+ * @param {string|null} explicitRoot - Optional explicit path to the project root
+ * @returns {Promise<boolean>} True if the deletion was successful, false otherwise
+ */
+export async function deleteTicket(ticketId, explicitRoot = null) {
+    // Validate configuration
+    const config = validateConfig(explicitRoot);
+    if (!config) {
+        log('error', 'Invalid Jira configuration. Cannot delete ticket.');
+        return false;
+    }
+
+    if (!ticketId) {
+        log('error', 'Missing ticket ID for deleteTicket');
+        return false;
+    }
+
+    try {
+        // First check if the ticket exists
+        const exists = await checkTicketExists(ticketId, config);
+        if (!exists) {
+            log('warn', `Ticket ${ticketId} not found in Jira. No need to delete.`);
+            return true; // Consider this a success since the end state is what we want
+        }
+
+        // Delete the ticket
+        log('info', `Deleting ticket ${ticketId} from Jira...`);
+        return await deleteJiraTicket(ticketId, config);
+    } catch (error) {
+        log('error', `Error deleting Jira ticket: ${error.message}`);
+        return false;
+    }
 }
 
 /**

@@ -179,6 +179,17 @@ class TicketingSystemInterface {
 	updateTicketDetails(ticketId, taskData, previousTaskData, explicitRoot = null) {
 		throw new Error('Method updateTicketDetails must be implemented by subclass');
 	}
+
+	/**
+	 * Delete a ticket in the ticketing system
+	 * @param {string} ticketId - Ticket ID to delete
+	 * @param {string|null} explicitRoot - Optional explicit path to the project root
+	 * @returns {Promise<boolean>} True if successful, false otherwise
+	 * @abstract
+	 */
+	deleteTicket(ticketId, explicitRoot = null) {
+		throw new Error('Method deleteTicket must be implemented by subclass');
+	}
 }
 
 /**

@@ -265,3 +265,41 @@ export async function ticketExists(ticketId, config) {
         return false;
     }
 }
+
+/**
+ * Delete a ticket in Jira
+ * @param {string} ticketId - Jira ticket ID/key (e.g., 'PROJ-123')
+ * @param {Object} config - Jira configuration object
+ * @returns {Promise<boolean>} True if successful, false otherwise
+ */
+export async function deleteTicket(ticketId, config) {
+    if (!config || !ticketId) {
+        log('error', 'Missing required parameters for deleteTicket');
+        return false;
+    }
+
+    try {
+        const { baseUrl, email, apiToken } = config;
+        const url = `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue/${ticketId}`;
+
+        log('info', `Attempting to delete Jira ticket: ${ticketId}`);
+
+        const response = await fetch(url, {
+            method: 'DELETE',
+            headers: getAuthHeaders(email, apiToken)
+        });
+
+        // Status 204 No Content is the expected response for successful deletion
+        if (response.status === 204) {
+            log('success', `Successfully deleted Jira ticket: ${ticketId}`);
+            return true;
+        } else {
+            const errorText = await response.text();
+            log('error', `Failed to delete Jira ticket ${ticketId}: ${response.status} ${errorText}`);
+            return false;
+        }
+    } catch (error) {
+        log('error', `Error deleting Jira ticket ${ticketId}: ${error.message}`);
+        return false;
+    }
+}

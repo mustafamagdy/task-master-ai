@@ -362,23 +362,21 @@ async function initializeTicketingSubscribers() {
           return;
         }
         
-        // If the task had a ticket ID, update it or mark it as deleted in the ticketing system
+        // If the task had a ticket ID, delete it from the ticketing system
         const ticketId = task && ticketing.getTicketId(task);
         if (ticketId) {
-          log('info', `Task ${taskId} with ticket ${ticketId} was deleted. Updating ticketing system...`);
+          log('info', `Task ${taskId} with ticket ${ticketId} was deleted. Deleting from ticketing system...`);
           
-          // Update the ticket in the ticketing system to mark it as cancelled/deleted
-          const success = await ticketing.updateTicketStatus(
+          // Delete the ticket from the ticketing system
+          const success = await ticketing.deleteTicket(
             ticketId,
-            'cancelled', // Or whatever status makes sense for deleted tasks
-            null,
-            task
+            null
           );
           
           if (success) {
-            log('success', `Updated ticketing system issue ${ticketId} for deleted task ${taskId}`);
+            log('success', `Successfully deleted ticket ${ticketId} for task ${taskId} from ticketing system`);
           } else {
-            log('warn', `Failed to update ticketing system issue ${ticketId} for deleted task ${taskId}`);
+            log('warn', `Failed to delete ticket ${ticketId} for task ${taskId} from ticketing system`);
           }
         } else {
           log('info', `No ticketing system issue found for deleted task ${taskId}. No action needed.`);
@@ -451,18 +449,18 @@ async function initializeTicketingSubscribers() {
           return;
         }
         
-        log('info', `Subtask ${subtaskId} with ticket ${subtaskTicketId} was deleted. Updating ticketing system...`);
+        log('info', `Subtask ${subtaskId} with ticket ${subtaskTicketId} was deleted. Deleting from ticketing system...`);
         
-        // Update the ticket in the ticketing system to mark it as cancelled/deleted
-        const success = await ticketing.updateTicketStatus(
+        // Delete the ticket from the ticketing system
+        const success = await ticketing.deleteTicket(
           subtaskTicketId,
-          'cancelled', // Or whatever status makes sense for deleted subtasks
-          null,
-          subtask
+          null
         );
         
-        if (!success) {
-          log('warn', `Failed to update ticketing system for deleted subtask ${subtaskId}`);
+        if (success) {
+          log('success', `Successfully deleted ticket ${subtaskTicketId} for subtask ${subtaskId} from ticketing system`);
+        } else {
+          log('warn', `Failed to delete ticket ${subtaskTicketId} for subtask ${subtaskId} from ticketing system`);
         }
       } catch (error) {
         log('error', `Error handling subtask deleted event: ${error.message}`);

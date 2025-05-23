@@ -16,7 +16,7 @@ import {
     mapTicketStatusToTaskmaster,
     mapTicketPriorityToTaskmaster 
 } from './jira-mapping.js';
-import {
+import { 
     storeTicketId,
     getTicketId,
     createStory,
@@ -24,6 +24,8 @@ import {
     getAllTickets,
     getTicketStatusById,
     updateTicketStatusById,
+    updateTicketDetails,
+    deleteTicket,
     ticketExists
 } from './jira-ticket-operations.js';
 
@@ -231,9 +233,19 @@ class JiraTicketing extends TicketingSystemInterface {
      * @returns {Promise<boolean>} True if successful, false otherwise
      */
     async updateTicketDetails(ticketId, taskData, previousTaskData, explicitRoot = null) {
-        // Use the implementation from jira-ticket-operations module
-        const { updateTicketDetails: updateTicketDetailsOp } = await import('./jira-ticket-operations.js');
-        return updateTicketDetailsOp(ticketId, taskData, previousTaskData, explicitRoot);
+        // Use the statically imported implementation
+        return updateTicketDetails(ticketId, taskData, previousTaskData, explicitRoot);
+    }
+    
+    /**
+     * Delete a ticket in the Jira system
+     * @param {string} ticketId - Jira ticket ID/key (e.g., 'PROJ-123')
+     * @param {string|null} explicitRoot - Optional explicit path to the project root
+     * @returns {Promise<boolean>} True if successful, false otherwise
+     */
+    async deleteTicket(ticketId, explicitRoot = null) {
+        // Use the statically imported implementation
+        return deleteTicket(ticketId, explicitRoot);
     }
 }
 
