@@ -11,19 +11,11 @@ import {
 } from '../ui.js';
 
 import { generateTextService } from '../ai-services-unified.js';
-import { isTicketingSystemConfigured } from '../ticketing/ticketing-interface.js';
 
 import {
 	getDefaultSubtasks,
-	getDebugFlag,
-	getTicketingIntegrationEnabled,
-	getTicketingSystem
+	getDebugFlag
 } from '../config-manager.js';
-import {
-	generateSubtaskRefId,
-	storeRefId,
-	getRefId
-} from '../ticketing/utils/id-utils.js';
 import generateTaskFiles from './generate-task-files.js';
 
 // --- Zod Schemas (Keep from previous step) ---
@@ -634,83 +626,6 @@ async function expandTask(
 		// Ensure task.subtasks is an array before appending
 		if (!Array.isArray(task.subtasks)) {
 			task.subtasks = [];
-		}
-
-		// Store reference IDs in subtask metadata if Jira integration is enabled
-		if (getTicketingIntegrationEnabled(projectRoot)) {
-			for (let i = 0; i < generatedSubtasks.length; i++) {
-				const subtask = generatedSubtasks[i];
-				// Add await keyword since generateSubtaskRefId is an async function
-				const refId = await generateSubtaskRefId(
-					task.id,
-					subtask.id,
-					projectRoot
-				);
-				if (refId) {
-					generatedSubtasks[i] = storeRefId(subtask, refId);
-					logger.info(
-						`Stored reference ID ${refId} in subtask ${subtask.id} metadata`
-					);
-				}
-			}
-		}
-
-		// Check if Jira integration is enabled and configured
-		if (
-			getTicketingIntegrationEnabled(projectRoot) &&
-			isTicketingSystemConfigured(projectRoot)
-		) {
-			logger.info('Jira integration is enabled. Creating tasks in Jira...');
-
-			// Get the ticketing system instance
-			const ticketingSystem = await getTicketingSystem(projectRoot);
-
-			// Get the parent task's Jira key
-			const parentJiraKey = ticketingSystem.getTicketId(task);
-
-			if (parentJiraKey) {
-				// Create Jira tasks for each subtask
-				for (const subtask of generatedSubtasks) {
-					try {
-						// Create task in Jira using the ticketing system instance
-						const jiraIssue = await ticketingSystem.createTask(
-							{
-								title: subtask.title,
-								description: subtask.description,
-								details: subtask.details,
-								priority: 'medium' // Default priority for subtasks
-							},
-							parentJiraKey,
-							projectRoot
-						);
-
-						if (jiraIssue && jiraIssue.key) {
-							// Initialize metadata if it doesn't exist
-							if (!subtask.metadata) {
-								subtask.metadata = {};
-							}
-
-							// Store Jira issue key in subtask metadata
-							subtask.metadata.jiraKey = jiraIssue.key;
-							logger.info(
-								`Created Jira task: ${jiraIssue.key} for subtask ${subtask.id}`
-							);
-						} else {
-							logger.warn(
-								`Failed to create Jira task for subtask ${subtask.id}`
-							);
-						}
-					} catch (jiraError) {
-						logger.error(
-							`Error creating Jira task for subtask ${subtask.id}: ${jiraError.message}`
-						);
-					}
-				}
-			} else {
-				logger.warn(
-					'Parent task does not have a Jira key. Skipping Jira task creation for subtasks.'
-				);
-			}
 		}
 
 		// Append the newly generated and validated subtasks
