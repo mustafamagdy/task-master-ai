@@ -16,6 +16,7 @@ import { generateObjectService } from '../ai-services-unified.js';
 import { getDefaultPriority } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 import { emit, EVENT_TYPES } from '../events/event-emitter.js';
+import { generateUserStoryRefId, storeRefId } from '../ticketing/utils/id-utils.js';
 
 // Define Zod schema for the expected AI output object
 const AiTaskDataSchema = z.object({
@@ -293,6 +294,13 @@ async function addTask(
 			metadata: {}, 
 			subtasks: [] 
 		};
+
+		// Generate refId for the new task
+		const refId = generateUserStoryRefId(newTaskId, true); // Always generate refId regardless of ticketing integration
+		if (refId) {
+			newTask = storeRefId(newTask, refId);
+			report(`Generated reference ID ${refId} for task ${newTaskId}`, 'info');
+		}
 
 		// Add the task to the tasks array
 		data.tasks.push(newTask);
