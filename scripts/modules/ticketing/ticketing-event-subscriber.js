@@ -65,7 +65,8 @@ async function initializeTicketingSubscribers() {
         }
         
         // Find the subtask
-        const subtask = task.subtasks?.find(st => st.id === subtaskId);
+        // Convert subtaskId to number for proper comparison
+        const subtask = task.subtasks?.find(st => st.id === parseInt(subtaskId, 10));
         if (!subtask) {
           log('warn', `Subtask ${subtaskId} not found in task ${taskId}. Skipping ticketing update.`);
           return;
@@ -264,7 +265,8 @@ async function initializeTicketingSubscribers() {
         let subtaskObj = subtask;
         if (!subtaskObj) {
           // Find the subtask within the parent task
-          subtaskObj = parentTask.subtasks?.find(st => st.id === subtaskId);
+          // Convert subtaskId to number for proper comparison
+          subtaskObj = parentTask.subtasks?.find(st => st.id === parseInt(subtaskId, 10));
           if (!subtaskObj) {
             log('warn', `Subtask ${subtaskId} not found in task ${taskId}. Skipping ticket creation.`);
             return;
