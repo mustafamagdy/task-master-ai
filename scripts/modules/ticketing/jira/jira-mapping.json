@@ -1,7 +1,7 @@
 {
 	"issueTypes": {
 		"task": "Story",
-		"subtask": "Sub-task",
+		"subtask": "Subtask",
 		"epic": "Epic"
 	},
 	"fields": {

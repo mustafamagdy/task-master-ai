@@ -30,7 +30,7 @@ async function initializeTicketingSubscribers() {
     return () => {}; // Return empty unsubscribe function on error
   }
 
-  log('info', 'Initializing ticketing event subscribers...');
+  // Initialize ticketing event subscribers
   
   // Keep track of all unsubscribe functions
   const unsubscribeFunctions = [];
@@ -83,12 +83,12 @@ async function initializeTicketingSubscribers() {
         // Get the ticket ID from the subtask metadata
         const subtaskTicketId = ticketing.getTicketId(subtask);
         if (!subtaskTicketId) {
-          log('info', `No ticketing system issue found for subtask ${subtaskId}. Skipping status update.`);
+  
           return;
         }
         
         // Update the ticket status
-        log('info', `Updating ticketing system issue ${subtaskTicketId} status for subtask ${subtaskId}...`);
+
         const success = await ticketing.updateTicketStatus(
           subtaskTicketId,
           newStatus,
@@ -96,9 +96,7 @@ async function initializeTicketingSubscribers() {
           subtask
         );
         
-        if (success) {
-          log('success', `Updated ticketing system issue ${subtaskTicketId} status for subtask ${subtaskId}`);
-        } else {
+        if (!success) {
           log('warn', `Failed to update ticketing system issue ${subtaskTicketId} status for subtask ${subtaskId}`);
         }
       } catch (error) {
@@ -441,9 +439,7 @@ async function initializeTicketingSubscribers() {
           subtask
         );
         
-        if (success) {
-          log('success', `Updated ticketing system for deleted subtask ${subtaskId}`);
-        } else {
+        if (!success) {
           log('warn', `Failed to update ticketing system for deleted subtask ${subtaskId}`);
         }
       } catch (error) {
@@ -498,7 +494,7 @@ async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
     // Check if the task has a ticket ID in its metadata
     const ticketId = ticketing.getTicketId(task);
     if (ticketId) {
-      log('info', `Updating ticketing system issue ${ticketId} status to ${newStatus}...`);
+
 
       // Update the ticket status
       const success = await ticketing.updateTicketStatus(
@@ -508,13 +504,11 @@ async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
         task
       );
       
-      if (success) {
-        log('success', `Updated ticketing system issue ${ticketId} status for task ${taskId}`);
-      } else {
+      if (!success) {
         log('warn', `Failed to update ticketing system issue ${ticketId} status for task ${taskId}`);
       }
     } else {
-      log('info', `No ticketing system issue found for task ${taskId}. Skipping status update.`);
+
     }
 
     // Update subtasks if they exist
@@ -522,7 +516,7 @@ async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
       for (const subtask of task.subtasks) {
         const subtaskTicketId = ticketing.getTicketId(subtask);
         if (subtaskTicketId) {
-          log('info', `Updating ticketing system issue ${subtaskTicketId} status for subtask ${subtask.id}...`);
+
           try {
             const subtaskSuccess = await ticketing.updateTicketStatus(
               subtaskTicketId,
@@ -531,16 +525,14 @@ async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
               subtask
             );
 
-            if (subtaskSuccess) {
-              log('success', `Updated ticketing system issue ${subtaskTicketId} status for subtask ${subtask.id}`);
-            } else {
+            if (!subtaskSuccess) {
               log('warn', `Failed to update ticketing system issue ${subtaskTicketId} status for subtask ${subtask.id}`);
             }
           } catch (ticketError) {
             log('error', `Error updating ticketing system issue status for subtask ${subtask.id}: ${ticketError.message}`);
           }
         } else {
-          log('info', `No ticketing system issue found for subtask ${subtask.id}. Skipping status update.`);
+
         }
       }
     }

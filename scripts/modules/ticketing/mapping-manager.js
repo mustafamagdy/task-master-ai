@@ -21,7 +21,7 @@ const DEFAULT_MAPPINGS = {
 	jira: {
 		issueTypes: {
 			task: 'Story',
-			subtask: 'Sub-task',
+			subtask: 'Subtask',
 			epic: 'Epic'
 		},
 		fields: {
