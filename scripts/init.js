@@ -331,153 +331,52 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 					existingConfig.global = {};
 				}
 
-				// Create ticketing section if it doesn't exist
-				if (!existingConfig.ticketing) {
-					existingConfig.ticketing = {};
-				}
-
-				// Update ticketing configuration inside the ticketing section
+				// Get the selected ticketing system
 				const selectedTicketing = replacements.ticketingSystem || 'none';
 
-				// Update the ticketing system type
-				existingConfig.ticketing.system = selectedTicketing;
-
-				// Set integrationEnabled flag
-				if (selectedTicketing === 'none') {
-					existingConfig.ticketing.integrationEnabled = false;
-				} else {
-					existingConfig.ticketing.integrationEnabled = true;
-				}
-
-				// For backward compatibility, check if ticketing config exists in global
-				// and migrate it to the ticketing section if needed
-				if (existingConfig.global?.ticketingSystem) {
-					log('info', 'Migrating ticketing configuration from global to ticketing section');
-					
-					// Only migrate if the new section doesn't already have values
-					if (!existingConfig.ticketing.jiraProjectKey && existingConfig.global.jiraProjectKey) {
-						existingConfig.ticketing.jiraProjectKey = existingConfig.global.jiraProjectKey;
-					}
-					if (!existingConfig.ticketing.jiraBaseUrl && existingConfig.global.jiraBaseUrl) {
-						existingConfig.ticketing.jiraBaseUrl = existingConfig.global.jiraBaseUrl;
-					}
-					if (!existingConfig.ticketing.jiraEmail && existingConfig.global.jiraEmail) {
-						existingConfig.ticketing.jiraEmail = existingConfig.global.jiraEmail;
-					}
-					if (!existingConfig.ticketing.jiraApiToken && existingConfig.global.jiraApiToken) {
-						existingConfig.ticketing.jiraApiToken = existingConfig.global.jiraApiToken;
-					}
-					if (!existingConfig.ticketing.azureOrganization && existingConfig.global.azureOrganization) {
-						existingConfig.ticketing.azureOrganization = existingConfig.global.azureOrganization;
-					}
-					if (!existingConfig.ticketing.azurePersonalAccessToken && existingConfig.global.azurePersonalAccessToken) {
-						existingConfig.ticketing.azurePersonalAccessToken = existingConfig.global.azurePersonalAccessToken;
-					}
-					if (!existingConfig.ticketing.azureProjectName && existingConfig.global.azureProjectName) {
-						existingConfig.ticketing.azureProjectName = existingConfig.global.azureProjectName;
-					}
-					if (!existingConfig.ticketing.githubToken && existingConfig.global.githubToken) {
-						existingConfig.ticketing.githubToken = existingConfig.global.githubToken;
-					}
-					if (!existingConfig.ticketing.githubOwner && existingConfig.global.githubOwner) {
-						existingConfig.ticketing.githubOwner = existingConfig.global.githubOwner;
-					}
-					if (!existingConfig.ticketing.githubRepository && existingConfig.global.githubRepository) {
-						existingConfig.ticketing.githubRepository = existingConfig.global.githubRepository;
-					}
-					if (!existingConfig.ticketing.githubProjectNumber && existingConfig.global.githubProjectNumber) {
-						existingConfig.ticketing.githubProjectNumber = existingConfig.global.githubProjectNumber;
-					}
-					
-					// Remove ticketing configuration from global section
-					delete existingConfig.global.ticketingSystem;
-					delete existingConfig.global.ticketingIntegrationEnabled;
-					delete existingConfig.global.jiraProjectKey;
-					delete existingConfig.global.jiraBaseUrl;
-					delete existingConfig.global.jiraEmail;
-					delete existingConfig.global.jiraApiToken;
-					delete existingConfig.global.azureOrganization;
-					delete existingConfig.global.azurePersonalAccessToken;
-					delete existingConfig.global.azureProjectName;
-					delete existingConfig.global.githubToken;
-					delete existingConfig.global.githubOwner;
-					delete existingConfig.global.githubRepository;
-					delete existingConfig.global.githubProjectNumber;
-				}
+				// Clean up any existing placeholder values from ticketing section
+				// by initializing ticketing section with empty values
+				existingConfig.ticketing = {
+					system: selectedTicketing,
+					integrationEnabled: selectedTicketing !== 'none'
+				};
 
 				// Add specific configuration based on selected system
 				switch (selectedTicketing) {
 					case 'jira':
-						// Update Jira configuration
-						existingConfig.global.jiraProjectKey =
+						// Update Jira configuration in ticketing section
+						existingConfig.ticketing.jiraProjectKey =
 							replacements.jiraProjectKey || '';
-						existingConfig.global.jiraBaseUrl = replacements.jiraBaseUrl || '';
-						existingConfig.global.jiraEmail = replacements.jiraEmail || '';
-						existingConfig.global.jiraApiToken =
+						existingConfig.ticketing.jiraBaseUrl = replacements.jiraBaseUrl || '';
+						existingConfig.ticketing.jiraEmail = replacements.jiraEmail || '';
+						existingConfig.ticketing.jiraApiToken =
 							replacements.jiraApiToken || '';
-
-						// Remove other ticketing configurations
-						delete existingConfig.global.azureOrganization;
-						delete existingConfig.global.azurePersonalAccessToken;
-						delete existingConfig.global.azureProjectName;
-						delete existingConfig.global.githubToken;
-						delete existingConfig.global.githubOwner;
-						delete existingConfig.global.githubRepository;
-						delete existingConfig.global.githubProjectNumber;
 						break;
 
 					case 'azure':
-						// Update Azure configuration
-						existingConfig.global.azureOrganization =
+						// Update Azure configuration in ticketing section
+						existingConfig.ticketing.azureOrganization =
 							replacements.azureOrganization || '';
-						existingConfig.global.azurePersonalAccessToken =
+						existingConfig.ticketing.azurePersonalAccessToken =
 							replacements.azurePersonalAccessToken || '';
-						existingConfig.global.azureProjectName =
+						existingConfig.ticketing.azureProjectName =
 							replacements.azureProjectName || '';
-
-						// Remove other ticketing configurations
-						delete existingConfig.global.jiraProjectKey;
-						delete existingConfig.global.jiraBaseUrl;
-						delete existingConfig.global.jiraEmail;
-						delete existingConfig.global.jiraApiToken;
-						delete existingConfig.global.githubToken;
-						delete existingConfig.global.githubOwner;
-						delete existingConfig.global.githubRepository;
-						delete existingConfig.global.githubProjectNumber;
 						break;
 
 					case 'github':
-						// Update GitHub configuration
-						existingConfig.global.githubToken = replacements.githubToken || '';
-						existingConfig.global.githubOwner = replacements.githubOwner || '';
-						existingConfig.global.githubRepository =
+						// Update GitHub configuration in ticketing section
+						existingConfig.ticketing.githubToken =
+							replacements.githubToken || '';
+						existingConfig.ticketing.githubOwner =
+							replacements.githubOwner || '';
+						existingConfig.ticketing.githubRepository =
 							replacements.githubRepository || '';
-						existingConfig.global.githubProjectNumber =
+						existingConfig.ticketing.githubProjectNumber =
 							replacements.githubProjectNumber || '';
-
-						// Remove other ticketing configurations
-						delete existingConfig.global.jiraProjectKey;
-						delete existingConfig.global.jiraBaseUrl;
-						delete existingConfig.global.jiraEmail;
-						delete existingConfig.global.jiraApiToken;
-						delete existingConfig.global.azureOrganization;
-						delete existingConfig.global.azurePersonalAccessToken;
-						delete existingConfig.global.azureProjectName;
 						break;
 
-					case 'none':
-						// Remove all ticketing configurations
-						delete existingConfig.global.jiraProjectKey;
-						delete existingConfig.global.jiraBaseUrl;
-						delete existingConfig.global.jiraEmail;
-						delete existingConfig.global.jiraApiToken;
-						delete existingConfig.global.azureOrganization;
-						delete existingConfig.global.azurePersonalAccessToken;
-						delete existingConfig.global.azureProjectName;
-						delete existingConfig.global.githubToken;
-						delete existingConfig.global.githubOwner;
-						delete existingConfig.global.githubRepository;
-						delete existingConfig.global.githubProjectNumber;
+					default:
+						// No ticketing system selected
 						break;
 				}
 
