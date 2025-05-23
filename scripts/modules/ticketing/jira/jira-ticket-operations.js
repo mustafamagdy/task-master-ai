@@ -105,21 +105,10 @@ export async function createStory(taskData, explicitRoot = null) {
             }
         };
 
-        // Add priority if specified - but only if configured correctly
+        // Skip priority field for now as it's causing Jira API errors
         if (taskData.priority) {
-            const jiraPriority = mapPriorityToTicket(taskData.priority);
-            if (jiraPriority) {
-                // Check if the field is allowed by the screen configuration
-                if (!shouldIgnoreField('priority')) {
-                    // Use the field mapping if available
-                    const priorityField = getFieldMapping('priority') || 'priority';
-                    issueData.fields[priorityField] = {
-                        name: jiraPriority
-                    };
-                } else {
-                    log('info', 'Priority field is ignored or not available on the Jira screen, skipping');
-                }
-            }
+            log('info', 'Priority field is skipped during Jira issue creation to avoid API errors');
+            // The priority can be set later if needed via a separate API call
         }
 
         // Create the issue in Jira
@@ -223,21 +212,10 @@ export async function createTask(subtaskData, parentTicketId, explicitRoot = nul
             return null;
         }
 
-        // Add priority if specified - but only if configured correctly
+        // Skip priority field for now as it's causing Jira API errors
         if (subtaskData.priority) {
-            const jiraPriority = mapPriorityToTicket(subtaskData.priority);
-            if (jiraPriority) {
-                // Check if the field is allowed by the screen configuration
-                if (!shouldIgnoreField('priority')) {
-                    // Use the field mapping if available
-                    const priorityField = getFieldMapping('priority') || 'priority';
-                    payload.fields[priorityField] = {
-                        name: jiraPriority
-                    };
-                } else {
-                    log('info', 'Priority field is ignored or not available on the Jira screen, skipping');
-                }
-            }
+            log('info', 'Priority field is skipped during Jira issue creation to avoid API errors');
+            // The priority can be set later if needed via a separate API call
         }
 
         // Create the issue in Jira

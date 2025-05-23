@@ -162,20 +162,59 @@ export async function createIssue(issueData, config) {
     if (!issueData || !config) return null;
 
     const { baseUrl, email, apiToken } = config;
+    
+    // Create a sanitized copy of the issue data to prevent object keys
+    const sanitizedIssueData = { ...issueData };
+    sanitizedIssueData.fields = { ...issueData.fields };
+    
+    // Remove any fields that are objects used as keys
+    for (const key in sanitizedIssueData.fields) {
+        if (typeof key === 'object') {
+            log('warn', `Removing invalid field with object key: ${JSON.stringify(key)}`);
+            delete sanitizedIssueData.fields[key];
+        }
+    }
 
     try {
+        // Log the request data for debugging
+        log('info', 'Creating Jira issue with the following data:');
+        log('info', `Project: ${JSON.stringify(issueData.fields.project)}`);
+        log('info', `Summary: ${issueData.fields.summary}`);
+        log('info', `Issue Type: ${JSON.stringify(issueData.fields.issuetype)}`);
+        
+        // Log all fields to identify problematic ones
+        log('info', 'All fields being sent to Jira:');
+        for (const [key, value] of Object.entries(issueData.fields)) {
+            // Convert to string to avoid [object Object] in logs
+            const valueStr = typeof value === 'object' ? JSON.stringify(value) : value;
+            log('info', `  ${key}: ${valueStr}`);
+        }
+        
         const response = await fetch(
             `${baseUrl}/rest/api/${JIRA_API_VERSION}/issue`,
             {
                 method: 'POST',
                 headers: getAuthHeaders(email, apiToken),
-                body: JSON.stringify(issueData)
+                body: JSON.stringify(sanitizedIssueData)
             }
         );
 
         if (!response.ok) {
             const errorText = await response.text();
             log('error', `Error creating Jira issue: ${response.status} ${errorText}`);
+            // For 400 errors, try to parse the error and provide more details
+            if (response.status === 400) {
+                try {
+                    const errorObj = JSON.parse(errorText);
+                    if (errorObj.errors) {
+                        for (const [key, value] of Object.entries(errorObj.errors)) {
+                            log('error', `Field error - Key: ${key}, Message: ${value}`);
+                        }
+                    }
+                } catch (parseError) {
+                    log('error', 'Could not parse error details');
+                }
+            }
             return null;
         }
 
