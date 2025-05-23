@@ -60,15 +60,24 @@ async function initializeTicketingSubscribers() {
           return;
         }
 
-        log('info', `task details: ${JSON.stringify(subtask)}`);
-        // Extract parent information
+        // Extract parent task ID from the subtask ID (e.g., "1.2" -> "1")
         let parentTask = null;
-        if (subtask.parentTask && subtask.parentTask.id) {
-          // Get the full parent task object if needed
-          const { task: foundParent } = findTaskById(data.tasks, subtask.parentTask.id);
+        let parentTaskId = null;
+        
+        if (taskId && taskId.toString().includes('.')) {
+          parentTaskId = taskId.toString().split('.')[0];
+          log('info', `Extracted parent task ID ${parentTaskId} from subtask ID ${taskId}`);
+          
+          // Get the parent task using findTaskById
+          const { task: foundParent } = findTaskById(data.tasks, parentTaskId);
           if (foundParent) {
             parentTask = foundParent;
+            log('info', `Found parent task: ${parentTask.id}`);
+          } else {
+            log('warn', `Parent task ${parentTaskId} not found for subtask ${taskId}`);
           }
+        } else {
+          log('warn', `Subtask ID ${taskId} is not in the expected format (parentId.subtaskId)`);
         }
                 
         // Get ticketing instance with explicit project root
@@ -82,8 +91,10 @@ async function initializeTicketingSubscribers() {
         // Get the ticket ID from the subtask metadata, passing parent task info
         const subtaskTicketId = ticketing.getTicketId(subtask, { 
           parentTask,
-          debug: true
+          debug: true  // Enable debug logging to see what's happening
         });
+        
+        log('info', `Got ticket ID for subtask ${taskId}: ${subtaskTicketId}`);
         if (!subtaskTicketId) {
           log('info', `No ticket ID found for subtask ${taskId}. Skipping ticketing update.`);
           return;
@@ -248,31 +259,53 @@ async function initializeTicketingSubscribers() {
         // Using static imports now
         const projectRoot = findProjectRoot();
         
-        // Use provided subtask or find it using findTaskById
+        // Extract parent task ID and subtask ID directly from the task ID
+        let parentTask = null;
+        let parentTaskId = null;
+        let subtaskId = null;
         let subtaskObj = subtask;
-        let parentTask, parentTaskId, subtaskId;
         
+        // Parse compound ID (e.g., "1.2")
+        if (taskId && taskId.toString().includes('.')) {
+          const idParts = taskId.toString().split('.');
+          if (idParts.length === 2) {
+            parentTaskId = idParts[0];
+            subtaskId = idParts[1];
+            log('info', `Extracted parent task ID ${parentTaskId} and subtask ID ${subtaskId} from ${taskId}`);
+            
+            // Get the parent task using the extracted ID
+            const { task: foundParent } = findTaskById(data.tasks, parentTaskId);
+            if (foundParent) {
+              parentTask = foundParent;
+              log('info', `Found parent task: ${parentTask.id}`);
+            } else {
+              log('warn', `Parent task ${parentTaskId} not found for subtask ${taskId}. Skipping ticket creation.`);
+              return;
+            }
+          }
+        }
+        
+        // If we don't have a subtask object yet, try to find it
         if (!subtaskObj && taskId) {
           // Find the subtask using findTaskById which handles compound IDs
           const { task: foundTask } = findTaskById(data.tasks, taskId);
           if (foundTask && foundTask.isSubtask) {
             subtaskObj = foundTask;
-            // Extract parent task info from the subtask
-            if (subtaskObj.parentTask) {
+            // If we don't have parent task ID yet, extract it from the subtask
+            if (!parentTaskId && subtaskObj.parentTask) {
               parentTaskId = subtaskObj.parentTask.id;
               subtaskId = subtaskObj.id;
               
-              // Get the actual parent task object
-              const { task: foundParent } = findTaskById(data.tasks, parentTaskId);
-              if (foundParent) {
-                parentTask = foundParent;
-              } else {
-                log('warn', `Parent task ${parentTaskId} not found for subtask ${taskId}. Skipping ticket creation.`);
-                return;
+              // Get the parent task if we haven't already
+              if (!parentTask) {
+                const { task: foundParent } = findTaskById(data.tasks, parentTaskId);
+                if (foundParent) {
+                  parentTask = foundParent;
+                } else {
+                  log('warn', `Parent task ${parentTaskId} not found for subtask ${taskId}. Skipping ticket creation.`);
+                  return;
+                }
               }
-            } else {
-              log('warn', `Missing parent task information for subtask ${taskId}. Skipping ticket creation.`);
-              return;
             }
           } else {
             log('warn', `Subtask ${taskId} not found or is not a valid subtask. Skipping ticket creation.`);
@@ -280,6 +313,12 @@ async function initializeTicketingSubscribers() {
           }
         } else if (taskId && !subtaskObj) {
           log('warn', `Missing subtask data for ID ${taskId}. Skipping ticket creation.`);
+          return;
+        }
+        
+        // At this point we still need to make sure we have the parent task ID
+        if (!parentTaskId && taskId) {
+          log('warn', `Unable to determine parent task ID for subtask ${taskId}. Skipping ticket creation.`);
           return;
         }
         
@@ -479,6 +518,20 @@ async function initializeTicketingSubscribers() {
         // Using static imports now
         const projectRoot = findProjectRoot();
         
+        // Extract parent task ID and subtask ID
+        let parentTaskId = null;
+        let subtaskId = null;
+        
+        // Parse compound ID (e.g., "1.2")
+        if (taskId && taskId.toString().includes('.')) {
+          const idParts = taskId.toString().split('.');
+          if (idParts.length === 2) {
+            parentTaskId = idParts[0];
+            subtaskId = idParts[1];
+            log('info', `Extracted parent task ID ${parentTaskId} and subtask ID ${subtaskId} from ${taskId}`);
+          }
+        }
+        
         // Use provided subtask or find it using findTaskById
         let foundSubtask = subtask;
         if (!foundSubtask) {
@@ -498,9 +551,21 @@ async function initializeTicketingSubscribers() {
           return;
         }
         
-        // Try to get ticket ID from subtask object
+        // Get the parent task if we have a parent task ID
+        let parentTask = null;
+        if (parentTaskId) {
+          const { task: foundParent } = findTaskById(data.tasks, parentTaskId);
+          if (foundParent) {
+            parentTask = foundParent;
+            log('info', `Found parent task ${parentTaskId} for subtask ${taskId}`);
+          }
+        }
+        
+        // Try to get ticket ID from subtask object, passing parent task info
         const subtaskTicketId = foundSubtask && typeof ticketing.getTicketId === 'function' ?
-          ticketing.getTicketId(foundSubtask) : null;
+          ticketing.getTicketId(foundSubtask, { parentTask, debug: true }) : null;
+        
+        log('info', `Got ticket ID for subtask ${taskId}: ${subtaskTicketId}`);
         
         if (!subtaskTicketId) {
           log('info', `No ticket ID found for subtask ${taskId}. Skipping ticketing update.`);
@@ -580,6 +645,20 @@ async function initializeTicketingSubscribers() {
         // Using static imports now
         const projectRoot = findProjectRoot();
         
+        // Extract parent task ID and subtask ID
+        let parentTaskId = null;
+        let subtaskId = null;
+        
+        // Parse compound ID (e.g., "1.2")
+        if (taskId && taskId.toString().includes('.')) {
+          const idParts = taskId.toString().split('.');
+          if (idParts.length === 2) {
+            parentTaskId = idParts[0];
+            subtaskId = idParts[1];
+            log('info', `Extracted parent task ID ${parentTaskId} and subtask ID ${subtaskId} from ${taskId}`);
+          }
+        }
+        
         // Use provided subtask or find it using findTaskById
         let foundSubtask = subtask;
         if (!foundSubtask) {
@@ -599,9 +678,21 @@ async function initializeTicketingSubscribers() {
           return;
         }
         
-        // Check if subtask has a ticket ID
+        // Get the parent task if we have a parent task ID
+        let parentTask = null;
+        if (parentTaskId) {
+          const { task: foundParent } = findTaskById(data.tasks, parentTaskId);
+          if (foundParent) {
+            parentTask = foundParent;
+            log('info', `Found parent task ${parentTaskId} for subtask ${taskId}`);
+          }
+        }
+        
+        // Check if subtask has a ticket ID, passing parent task info
         const subtaskTicketId = foundSubtask && typeof ticketing.getTicketId === 'function' ?
-          ticketing.getTicketId(foundSubtask) : null;
+          ticketing.getTicketId(foundSubtask, { parentTask, debug: true }) : null;
+        
+        log('info', `Got ticket ID for subtask ${taskId}: ${subtaskTicketId}`);
 
         if (!subtaskTicketId) {
           log('info', `No ticket ID found for subtask ${taskId}. Skipping ticketing update.`);
