@@ -1,0 +1,61 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Test task 1",
+      "description": "some description",
+      "details": "",
+      "testStrategy": "",
+      "status": "in-progress",
+      "dependencies": [],
+      "priority": "high",
+      "metadata": {
+        "refId": "US001",
+        "jiraKey": "TS2-256",
+        "lastStatusUpdate": "2025-05-23T19:34:49.391Z"
+      },
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Implement event emission for ticketing sync",
+          "description": "Add proper event emission functionality to the ticketing sync process to ensure all sync actions are properly tracked and logged.",
+          "dependencies": [],
+          "details": "Identify all key points in the ticketing sync workflow where events should be emitted. Implement event emitters that include relevant metadata such as ticket ID, sync status, timestamp, and any error information. Ensure events follow a consistent naming convention like 'ticket.sync.started', 'ticket.sync.completed', and 'ticket.sync.failed'.",
+          "status": "pending",
+          "testStrategy": "Create unit tests that mock the event emitter and verify events are emitted with correct payloads at appropriate times.",
+          "metadata": {
+            "refId": "T001-01"
+          }
+        },
+        {
+          "id": 2,
+          "title": "Create test suite for event verification",
+          "description": "Develop a comprehensive test suite that verifies events are properly emitted during the ticketing sync process.",
+          "dependencies": [
+            1
+          ],
+          "details": "Create test cases that cover normal sync operations, error conditions, and edge cases. Use mocks to isolate the event emission functionality. Verify that events contain the expected data and are emitted in the correct sequence. Include tests for all event types defined in the implementation.",
+          "status": "pending",
+          "testStrategy": "Use a combination of unit tests and integration tests. For integration tests, use a test event listener to capture and validate emitted events.",
+          "metadata": {
+            "refId": "T001-02"
+          }
+        },
+        {
+          "id": 3,
+          "title": "Implement end-to-end test for ticketing sync with event validation",
+          "description": "Create an end-to-end test that verifies the entire ticketing sync process works correctly with proper event emission.",
+          "dependencies": [
+            2
+          ],
+          "details": "Set up a test environment with mock ticketing services. Implement a test that triggers a complete sync operation and validates that all expected events are emitted in the correct order with appropriate payloads. Verify that the sync process completes successfully and that all events accurately reflect the state of the operation.",
+          "status": "pending",
+          "testStrategy": "Use an end-to-end testing approach with a test event listener that captures all emitted events. Compare the captured events against expected events to validate correct implementation.",
+          "metadata": {
+            "refId": "T001-03"
+          }
+        }
+      ]
+    }
+  ]
+}
