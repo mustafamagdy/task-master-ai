@@ -1,6 +1,6 @@
 # Task ID: 86
 # Title: Update .taskmasterconfig schema and user guide
-# Status: pending
+# Status: done
 # Dependencies: 83
 # Priority: medium
 # Description: Create a migration guide for users to update their .taskmasterconfig files and document the new token limit configuration options.

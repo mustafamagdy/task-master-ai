@@ -1,6 +1,6 @@
 # Task ID: 82
 # Title: Update supported-models.json with token limit fields
-# Status: pending
+# Status: done
 # Dependencies: None
 # Priority: high
 # Description: Modify the supported-models.json file to include contextWindowTokens and maxOutputTokens fields for each model, replacing the ambiguous max_tokens field.

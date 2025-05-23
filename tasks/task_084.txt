@@ -1,6 +1,6 @@
 # Task ID: 84
 # Title: Implement token counting utility
-# Status: pending
+# Status: done
 # Dependencies: 82
 # Priority: high
 # Description: Create a utility function to count tokens for prompts based on the model being used, primarily using tiktoken for OpenAI and Anthropic models with character-based fallbacks for other providers.

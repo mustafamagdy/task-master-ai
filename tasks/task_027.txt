@@ -1,6 +1,6 @@
 # Task ID: 27
 # Title: Implement Context Enhancements for AI Operations
-# Status: pending
+# Status: done
 # Dependencies: 26
 # Priority: high
 # Description: Enhance the basic context integration with more sophisticated code context extraction, task history awareness, and PRD integration to provide richer context for AI operations.
@@ -69,25 +69,25 @@ Testing should verify the enhanced context functionality:
 Focus testing on practical use cases that demonstrate clear improvements in AI-generated outputs.
 
 # Subtasks:
-## 1. Implement Code Context Extraction Feature [pending]
+## 1. Implement Code Context Extraction Feature [done]
 ### Dependencies: None
 ### Description: Create a --context-code <pattern> option for AI commands and implement glob-based file matching to extract relevant code sections
 ### Details:
 
 
-## 2. Implement Task History Context Integration [pending]
+## 2. Implement Task History Context Integration [done]
 ### Dependencies: None
 ### Description: Add a --context-tasks option for AI commands that supports finding and extracting context from specified or similar tasks
 ### Details:
 
 
-## 3. Add PRD Context Integration [pending]
+## 3. Add PRD Context Integration [done]
 ### Dependencies: None
 ### Description: Implement a --context-prd option for AI commands that extracts and formats content from PRD files
 ### Details:
 
 
-## 4. Create Standardized Context Formatting System [pending]
+## 4. Create Standardized Context Formatting System [done]
 ### Dependencies: None
 ### Description: Implement a consistent formatting system for different context types with section markers and token optimization
 ### Details:

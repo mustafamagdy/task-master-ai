@@ -1,6 +1,6 @@
 # Task ID: 46
 # Title: Implement ICE Analysis Command for Task Prioritization
-# Status: pending
+# Status: done
 # Dependencies: None
 # Priority: medium
 # Description: Create a new command that analyzes and ranks tasks based on Impact, Confidence, and Ease (ICE) scoring methodology, generating a comprehensive prioritization report.
@@ -55,31 +55,31 @@ The command should follow the same design patterns as `analyze-complexity` for c
    - The command should handle edge cases gracefully (empty projects, missing data)
 
 # Subtasks:
-## 1. Design ICE scoring algorithm [pending]
+## 1. Design ICE scoring algorithm [done]
 ### Dependencies: None
 ### Description: Create the algorithm for calculating Impact, Confidence, and Ease scores for tasks
 ### Details:
 Define the mathematical formula for ICE scoring (Impact × Confidence × Ease). Determine the scale for each component (e.g., 1-10). Create rules for how AI will evaluate each component based on task attributes like complexity, dependencies, and descriptions. Document the scoring methodology for future reference.
 
-## 2. Implement AI integration for ICE scoring [pending]
+## 2. Implement AI integration for ICE scoring [done]
 ### Dependencies: 46.1
 ### Description: Develop the AI component that will analyze tasks and generate ICE scores
 ### Details:
 Create prompts for the AI to evaluate Impact, Confidence, and Ease. Implement error handling for AI responses. Add caching to prevent redundant AI calls. Ensure the AI provides justification for each score component. Test with various task types to ensure consistent scoring.
 
-## 3. Create report file generator [pending]
+## 3. Create report file generator [done]
 ### Dependencies: 46.2
 ### Description: Build functionality to generate a structured report file with ICE analysis results
 ### Details:
 Design the report file format (JSON, CSV, or Markdown). Implement sorting of tasks by ICE score. Include task details, individual I/C/E scores, and final ICE score in the report. Add timestamp and project metadata. Create a function to save the report to the specified location.
 
-## 4. Implement CLI rendering for ICE analysis [pending]
+## 4. Implement CLI rendering for ICE analysis [done]
 ### Dependencies: 46.3
 ### Description: Develop the command-line interface for displaying ICE analysis results
 ### Details:
 Design a tabular format for displaying ICE scores in the terminal. Use color coding to highlight high/medium/low priority tasks. Implement filtering options (by score range, task type, etc.). Add sorting capabilities. Create a summary view that shows top N tasks by ICE score.
 
-## 5. Integrate with existing complexity reports [pending]
+## 5. Integrate with existing complexity reports [done]
 ### Dependencies: 46.3, 46.4
 ### Description: Connect the ICE analysis functionality with the existing complexity reporting system
 ### Details:

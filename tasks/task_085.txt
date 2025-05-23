@@ -1,6 +1,6 @@
 # Task ID: 85
 # Title: Update ai-services-unified.js for dynamic token limits
-# Status: pending
+# Status: done
 # Dependencies: 83, 84
 # Priority: medium
 # Description: Modify the _unifiedServiceRunner function in ai-services-unified.js to use the new token counting utility and dynamically adjust output token limits based on input length.

@@ -1,6 +1,6 @@
 # Task ID: 83
 # Title: Update config-manager.js defaults and getters
-# Status: pending
+# Status: done
 # Dependencies: 82
 # Priority: high
 # Description: Modify the config-manager.js module to replace maxTokens with maxInputTokens and maxOutputTokens in the DEFAULTS object and update related getter functions.
@@ -83,7 +83,7 @@ module.exports = {
 4. Ensure backward compatibility by checking that existing code using the old getters still works (with warnings)
 
 # Subtasks:
-## 1. Update config-manager.js with specific token limit fields [pending]
+## 1. Update config-manager.js with specific token limit fields [done]
 ### Dependencies: None
 ### Description: Modify the DEFAULTS object in config-manager.js to replace maxTokens with more specific token limit fields (maxInputTokens, maxOutputTokens, maxTotalTokens) and update related getter functions while maintaining backward compatibility.
 ### Details:
