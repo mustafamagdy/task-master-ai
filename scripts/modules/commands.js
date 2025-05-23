@@ -53,7 +53,8 @@ import {
 	writeConfig,
 	ConfigurationError,
 	isConfigFilePresent,
-	getAvailableModels
+	getAvailableModels,
+	getTicketingSystemType
 } from './config-manager.js';
 
 import {
@@ -508,60 +509,49 @@ function displayTicketSyncResults(results) {
 		}
 	};
 
-	// Create status indicators
-	const getStatusIndicator = (value) => {
-		return value > 0 ? chalk.green('●') : chalk.gray('○');
-	};
+	// Calculate totals
+	const totalCreated = stats.tasksCreated + stats.subtasksCreated;
+	const totalUpdated = stats.tasksUpdated + stats.subtasksUpdated;
+	
+	// Get the active ticketing system name (defaults to 'External' if not available)
+	const ticketingSystemType = results.ticketingSystemType || getTicketingSystemType() || 'External';
+	const ticketingSystemName = ticketingSystemType.charAt(0).toUpperCase() + ticketingSystemType.slice(1);
+	
+	// Determine external system numbers (assuming they match the TaskMaster numbers for now)
+	// In a real implementation, these would be derived from the results object
+	const externalCreated = totalCreated;
+	const externalUpdated = totalUpdated;
 
-	// Calculate the longest label for alignment
-	const labelWidth = 17; // Fixed width for alignment
-
-	// Create a more visually appealing summary box with aligned columns and status indicators
-	console.log(
-		boxen(
-			`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
-` +
-				`${chalk.bold.white.bgGreen(' TICKET SYNCHRONIZATION COMPLETE ')}
-` +
-				`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
-
-` +
-				// First section: Tasks
-				`${chalk.bold.yellow('TASKS')}
-` +
-				`${getStatusIndicator(stats.tasksCreated)} ${chalk.bold('Created:'.padEnd(labelWidth))}${chalk.white(stats.tasksCreated)}
-` +
-				`${getStatusIndicator(stats.tasksUpdated)} ${chalk.bold('Updated:'.padEnd(labelWidth))}${chalk.white(stats.tasksUpdated)}
-
-` +
-				// Second section: Subtasks
-				`${chalk.bold.yellow('SUBTASKS')}
-` +
-				`${getStatusIndicator(stats.subtasksCreated)} ${chalk.bold('Created:'.padEnd(labelWidth))}${chalk.white(stats.subtasksCreated)}
-` +
-				`${getStatusIndicator(stats.subtasksUpdated)} ${chalk.bold('Updated:'.padEnd(labelWidth))}${chalk.white(stats.subtasksUpdated)}
-
-` +
-				// Third section: Summary
-				`${chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')}
-` +
-				`${chalk.bold('Total Items:'.padEnd(labelWidth))}${chalk.white(stats.total())}
-` +
-				`${chalk.bold('Errors:'.padEnd(labelWidth))}${stats.errors > 0 ? chalk.red(stats.errors) : chalk.green(stats.errors)}`,
-			{
-				padding: 1,
-				margin: { top: 1, bottom: 1 },
-				borderColor: 'green',
-				borderStyle: 'round',
-				titleAlignment: 'center'
-			}
-		)
+	// Create a table with proper formatting using the Table class
+	const table = new Table({
+		head: [
+			chalk.cyan.bold(''),
+			chalk.cyan.bold('TaskMaster'),
+			chalk.cyan.bold(ticketingSystemName)
+		],
+		colWidths: [15, 15, 15],
+		style: {
+			head: [], // No special styling for header
+			border: [] // No special styling for border
+		}
+	});
+	
+	// Add rows to the table
+	table.push(
+		[chalk.bold('Created'), totalCreated, externalCreated],
+		[chalk.bold('Updated'), totalUpdated, externalUpdated]
 	);
+
+	// Display the synchronization title and the table
+	console.log(chalk.bold.white.bgGreen(' TICKET SYNCHRONIZATION COMPLETE '));
+	console.log('');
+	console.log(table.toString());
 
 	// Show warning if there were errors
 	if (stats.errors > 0) {
+		console.log('');
 		console.log(
-			chalk.yellow('Some operations failed. Check the logs for details.')
+			chalk.yellow(`Errors: ${stats.errors}. Some operations failed. Check the logs for details.`)
 		);
 	}
 }
