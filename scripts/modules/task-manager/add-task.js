@@ -280,7 +280,7 @@ async function addTask(
 			// --- End Refactored AI Interaction ---
 		}
 
-		// Create the new task object with guaranteed metadata
+		// Create the new task object
 		let newTask = {
 			id: newTaskId,
 			title: taskData.title,
@@ -290,21 +290,9 @@ async function addTask(
 			status: 'pending',
 			dependencies: numericDependencies,
 			priority: effectivePriority,
-			metadata: {}, // CRITICAL: Always include metadata
+			metadata: {}, 
 			subtasks: [] 
 		};
-		
-		// Force-generate a refId immediately
-		try {
-			const { generateUserStoryRefId, storeRefId } = await import('../ticketing/utils/id-utils.js');
-			const refId = generateUserStoryRefId(newTaskId);
-			if (refId) {
-				newTask.metadata.refId = refId; // Direct assignment
-				report('info', `Directly assigned refId ${refId} to new task ${newTaskId}`);
-			}
-		} catch (err) {
-			report('error', `Failed to generate refId: ${err.message}`);
-		}
 
 		// Add the task to the tasks array
 		data.tasks.push(newTask);

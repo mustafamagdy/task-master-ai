@@ -6,11 +6,9 @@
 import { addTask } from '../../../../scripts/modules/task-manager.js';
 import {
 	enableSilentMode,
-	disableSilentMode,
-	readJSON
+	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
 import { createLogWrapper } from '../../tools/utils.js';
-import { generateUserStoryRefId, storeRefId } from '../../../../scripts/modules/ticketing/utils/id-utils.js';
 
 /**
  * Direct function wrapper for adding a new task with error handling.
@@ -99,33 +97,14 @@ export async function addTaskDirect(args, log, context = {}) {
 		let telemetryData;
 
 		if (isManualCreation) {
-			// Create manual task data object with guaranteed metadata and refId
-			let nextTaskId;
-			try {
-				// Read tasks to determine the next ID
-				const data = readJSON(tasksJsonPath);
-				const highestId = data.tasks.length > 0 ? Math.max(...data.tasks.map(t => t.id)) : 0;
-				nextTaskId = highestId + 1;
-			} catch (err) {
-				log.warn(`Could not determine next task ID: ${err.message}. Using fallback.`);
-				nextTaskId = Date.now() % 1000; // Fallback ID generation
-			}
-			
-			// Generate refId
-			const refId = generateUserStoryRefId(nextTaskId);
-			log.info(`Generated refId ${refId} for upcoming task ${nextTaskId}`);
-			
+			// Create manual task data object
 			manualTaskData = {
 				title: args.title,
 				description: args.description,
 				details: args.details || '',
 				testStrategy: args.testStrategy || '',
-				metadata: {
-					refId: refId // Directly include refId in the metadata
-				}
+				metadata: {}
 			};
-			
-			log.info(`Created manual task data with metadata.refId = ${refId}`);
 
 			log.info(
 				`Adding new task manually with title: "${args.title}", dependencies: [${taskDependencies.join(', ')}], priority: ${priority}`

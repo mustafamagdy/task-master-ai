@@ -53,24 +53,11 @@ class TaskMasterMCPServer {
 
 		// Initialize the event system with ticketing subscribers
 		try {
-			this.logger.info('===== INITIALIZING EVENT SYSTEM FOR MCP SERVER =====');
-			
-			// Check if event subscribers exist before initialization
-			const { checkTicketingStatus } = await import('../../scripts/modules/ticketing/events/ticketing-event-subscriber.js');
-			const priorStatus = await checkTicketingStatus();
-			this.logger.info(`Event system status before init: ${JSON.stringify(priorStatus, null, 2)}`);
-			
-			// Force initialization with debug enabled
+			this.logger.info('Initializing event system for MCP server...');
 			await initializeEventSystem({ force: true, debug: true });
-			
-			// Check if event subscribers exist after initialization
-			const afterStatus = await checkTicketingStatus();
-			this.logger.info(`Event system status after init: ${JSON.stringify(afterStatus, null, 2)}`);
-			
-			this.logger.info('===== EVENT SYSTEM SUCCESSFULLY INITIALIZED FOR MCP SERVER =====');
+			this.logger.info('Event system initialized for MCP server');
 		} catch (error) {
-			this.logger.error(`!!!!! ERROR INITIALIZING EVENT SYSTEM: ${error.message} !!!!!`);
-			console.error(error); // Log the full error stack trace
+			this.logger.error(`Error initializing event system: ${error.message}`);
 			// Continue even if event system fails, but log the error
 		}
 

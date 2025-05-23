@@ -13,7 +13,6 @@ import { findTasksJsonPath } from '../core/utils/path-utils.js';
 import { getTicketingInstance } from '../../../scripts/modules/ticketing/ticketing-factory.js';
 import { readJSON, writeJSON, log as consoleLog } from '../../../scripts/modules/utils.js';
 import { findProjectRoot } from '../../../scripts/modules/utils.js';
-import { generateUserStoryRefId, storeRefId } from '../../../scripts/modules/ticketing/utils/id-utils.js';
 
 /**
  * Synchronizes Task Master tasks with the configured external ticketing system
@@ -70,50 +69,6 @@ async function syncTicketsDirect(options, logger) {
 				success: false,
 				error: `Task with ID ${taskId} not found`
 			};
-		}
-		
-		// CRITICAL: Preprocess all tasks to ensure they have metadata and refIds
-		logger.info('Preprocessing tasks to ensure metadata and refIds are set...');
-		let dataModified = false;
-		for (const task of tasksToProcess) {
-			// Ensure task has metadata
-			if (!task.metadata) {
-				logger.info(`Task ${task.id} has no metadata, initializing empty metadata object`);
-				task.metadata = {};
-				dataModified = true;
-			}
-			
-			// Ensure task has refId
-			if (!task.metadata.refId) {
-				logger.info(`Task ${task.id} has no refId, generating one...`);
-				const refId = generateUserStoryRefId(task.id, projectRoot);
-				if (refId) {
-					storeRefId(task, refId);
-					logger.info(`Generated and stored refId ${refId} for task ${task.id}`);
-					dataModified = true;
-				} else {
-					logger.warn(`Could not generate refId for task ${task.id}`);
-				}
-			}
-			
-			// Process subtasks if any
-			if (task.subtasks && task.subtasks.length > 0) {
-				for (const subtask of task.subtasks) {
-					// Ensure subtask has metadata
-					if (!subtask.metadata) {
-						logger.info(`Subtask ${task.id}.${subtask.id} has no metadata, initializing empty metadata object`);
-						subtask.metadata = {};
-						dataModified = true;
-					}
-				}
-			}
-		}
-		
-		// Save changes if any were made
-		if (dataModified) {
-			logger.info('Writing updated task data with metadata and refIds to tasks.json...');
-			writeJSON(tasksJsonPath, data);
-			logger.info('Successfully wrote updated task data');
 		}
 		
 		// Process each task
