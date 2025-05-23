@@ -451,8 +451,22 @@ function getJiraApiToken(explicitRoot = null) {
  * @returns {boolean} Whether ticketing integration is enabled.
  */
 function getTicketingIntegrationEnabled(explicitRoot = null) {
+	log('debug', `[TICKETING-DEBUG] Checking if ticketing integration is enabled with explicitRoot=${explicitRoot}`);
 	const config = getConfig(explicitRoot);
-	return config?.ticketing?.integrationEnabled || false;
+	log('debug', `[TICKETING-DEBUG] Config loaded: ${!!config}, Has ticketing section: ${!!config?.ticketing}`);
+	if (config?.ticketing) {
+		log('debug', `[TICKETING-DEBUG] Ticketing system: ${config.ticketing.system || 'none'}, Integration enabled flag: ${config.ticketing.integrationEnabled}`);
+		if (config.ticketing.system === 'jira') {
+			log('debug', `[TICKETING-DEBUG] Jira config: projectKey=${!!config.ticketing.jiraProjectKey}, baseUrl=${!!config.ticketing.jiraBaseUrl}, credentials=${!!(config.ticketing.jiraEmail && config.ticketing.jiraApiToken)}`);
+		} else if (config.ticketing.system === 'github') {
+			log('debug', `[TICKETING-DEBUG] GitHub config: token=${!!config.ticketing.githubToken}, owner=${!!config.ticketing.githubOwner}, repo=${!!config.ticketing.githubRepository}`);
+		} else if (config.ticketing.system === 'azure') {
+			log('debug', `[TICKETING-DEBUG] Azure config: org=${!!config.ticketing.azureOrganization}, pat=${!!config.ticketing.azurePersonalAccessToken}, project=${!!config.ticketing.azureProjectName}`);
+		}
+	}
+	const result = config?.ticketing?.integrationEnabled || false;
+	log('debug', `[TICKETING-DEBUG] Ticketing integration enabled result: ${result}`);
+	return result;
 }
 
 /**

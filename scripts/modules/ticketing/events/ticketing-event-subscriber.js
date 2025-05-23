@@ -37,8 +37,24 @@ async function initializeTicketingSubscribers() {
 		log('debug', `[TICKETING] Project root identified: ${projectRoot}`);
 
 		// Only subscribe if ticketing integration is enabled - explicitly pass project root
-		tickingEnabled = getTicketingIntegrationEnabled(projectRoot);
+		ticketingEnabled = getTicketingIntegrationEnabled(projectRoot);
 		log('debug', `[TICKETING] Ticketing integration enabled: ${ticketingEnabled}`);
+		
+		// DEBUG: Log more details about ticketing configuration
+		log('debug', `[TICKETING-DEBUG] Project root path: ${projectRoot}`);
+		log('debug', `[TICKETING-DEBUG] Configuration check result: ${ticketingEnabled}`);
+		try {
+			const configPath = path.join(projectRoot, '.taskmaster', 'config.json');
+			log('debug', `[TICKETING-DEBUG] Checking for config file at: ${configPath}`);
+			// Don't import the file here, just log if it exists
+			const fs = await import('fs/promises');
+			const configExists = await fs.access(configPath).then(() => true).catch(() => false);
+			log('debug', `[TICKETING-DEBUG] Config file exists: ${configExists}`);
+		
+		} catch (configCheckError) {
+			log('error', `[TICKETING-DEBUG] Error checking config file: ${configCheckError.message}`);
+			console.error('[TICKETING-DEBUG] Full config check error:', configCheckError);
+		}
 		
 		if (!ticketingEnabled) {
 			log(
@@ -67,6 +83,8 @@ async function initializeTicketingSubscribers() {
 
 	// Helper function to handle subscription and error handling
 	const safeSubscribe = (name, subscribeFn) => {
+		// DEBUG: Log before attempting to subscribe
+		log('debug', `[TICKETING-DEBUG] About to subscribe to ${name} event`);
 		try {
 			log('debug', `[TICKETING] Subscribing to ${name}`);
 			const unsubscribe = subscribeFn(subscribe);
@@ -75,6 +93,8 @@ async function initializeTicketingSubscribers() {
 				return () => {};
 			}
 			log('debug', `[TICKETING] Successfully subscribed to ${name}`);
+			// DEBUG: Log subscription success with more details
+			log('debug', `[TICKETING-DEBUG] Subscription to ${name} successful, unsubscribe function type: ${typeof unsubscribe}`);
 			return unsubscribe;
 		} catch (error) {
 			log('error', `Error subscribing to ${name}: ${error.message}`);
@@ -95,6 +115,7 @@ async function initializeTicketingSubscribers() {
 
 	// Log after all subscribers are added
 	log('info', '[TICKETING] All ticketing event subscribers registered successfully');
+	log('debug', '[TICKETING-DEBUG] Event subscribers registered: ' + unsubscribeFunctions.length);
 	printEventDiagnostics(getSubscribersMap(), 'after-ticketing-init');
 
 	// Return unsubscribe function that will clean up all event listeners
