@@ -367,9 +367,7 @@ async function initializeTicketingSubscribers() {
         if (ticketId) {
           log('info', `Task ${taskId} with ticket ${ticketId} was deleted. Updating ticketing system...`);
           
-          // Here you would add code to update the ticket in your ticketing system
-          // For example, marking it as "Cancelled" or "Deleted" status
-          // This depends on your ticketing system's API and available statuses
+          // Update the ticket in the ticketing system to mark it as cancelled/deleted
           const success = await ticketing.updateTicketStatus(
             ticketId,
             'cancelled', // Or whatever status makes sense for deleted tasks
@@ -385,6 +383,38 @@ async function initializeTicketingSubscribers() {
         } else {
           log('info', `No ticketing system issue found for deleted task ${taskId}. No action needed.`);
         }
+        
+        // Process subtasks of the deleted task
+        if (task && task.subtasks && task.subtasks.length > 0) {
+          log('info', `Processing ${task.subtasks.length} subtasks of deleted task ${taskId}...`);
+          
+          for (const subtask of task.subtasks) {
+            const subtaskTicketId = ticketing.getTicketId(subtask);
+            
+            if (subtaskTicketId) {
+              log('info', `Updating ticketing system for subtask ${subtask.id} (ticket ${subtaskTicketId}) of deleted task ${taskId}...`);
+              
+              try {
+                const subtaskSuccess = await ticketing.updateTicketStatus(
+                  subtaskTicketId,
+                  'cancelled', // Same status as main task
+                  null,
+                  subtask
+                );
+                
+                if (subtaskSuccess) {
+                  log('success', `Updated ticketing system issue ${subtaskTicketId} for subtask ${subtask.id} of deleted task ${taskId}`);
+                } else {
+                  log('warn', `Failed to update ticketing system issue ${subtaskTicketId} for subtask ${subtask.id} of deleted task ${taskId}`);
+                }
+              } catch (subtaskError) {
+                log('error', `Error updating ticketing for subtask ${subtask.id}: ${subtaskError.message}`);
+              }
+            } else {
+              log('info', `No ticketing system issue found for subtask ${subtask.id} of deleted task ${taskId}. No action needed.`);
+            }
+          }
+        }
       } catch (error) {
         log('error', `Error handling task deleted event: ${error.message}`);
       }
@@ -398,32 +428,24 @@ async function initializeTicketingSubscribers() {
     async ({ taskId, subtaskId, subtask, data, tasksPath }) => {
       try {
         // Import required modules dynamically to avoid circular dependencies
-        const { getTicketingInstance } = await import('./ticketing-factory.js');
-        
-        // Use the provided subtask object or find it in the task history if available
-        if (!subtask) {
-          log('warn', `Subtask ${subtaskId} not provided in event data. Limited ticketing update possible.`);
-          // We can still proceed if we have the subtask ID, but functionality may be limited
-        }
-        
-        // Get ticketing instance with explicit project root
         const { findProjectRoot } = await import('../utils.js');
         const projectRoot = findProjectRoot();
+        const { getTicketingInstance } = await import('./ticketing-factory.js');
+        
+        // Get ticketing instance
         const ticketing = await getTicketingInstance('jira', projectRoot);
         if (!ticketing) {
-          log('warn', 'No ticketing system available. Skipping subtask deletion update.');
+          log('warn', 'No ticketing system available. Skipping update for deleted subtask.');
           return;
         }
         
-        // If the subtask had a ticket ID, update it or mark it as deleted in the ticketing system
-        let subtaskTicketId = null;
+        let subtaskTicketId;
         
         // Try to get ticket ID from subtask object if available
         if (subtask && typeof ticketing.getTicketId === 'function') {
           subtaskTicketId = ticketing.getTicketId(subtask);
         }
         
-        // If we don't have a ticket ID from the subtask object, we can't update the ticket
         if (!subtaskTicketId) {
           log('info', `No ticket ID found for subtask ${subtaskId}. Skipping ticketing update.`);
           return;
