@@ -60,7 +60,7 @@ async function initializeTicketingSubscribers() {
         // If the event includes the subtask object directly, use it
         let subtask = data.subtask;
         
-        log('info', `subtask: ${JSON.stringify(subtask)}`);
+        log('info', `subtask: ${JSON.stringify(data)}`);
         // Otherwise find the subtask in the task
         if (!subtask) {
           const task = findTaskById(data.tasks, taskId);

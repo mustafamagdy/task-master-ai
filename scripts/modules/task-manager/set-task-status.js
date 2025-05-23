@@ -10,7 +10,6 @@ import {
 } from '../config-manager.js';
 import updateSingleTaskStatus from './update-single-task-status.js';
 import generateTaskFiles from './generate-task-files.js';
-import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 
 // Ticketing system updates are now handled by event subscribers
 import {
