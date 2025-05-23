@@ -65,8 +65,7 @@ async function initializeTicketingSubscribers() {
         }
         
         // Find the subtask
-        // Convert subtaskId to number for proper comparison
-        const subtask = task.subtasks?.find(st => st.id === parseInt(subtaskId, 10));
+        const subtask = task.subtasks?.find(st => st.id === subtaskId);
         if (!subtask) {
           log('warn', `Subtask ${subtaskId} not found in task ${taskId}. Skipping ticketing update.`);
           return;

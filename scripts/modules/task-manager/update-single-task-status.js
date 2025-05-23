@@ -63,9 +63,10 @@ async function updateSingleTaskStatus(
 		);
 
 		// Emit subtask status changed event
+		// Ensure subtaskId is always a number when emitted
 		emit(EVENT_TYPES.SUBTASK_STATUS_CHANGED, {
 			taskId: parentId,
-			subtaskId: subtaskId,
+			subtaskId: Number(subtaskId), // Explicitly ensure it's a number
 			newStatus,
 			oldStatus,
 			data,
@@ -157,7 +158,7 @@ async function updateSingleTaskStatus(
 					// Emit subtask status changed event for each auto-updated subtask
 					emit(EVENT_TYPES.SUBTASK_STATUS_CHANGED, {
 						taskId,
-						subtaskId: subtask.id,
+						subtaskId: Number(subtask.id), // Explicitly ensure it's a number
 						newStatus,
 						oldStatus: oldSubtaskStatus,
 						data,
