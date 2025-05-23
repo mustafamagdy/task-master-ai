@@ -6,121 +6,13 @@ import { log, readJSON, writeJSON, findTaskById } from '../utils.js';
 import { displayBanner } from '../ui.js';
 import { validateTaskDependencies } from '../dependency-manager.js';
 import {
-	getDebugFlag,
-	getTicketingIntegrationEnabled
+	getDebugFlag
 } from '../config-manager.js';
-import { getTicketingInstance } from '../ticketing/ticketing-factory.js';
 import updateSingleTaskStatus from './update-single-task-status.js';
 import generateTaskFiles from './generate-task-files.js';
+import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 
-/**
- * Updates a task status in the connected ticketing system
- * @param {string} taskId - Task ID to update
- * @param {string} newStatus - New status
- * @param {Object} data - Tasks data object
- * @param {string} tasksPath - Path to tasks.json file
- * @param {Object} options - Additional options
- */
-async function updateTicketStatus(
-	taskId,
-	newStatus,
-	data,
-	tasksPath,
-	options = {}
-) {
-	try {
-		// Find the task by ID
-		const task = findTaskById(data.tasks, taskId);
-		if (!task) {
-			log(
-				'warn',
-				`Task ${taskId} not found. Skipping ticketing system update.`
-			);
-			return;
-		}
-
-		// Get the ticketing system instance (currently only Jira is supported)
-		const ticketing = await getTicketingInstance('jira');
-
-		// Check if the task has a ticket ID in its metadata
-		const ticketId = ticketing.getTicketId(task);
-		if (ticketId) {
-			log(
-				'info',
-				`Updating ticketing system issue ${ticketId} status to ${newStatus}...`
-			);
-
-			// Update the ticket status
-			const success = await ticketing.updateTicketStatus(
-				ticketId,
-				newStatus,
-				null,
-				task
-			);
-			if (success) {
-				log(
-					'success',
-					`Updated ticketing system issue ${ticketId} status for task ${taskId}`
-				);
-			} else {
-				log(
-					'warn',
-					`Failed to update ticketing system issue ${ticketId} status for task ${taskId}`
-				);
-			}
-		} else {
-			log(
-				'info',
-				`No ticketing system issue found for task ${taskId}. Skipping status update.`
-			);
-		}
-
-		// Update subtasks if they exist
-		if (task.subtasks && task.subtasks.length > 0) {
-			for (const subtask of task.subtasks) {
-				const subtaskTicketId = ticketing.getTicketId(subtask);
-				if (subtaskTicketId) {
-					log(
-						'info',
-						`Updating ticketing system issue ${subtaskTicketId} status for subtask ${subtask.id}...`
-					);
-					try {
-						const subtaskSuccess = await ticketing.updateTicketStatus(
-							subtaskTicketId,
-							newStatus,
-							null,
-							subtask
-						);
-
-						if (subtaskSuccess) {
-							log(
-								'success',
-								`Updated ticketing system issue ${subtaskTicketId} status for subtask ${subtask.id}`
-							);
-						} else {
-							log(
-								'warn',
-								`Failed to update ticketing system issue ${subtaskTicketId} status for subtask ${subtask.id}`
-							);
-						}
-					} catch (ticketError) {
-						log(
-							'error',
-							`Error updating ticketing system issue status for subtask ${subtask.id}: ${ticketError.message}`
-						);
-					}
-				} else {
-					log(
-						'info',
-						`No ticketing system issue found for subtask ${subtask.id}. Skipping status update.`
-					);
-				}
-			}
-		}
-	} catch (error) {
-		log('error', `Error updating ticketing system status: ${error.message}`);
-	}
-}
+// Ticketing system updates are now handled by event subscribers
 import {
 	isValidTaskStatus,
 	TASK_STATUS_OPTIONS
@@ -172,14 +64,8 @@ async function setTaskStatus(tasksPath, taskIdInput, newStatus, options = {}) {
 			await updateSingleTaskStatus(tasksPath, id, newStatus, data, !isMcpMode);
 			updatedTasks.push(id);
 
-			// Update ticketing system issues if integration is enabled
-			// Check if Jira is enabled (will be replaced with more generic check in the future)
-			if (getTicketingIntegrationEnabled()) {
-				await updateTicketStatus(id, newStatus, data, tasksPath, {
-					...options,
-					writeJSON
-				});
-			}
+			// Ticketing system updates are now handled through events
+			// The ticketing-event-subscriber.js listens for task status changed events
 		}
 
 		// Write the updated tasks to the file

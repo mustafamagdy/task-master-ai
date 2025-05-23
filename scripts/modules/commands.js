@@ -86,6 +86,7 @@ import {
 	TASK_STATUS_OPTIONS
 } from '../../src/constants/task-status.js';
 import { getTaskMasterVersion } from '../../src/utils/getVersion.js';
+import { initializeEventSystem, shutdownEventSystem } from './events/initialize-events.js';
 /**
  * Runs the interactive setup process for model configuration.
  * @param {string|null} projectRoot - The resolved project root directory.
@@ -2575,6 +2576,8 @@ function displayUpgradeNotification(currentVersion, latestVersion) {
  */
 async function runCLI(argv = process.argv) {
 	try {
+		// Initialize event system
+		initializeEventSystem();
 		// Display banner if not in a pipe
 		if (process.stdout.isTTY) {
 			displayBanner();
@@ -2656,8 +2659,25 @@ async function runCLI(argv = process.argv) {
 			}
 		}
 
+		// Shutdown event system even if there was an error
+		shutdownEventSystem();
 		process.exit(1);
 	}
+	
+	// Make sure we add a process exit handler to shut down the event system
+	process.on('exit', () => {
+		shutdownEventSystem();
+	});
+	
+	// Handle graceful shutdown on signals
+	['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach(signal => {
+		process.on(signal, () => {
+			console.log(`
+Received ${signal}, shutting down...`);
+			shutdownEventSystem();
+			process.exit(0);
+		});
+	});
 }
 
 export {

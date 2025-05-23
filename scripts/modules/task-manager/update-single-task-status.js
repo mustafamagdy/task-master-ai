@@ -1,7 +1,8 @@
 import chalk from 'chalk';
 
 import { log } from '../utils.js';
-import { isValidTaskStatus } from '../../../src/constants/task-status.js';
+import { isValidTaskStatus, TASK_STATUS_OPTIONS } from '../../../src/constants/task-status.js';
+import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 
 /**
  * Update the status of a single task
@@ -61,6 +62,16 @@ async function updateSingleTaskStatus(
 			`Updated subtask ${parentId}.${subtaskId} status from '${oldStatus}' to '${newStatus}'`
 		);
 
+		// Emit subtask status changed event
+		emit(EVENT_TYPES.SUBTASK_STATUS_CHANGED, {
+			taskId: parentId,
+			subtaskId: subtaskId,
+			newStatus,
+			oldStatus,
+			data,
+			tasksPath
+		});
+
 		// Check if all subtasks are done (if setting to 'done')
 		if (
 			newStatus.toLowerCase() === 'done' ||
@@ -113,6 +124,15 @@ async function updateSingleTaskStatus(
 			`Updated task ${taskId} status from '${oldStatus}' to '${newStatus}'`
 		);
 
+		// Emit task status changed event
+		emit(EVENT_TYPES.TASK_STATUS_CHANGED, {
+			taskId,
+			newStatus,
+			oldStatus,
+			data,
+			tasksPath
+		});
+
 		// If marking as done, also mark all subtasks as done
 		if (
 			(newStatus.toLowerCase() === 'done' ||
@@ -131,7 +151,18 @@ async function updateSingleTaskStatus(
 				);
 
 				pendingSubtasks.forEach((subtask) => {
+					const oldSubtaskStatus = subtask.status || 'pending';
 					subtask.status = newStatus;
+					
+					// Emit subtask status changed event for each auto-updated subtask
+					emit(EVENT_TYPES.SUBTASK_STATUS_CHANGED, {
+						taskId,
+						subtaskId: subtask.id,
+						newStatus,
+						oldStatus: oldSubtaskStatus,
+						data,
+						tasksPath
+					});
 				});
 			}
 		}

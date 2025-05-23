@@ -14,16 +14,10 @@ import {
 import { readJSON, writeJSON, log as consoleLog, truncate } from '../utils.js';
 import { generateObjectService } from '../ai-services-unified.js';
 import {
-	getDefaultPriority,
-	getTicketingSystemEnabled
+	getDefaultPriority
 } from '../config-manager.js';
-import { isTicketingSystemConfigured } from '../ticketing/ticketing-interface.js';
-import { getTicketingInstance } from '../ticketing/ticketing-factory.js';
-import {
-	generateUserStoryRefId,
-	storeRefId
-} from '../ticketing/utils/id-utils.js';
 import generateTaskFiles from './generate-task-files.js';
+import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 
 // Define Zod schema for the expected AI output object
 const AiTaskDataSchema = z.object({
@@ -315,103 +309,8 @@ async function addTask(
 			}
 		}
 
-		// Check if ticketing system integration is enabled and configured
-		const ticketingEnabled = getTicketingSystemEnabled(projectRoot);
-		if (ticketingEnabled) {
-			// Then check if properly configured (async function)
-			const isConfigured = await isTicketingSystemConfigured(projectRoot);
-			if (isConfigured) {
-				report(
-					'Ticketing system integration is enabled and configured. Creating user story in ticketing system...',
-					'info'
-				);
-				// Ensure the task has a valid reference ID before creating a ticket
-				if (!newTask.metadata?.refId) {
-					report(
-						'Task is missing a reference ID. Attempting to generate one...',
-						'warn'
-					);
-					try {
-						const refId = await generateUserStoryRefId(newTaskId, projectRoot);
-						if (refId) {
-							newTask = storeRefId(newTask, refId);
-							report(
-								`Generated and stored reference ID ${refId} in task metadata`,
-								'info'
-							);
-						} else {
-							report('Could not generate a reference ID for the task', 'warn');
-						}
-					} catch (error) {
-						report(`Error generating reference ID: ${error.message}`, 'error');
-					}
-				}
-				try {
-					// Create user story in ticketing system
-					const ticketingInstance = await getTicketingInstance(
-						null,
-						projectRoot
-					);
-					if (!ticketingInstance) {
-						throw new Error('No ticketing system configured');
-					}
-					// Create a task representation that matches what the ticketing system expects
-					const ticketData = {
-						id: newTask.id,
-						title: newTask.title,
-						description: newTask.description,
-						details: newTask.details,
-						priority: newTask.priority,
-						status: newTask.status,
-						metadata: newTask.metadata
-					};
-					const ticketingIssue = await ticketingInstance.createStory(
-						ticketData,
-						projectRoot
-					);
-					report(
-						`DEBUG: Ticket creation result: ${JSON.stringify(ticketingIssue)}`,
-						'debug'
-					);
-
-					if (ticketingIssue && ticketingIssue.key) {
-						// Store ticketing issue key in task metadata
-						report(
-							`DEBUG: Storing ticket key ${ticketingIssue.key} in task metadata`,
-							'debug'
-						);
-
-						// Make sure newTask has metadata object
-						if (!newTask.metadata) {
-							newTask.metadata = {};
-						}
-
-						// Directly store the Jira key in metadata
-						newTask.metadata.jiraKey = ticketingIssue.key;
-
-						// Also use the ticketing system's method if available
-						if (typeof ticketingInstance.storeTicketId === 'function') {
-							newTask = ticketingInstance.storeTicketId(
-								newTask,
-								ticketingIssue.key
-							);
-						}
-
-						report(
-							`Created ticketing user story: ${ticketingIssue.key}`,
-							'success'
-						);
-					} else {
-						report('Failed to create ticketing user story', 'warn');
-					}
-				} catch (ticketingError) {
-					report(
-						`Error creating ticketing user story: ${ticketingError.message}`,
-						'error'
-					);
-				}
-			}
-		}
+		// Ticketing system integration is now handled through events
+		// The ticketing-event-subscriber.js listens for task created events and creates tickets
 
 		// Add the task to the tasks array
 		data.tasks.push(newTask);
@@ -420,6 +319,14 @@ async function addTask(
 		// Write the updated tasks to the file
 		writeJSON(tasksPath, data);
 		report('DEBUG: tasks.json written.', 'debug');
+
+		// Emit task created event
+		emit(EVENT_TYPES.TASK_CREATED, {
+			taskId: newTaskId,
+			data,
+			tasksPath,
+			task: newTask
+		});
 
 		// Generate markdown task files
 		report('Generating task files...', 'info');
