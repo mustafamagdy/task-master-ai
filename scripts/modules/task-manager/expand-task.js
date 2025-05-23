@@ -639,12 +639,12 @@ async function expandTask(
 		// Emit subtask creation events for each new subtask
 		generatedSubtasks.forEach(subtask => {
 			emit(EVENT_TYPES.SUBTASK_CREATED, {
-				parentTaskId: task.id,
+				taskId: task.id, // Changed from parentTaskId to taskId to match subscriber expectation
 				subtask,
 				tasksPath,
 				data
 			});
-			logger.debug(`Emitted SUBTASK_CREATED event for subtask ${subtask.id} of task ${task.id}`);
+			logger.info(`Emitted SUBTASK_CREATED event for subtask ${subtask.id} of task ${task.id}`);
 		});
 
 		await generateTaskFiles(tasksPath, path.dirname(tasksPath));
