@@ -6,6 +6,7 @@
 import { log, findTaskById, findProjectRoot, writeJSON } from '../../utils.js';
 import { EVENT_TYPES } from '../../events/event-emitter.js';
 import { getTicketingInstance } from '../ticketing-factory.js';
+import { getTicketingIntegrationEnabled } from '../../config-manager.js';
 import { generateUserStoryRefId, storeRefId } from '../utils/id-utils.js';
 
 /**
@@ -14,11 +15,44 @@ import { generateUserStoryRefId, storeRefId } from '../utils/id-utils.js';
  * @returns {Function} Unsubscribe function
  */
 export function subscribeToTaskCreation(subscribe) {
+    log('debug', '[TICKETING] Setting up task creation event handler');
+    
+    // First verify that ticketing is enabled before even subscribing
+    try {
+        const projectRoot = findProjectRoot();
+        const ticketingEnabled = getTicketingIntegrationEnabled(projectRoot);
+        
+        if (!ticketingEnabled) {
+            log('debug', '[TICKETING] Ticketing integration is disabled, not subscribing to task creation events');
+            return () => {}; // Return no-op function if ticketing is disabled
+        }
+        
+        log('debug', '[TICKETING] Ticketing integration is enabled, subscribing to task creation events');
+    } catch (error) {
+        log('error', `[TICKETING] Error checking ticketing status: ${error.message}`);
+        return () => {}; // Return no-op function on error
+    }
+    
+    // If we get here, ticketing is enabled, so subscribe to the event
     return subscribe(
         EVENT_TYPES.TASK_CREATED,
         async ({ taskId, data, tasksPath, task }) => {
 
-            log('debug', `Received task created event for task ${taskId}`);
+            log('debug', `[TICKETING] Received task created event for task ${taskId}`);
+            
+            // Double-check ticketing is still enabled at event time
+            try {
+                const projectRoot = findProjectRoot();
+                const ticketingEnabled = getTicketingIntegrationEnabled(projectRoot);
+                
+                if (!ticketingEnabled) {
+                    log('debug', '[TICKETING] Ticketing integration is disabled, ignoring task creation event');
+                    return; // Early return if ticketing is disabled
+                }
+            } catch (error) {
+                log('error', `[TICKETING] Error checking ticketing status during event: ${error.message}`);
+                return; // Early return on error
+            }
             try {
                 // Only proceed with task if it was provided directly
                 if (!task) {
@@ -34,34 +68,40 @@ export function subscribeToTaskCreation(subscribe) {
 
                 // Use findProjectRoot for consistent path resolution
                 const projectRoot = findProjectRoot();
+                log('debug', `[TICKETING] Using project root: ${projectRoot}`);
 
                 // Instead of relying on getTicketingSystemEnabled which looks for the config file,
                 // check if a ticketing instance can be created directly
                 let ticketingInstance;
                 try {
+                    log('debug', '[TICKETING] Attempting to get ticketing instance');
                     ticketingInstance = await getTicketingInstance(null, projectRoot);
+                    
                     if (!ticketingInstance) {
                         log(
                             'info',
-                            'No ticketing system available. Skipping ticket creation.'
+                            '[TICKETING] No ticketing system available. Skipping ticket creation.'
                         );
                         return;
                     }
+                    
+                    log('debug', `[TICKETING] Successfully obtained ticketing instance: ${ticketingInstance.constructor.name}`);
                 } catch (configError) {
                     log(
                         'error',
-                        `Error getting ticketing instance: ${configError.message}`
+                        `[TICKETING] Error getting ticketing instance: ${configError.message}`
                     );
+                    console.error('[TICKETING] Full error getting ticketing instance:', configError);
                     return;
                 }
 
-                log('info', 'Creating user story in ticketing system for new task...');
+                log('info', '[TICKETING] Creating user story in ticketing system for new task...');
 
                 // Get the task to create a ticket for
                 if (!task) {
                     log(
                         'warn',
-                        `Task object not found in event data. Skipping ticket creation.`
+                        `[TICKETING] Task object not found in event data. Skipping ticket creation.`
                     );
                     return;
                 }
@@ -71,7 +111,7 @@ export function subscribeToTaskCreation(subscribe) {
                 if (!updatedTask.metadata?.refId) {
                     log(
                         'info',
-                        'Task is missing a reference ID. Attempting to generate one...'
+                        '[TICKETING] Task is missing a reference ID. Attempting to generate one...'
                     );
                     try {
                         const refId = await generateUserStoryRefId(taskId, projectRoot);
@@ -79,7 +119,7 @@ export function subscribeToTaskCreation(subscribe) {
                             updatedTask = storeRefId(updatedTask, refId);
                             log(
                                 'info',
-                                `Generated and stored reference ID ${refId} in task metadata`
+                                `[TICKETING] Generated and stored reference ID ${refId} in task metadata`
                             );
 
                             // Update the task in the data
@@ -92,10 +132,10 @@ export function subscribeToTaskCreation(subscribe) {
                                 writeJSON(tasksPath, data);
                             }
                         } else {
-                            log('warn', 'Could not generate a reference ID for the task');
+                            log('warn', '[TICKETING] Could not generate a reference ID for the task');
                         }
                     } catch (error) {
-                        log('error', `Error generating reference ID: ${error.message}`);
+                        log('error', `[TICKETING] Error generating reference ID: ${error.message}`);
                     }
                 }
 
