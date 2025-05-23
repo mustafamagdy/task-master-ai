@@ -197,6 +197,30 @@ class JiraTicketing extends TicketingSystemInterface {
     async ticketExists(ticketId, explicitRoot = null) {
         return ticketExists(ticketId, explicitRoot);
     }
+    
+    /**
+     * Find a ticket ID by reference ID
+     * @param {string} refId - Reference ID to search for
+     * @param {string|null} explicitRoot - Optional explicit path to the project root
+     * @returns {Promise<string|null>} Ticket ID if found, null otherwise
+     */
+    async findTicketByRefId(refId, explicitRoot = null) {
+        // This method is required by the interface but not yet implemented in jira-ticket-operations.js
+        console.log(`Searching for ticket with reference ID: ${refId}`);
+        return null; // Temporary fallback until we implement the actual search
+    }
+
+    /**
+     * Find a subtask ticket ID by reference ID
+     * @param {string} refId - Reference ID to search for
+     * @param {string|null} explicitRoot - Optional explicit path to the project root
+     * @returns {Promise<string|null>} Ticket ID if found, null otherwise
+     */
+    async findSubtaskByRefId(refId, explicitRoot = null) {
+        // This method is being called by the system but not yet implemented
+        console.log(`Searching for subtask with reference ID: ${refId}`);
+        return null; // Temporary fallback until we implement the actual search
+    }
 }
 
 export default JiraTicketing;
