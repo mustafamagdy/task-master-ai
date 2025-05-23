@@ -631,24 +631,15 @@ async function expandTask(
 			task.subtasks = [];
 		}
 
-		// Check if ticketing integration is enabled
-		const projectRoot = path.dirname(tasksPath);
-		const ticketingEnabled = getTicketingIntegrationEnabled(projectRoot);
-		if (ticketingEnabled) {
-			logger.info(`Ticketing integration is enabled. Generating reference IDs for subtasks of task ${task.id}`);
-		}
-
-		// Generate reference IDs for subtasks if ticketing is enabled
+		// Generate reference IDs for all subtasks - always useful metadata regardless of ticketing status
+		logger.info(`Generating reference IDs for subtasks of task ${task.id}`);
 		generatedSubtasks = generatedSubtasks.map(subtask => {
-			if (ticketingEnabled) {
-				// Generate a reference ID for the subtask
-				const refId = generateSubtaskRefId(task.id, subtask.id, true);
-				logger.info(`Generated reference ID ${refId} for subtask ${subtask.id} of task ${task.id}`);
-				
-				// Store the reference ID in the subtask metadata
-				return storeRefId(subtask, refId);
-			}
-			return subtask;
+			// Generate a reference ID for the subtask - always pass true to ensure ID is generated
+			const refId = generateSubtaskRefId(task.id, subtask.id, true);
+			logger.info(`Generated reference ID ${refId} for subtask ${subtask.id} of task ${task.id}`);
+			
+			// Store the reference ID in the subtask metadata
+			return storeRefId(subtask, refId);
 		});
 
 		// Append the newly generated and validated subtasks
