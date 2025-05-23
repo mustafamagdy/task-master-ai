@@ -637,7 +637,6 @@ async function expandTask(
 		writeJSON(tasksPath, data);
 
 		// Emit subtask creation events for each new subtask
-		logger.info(`Emitting SUBTASK_CREATED events for ${generatedSubtasks.length} subtasks of task ${task.id}`);
 		generatedSubtasks.forEach(subtask => {
 			emit(EVENT_TYPES.SUBTASK_CREATED, {
 				parentTaskId: task.id,

@@ -325,6 +325,7 @@ async function initializeTicketingSubscribers() {
 		EVENT_TYPES.SUBTASK_CREATED,
 		async ({ taskId, subtask, data, tasksPath }) => {
 			try {
+				log('info', `Received SUBTASK_CREATED event for subtask ${taskId}`);
 				// Using static imports now
 				const projectRoot = findProjectRoot();
 
