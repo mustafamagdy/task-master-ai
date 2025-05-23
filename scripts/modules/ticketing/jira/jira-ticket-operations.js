@@ -167,7 +167,7 @@ export async function createTask(subtaskData, parentTicketId, explicitRoot = nul
             // Fetch the available issue types for the Jira project from config
             if (!config.issueTypes || !Array.isArray(config.issueTypes) || config.issueTypes.length === 0) {
                 // If we don't have issue types info, use the default subtask type
-                const subtaskType = 'Sub-task'; // Standard Jira type name
+                const subtaskType = 'Subtask'; // Standard Jira type name
                 log('info', `Using default issue type for subtask: ${subtaskType}`);
                 
                 // Create the payload with the default issue type
