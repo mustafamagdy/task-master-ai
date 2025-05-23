@@ -122,6 +122,7 @@ async function addSubtask(
 				details: newSubtaskData.details || '',
 				status: newSubtaskData.status || 'pending',
 				dependencies: newSubtaskData.dependencies || [],
+				metadata: {}, // Initialize with empty metadata object to ensure refId can be stored
 				parentTaskId: parentIdNum
 			};
 

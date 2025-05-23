@@ -290,6 +290,7 @@ async function addTask(
 			status: 'pending',
 			dependencies: numericDependencies, // Use validated numeric dependencies
 			priority: effectivePriority,
+			metadata: {}, // Initialize with empty metadata object to ensure refId can be stored
 			subtasks: [] // Initialize with empty subtasks array
 		};
 
