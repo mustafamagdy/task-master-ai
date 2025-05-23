@@ -70,6 +70,7 @@ export function displayTicketSyncResults(results) {
 	);
 
 	// Display the synchronization title and the table
+	console.log('');
 	console.log(chalk.bold.white.bgGreen(' TICKET SYNCHRONIZATION COMPLETE '));
 	console.log('');
 	console.log(table.toString());
