@@ -67,14 +67,22 @@ export function mapStatusToTicket(status) {
 
 /**
  * Map Jira status to TaskMaster status
- * @param {string} jiraStatus - Jira status
+ * @param {string|Object} jiraStatus - Jira status (string or object with status property)
  * @returns {string} TaskMaster status
  */
 export function mapTicketStatusToTaskmaster(jiraStatus) {
     if (!jiraStatus) return 'pending';
-
+    
+    // Handle both string status and object with status property
+    const statusText = typeof jiraStatus === 'object' && jiraStatus.status 
+        ? jiraStatus.status 
+        : jiraStatus;
+    
+    // If we still don't have a valid status, return default
+    if (!statusText) return 'pending';
+    
     // Normalize the status by converting to lowercase
-    const normalizedStatus = jiraStatus.toLowerCase();
+    const normalizedStatus = statusText.toLowerCase();
 
     // Define mappings from Jira statuses to TaskMaster statuses
     // These are common Jira workflow statuses, but may need to be customized
