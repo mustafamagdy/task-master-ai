@@ -129,22 +129,16 @@ async function initializeTicketingSubscribers() {
         const { generateUserStoryRefId, storeRefId } = await import('./utils/id-utils.js');
         const { writeJSON } = await import('../utils.js');
         
+        // Instead of relying on getTicketingSystemEnabled which looks for the config file,
+        // check if a ticketing instance can be created directly
         try {
-          const ticketingEnabled = getTicketingSystemEnabled(projectRoot);
-          
-          if (!ticketingEnabled) {
-            log('info', 'Ticketing system is not enabled. Skipping ticket creation.');
+          const ticketingInstance = await getTicketingInstance(null, projectRoot);
+          if (!ticketingInstance) {
+            log('info', 'No ticketing system available. Skipping ticket creation.');
             return;
           }
         } catch (configError) {
-          log('error', `Error checking ticketing system configuration: ${configError.message}`);
-          return;
-        }
-        
-        // Then check if properly configured
-        const isConfigured = await isTicketingSystemConfigured(projectRoot);
-        if (!isConfigured) {
-          log('info', 'Ticketing system is not configured. Skipping ticket creation.');
+          log('error', `Error getting ticketing instance: ${configError.message}`);
           return;
         }
         
@@ -182,8 +176,7 @@ async function initializeTicketingSubscribers() {
         }
         
         try {
-          // Create user story in ticketing system
-          const ticketingInstance = await getTicketingInstance(null, projectRoot);
+          // Already have ticketing instance from earlier check
           if (!ticketingInstance) {
             throw new Error('No ticketing system configured');
           }
@@ -271,25 +264,10 @@ async function initializeTicketingSubscribers() {
         
         const projectRoot = path.dirname(tasksPath);
         
-        // Check if ticketing is enabled
-        const { getTicketingSystemEnabled } = await import('../config-manager.js');
-        
-        try {
-          const ticketingEnabled = getTicketingSystemEnabled(projectRoot);
-          
-          if (!ticketingEnabled) {
-            log('info', 'Ticketing system is not enabled. Skipping subtask ticket creation.');
-            return;
-          }
-        } catch (configError) {
-          log('error', `Error checking ticketing system configuration: ${configError.message}`);
-          return;
-        }
-        
-        // Get parent task ticket ID
+        // Get ticketing instance directly without checking config
         const ticketingInstance = await getTicketingInstance(null, projectRoot);
         if (!ticketingInstance) {
-          log('warn', 'No ticketing system available. Skipping subtask ticket creation.');
+          log('info', 'No ticketing system available. Skipping subtask ticket creation.');
           return;
         }
         
