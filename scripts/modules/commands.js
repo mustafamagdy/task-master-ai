@@ -10,7 +10,9 @@ import boxen from 'boxen';
 import fs from 'fs';
 import https from 'https';
 import inquirer from 'inquirer';
-import ora from 'ora'; // Import ora
+import ora from 'ora'; 
+import Table from 'cli-table3';
+
 
 import { log, readJSON } from './utils.js';
 import {
