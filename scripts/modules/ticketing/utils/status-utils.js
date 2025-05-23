@@ -17,13 +17,9 @@ export async function synchronizeTaskStatus(taskItem, ticketIdentifier, ticketin
     const { isSubtaskItem = false, logger = console } = options;
     
     try {
-        if (!ticketingSystem) {
-            logger.error(`Ticketing system is undefined for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
-            return false;
-        }
-        
-        if (!ticketIdentifier) {
-            logger.error(`Ticket identifier is undefined for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
+        // Validate inputs
+        if (!ticketingSystem || !ticketIdentifier) {
+            logger.error(`Missing ${!ticketingSystem ? 'ticketing system' : 'ticket identifier'} for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}`);
             return false;
         }
         
@@ -45,13 +41,12 @@ export async function synchronizeTaskStatus(taskItem, ticketIdentifier, ticketin
             : ticketStatusResult;
             
         if (!ticketStatus || typeof ticketStatus !== 'string') {
-            logger.warn(`Invalid status format for ticket ${ticketIdentifier}: ${JSON.stringify(ticketStatusResult)}`);
+            logger.warn(`Invalid status format for ticket ${ticketIdentifier}`);
             return false;
         }
         
         // Convert ticket status to TaskMaster status
         const taskmasterStatus = ticketingSystem.mapTicketStatusToTaskmaster(ticketStatus);
-        logger.info(`Ticket ${ticketIdentifier} has status ${ticketStatus} (maps to TaskMaster: ${taskmasterStatus || 'unknown'})`);
         
         if (!taskmasterStatus) {
             logger.warn(`Could not map ticket status "${ticketStatus}" to TaskMaster status`);
@@ -60,7 +55,6 @@ export async function synchronizeTaskStatus(taskItem, ticketIdentifier, ticketin
         
         // If the current task status is different from the ticketing system status, update it
         if (taskItem.status !== taskmasterStatus) {
-            logger.info(`Updating ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id} status from "${taskItem.status}" to "${taskmasterStatus}" based on ticket ${ticketIdentifier}`);
             
             // Update the task status
             taskItem.status = taskmasterStatus;
@@ -72,11 +66,10 @@ export async function synchronizeTaskStatus(taskItem, ticketIdentifier, ticketin
             
             return true;
         } else {
-            logger.info(`${isSubtaskItem ? 'Subtask' : 'Task'} ${taskItem.id} status "${taskItem.status}" already matches ticket status "${taskmasterStatus}"`);
             return false; // No change needed
         }
     } catch (error) {
-        logger.error(`Error synchronizing status for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${error.message}`);
+        logger.error(`Sync error for ${isSubtaskItem ? 'subtask' : 'task'} ${taskItem.id}: ${error.message}`);
         return false;
     }
 }
