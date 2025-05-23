@@ -17,7 +17,6 @@ import { subscribeToTaskDeletion } from './task-deletion-handler.js';
 import { subscribeToSubtaskDeletion } from './subtask-deletion-handler.js';
 import { subscribeToTaskUpdate } from './task-update-handler.js';
 import { subscribeToSubtaskUpdate } from './subtask-update-handler.js';
-import { updateTicketStatus } from './ticket-status-updater.js';
 
 /**
  * Initialize ticketing event subscribers
