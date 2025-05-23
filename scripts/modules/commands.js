@@ -2666,7 +2666,6 @@ async function runCLI(argv = process.argv) {
 	
 	// Process.on('exit') cannot be async, so we can only do our best effort here
 	process.on('exit', () => {
-		console.log('Process exiting, attempting to clean up event system...');
 		// In an exit handler we can't await, so this is a best-effort cleanup
 		try {
 			// We'll start the shutdown process but can't wait for it
