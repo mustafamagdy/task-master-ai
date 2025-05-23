@@ -586,6 +586,22 @@ function displayHelp() {
 					desc: 'Fix invalid dependencies automatically'
 				}
 			]
+		},
+		{
+			title: 'Ticketing Integration',
+			color: 'magenta',
+			commands: [
+				{
+					name: 'init-mappings',
+					args: '',
+					desc: 'Initialize or update ticketing system mapping files'
+				},
+				{
+					name: 'sync-tickets',
+					args: '[-f, --file <file>]',
+					desc: 'Synchronize task statuses with the ticketing system'
+				}
+			]
 		}
 	];
 
