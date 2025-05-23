@@ -154,60 +154,53 @@ export async function createTask(subtaskData, parentTicketId, explicitRoot = nul
             return null;
         }
 
-        // Format the title for Jira if needed
-        const title = formatTitleForJira ? formatTitleForJira(subtaskData.title) : subtaskData.title;
-
+        // Format the title for Jira
+        const title = formatTitleForTicket(subtaskData);
+        
+        // Log the title being used
+        log('info', `Using title for Jira subtask: "${title}"`);
+        
         // Prepare the issue data
         let payload;
+        
         try {
-            // Get available issue types for the project
-            const issueTypeMapping = getIssueTypeMapping(explicitRoot);
-            const subtaskType = issueTypeMapping?.subtask || 'Sub-task';
+            // Get issue type mapping from the mapping manager
+            const subtaskType = getIssueTypeMapping('subtask');
+            log('info', `Using issue type for subtask: ${subtaskType}`);
             
-            // Try to find a suitable issue type
-            const selectedType = { name: subtaskType, subtask: true, id: '5' }; // Default fallback
-
-            if (selectedType) {
-                payload = {
-                    fields: {
-                        project: {
-                            key: projectKey
-                        },
-                        summary: title,
-                        description: {
-                            type: 'doc',
-                            version: 1,
-                            content: [
-                                {
-                                    type: 'paragraph',
-                                    content: [
-                                        {
-                                            type: 'text',
-                                            text: subtaskData.description || ''
-                                        }
-                                    ]
-                                }
-                            ]
-                        },
-                        issuetype: {
-                            id: selectedType.id
-                        }
+            // Create the payload with the proper issue type
+            payload = {
+                fields: {
+                    project: {
+                        key: projectKey
+                    },
+                    summary: title, // Use formatted title with refId
+                    description: {
+                        type: 'doc',
+                        version: 1,
+                        content: [
+                            {
+                                type: 'paragraph',
+                                content: [
+                                    {
+                                        type: 'text',
+                                        text: subtaskData.description || ''
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    issuetype: {
+                        name: subtaskType // Use the mapped issue type name
                     }
-                };
-
-                // Only add parent field if the issue type supports it (is a subtask)
-                if (selectedType.subtask) {
-                    payload.fields.parent = {
-                        key: parentTicketId
-                    };
-                } else {
-                    // For non-subtask issue types, we don't set the parent
-                    log('warn', `Using regular issue type ${selectedType.name} without parent relationship`);
                 }
-            } else {
-                log('error', 'No suitable issue type found in project');
-                throw new Error('No suitable issue type found');
-            }
+            };
+
+            // Add the parent relationship
+            payload.fields.parent = {
+                key: parentTicketId
+            };
+            log('info', `Setting parent ticket: ${parentTicketId}`);
         } catch (error) {
             log('error', `Error preparing Jira issue: ${error.message}`);
 
@@ -221,6 +214,10 @@ export async function createTask(subtaskData, parentTicketId, explicitRoot = nul
             log('error', 'Failed to create Jira issue payload');
             return null;
         }
+        
+        // Log the final payload for debugging
+        log('info', `Subtask payload: ${JSON.stringify(payload)}`);
+
 
         // Skip priority field for now as it's causing Jira API errors
         if (subtaskData.priority) {
