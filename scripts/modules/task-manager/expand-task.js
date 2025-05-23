@@ -661,8 +661,8 @@ async function expandTask(
 			};
 			
 			emit(EVENT_TYPES.SUBTASK_CREATED, {
-				taskId: compoundId, // Use compound ID format that ticketing subscriber expects
-				subtask: subtaskWithParent, // Include parent reference
+				taskId: compoundId, 
+				subtask: subtaskWithParent,
 				tasksPath,
 				data
 			});

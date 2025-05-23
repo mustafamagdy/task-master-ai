@@ -17,6 +17,8 @@ export function subscribeToTaskCreation(subscribe) {
     return subscribe(
         EVENT_TYPES.TASK_CREATED,
         async ({ taskId, data, tasksPath, task }) => {
+
+            log('debug', `Received task created event for task ${taskId}`);
             try {
                 // Only proceed with task if it was provided directly
                 if (!task) {
