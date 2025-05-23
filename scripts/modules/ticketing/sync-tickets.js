@@ -27,7 +27,8 @@ import {
     storeTicketId, 
     synchronizeTaskStatus as syncTaskStatus,
     createTicketForTask,
-    createSubtaskTicket
+    createSubtaskTicket,
+    displaySyncStatusTable
 } from './utils/index.js';
 
 // Default debug mode - set to false in production
@@ -431,6 +432,9 @@ async function syncTickets(tasksPath, options = {}) {
             }
         }
 
+        // Display the sync stats in a formatted table
+        displaySyncStatusTable(stats, customLog.info);
+        
         // Return success with statistics
         const message = `Synchronization complete: ${stats.tasksCreated} tasks created, ${stats.subtasksCreated} subtasks created, ${stats.tasksUpdated} tasks updated, ${stats.subtasksUpdated} subtasks updated, ${stats.ticketsUpdated} tickets updated, ${stats.tasksWithTimestampsAdded} timestamps initialized, ${stats.errors} errors`;
         customLog.success(message);
@@ -438,14 +442,19 @@ async function syncTickets(tasksPath, options = {}) {
         return {
             success: true,
             stats,
-            message
+            message,
+            tableDisplayed: true // Flag indicating that table has been displayed
         };
     } catch (error) {
         customLog.error(`Synchronization error: ${error.message}`);
+        // Display error stats in table format
+        displaySyncStatusTable(stats, customLog.info);
+        
         return {
             success: false,
             stats,
-            message: `Error: ${error.message}`
+            message: `Error: ${error.message}`,
+            tableDisplayed: true // Flag indicating that table has been displayed
         };
     }
 }

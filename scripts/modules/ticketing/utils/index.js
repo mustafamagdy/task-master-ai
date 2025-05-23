@@ -36,3 +36,6 @@ export {
     mapPriorityToTicket,
     mapTicketPriorityToTaskmaster
 } from './mapping-utils.js';
+
+// Sync status table display
+export { formatSyncStatusTable, displaySyncStatusTable } from './sync-status-table.js';
