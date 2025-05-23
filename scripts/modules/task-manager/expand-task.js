@@ -14,10 +14,12 @@ import { generateTextService } from '../ai-services-unified.js';
 
 import {
 	getDefaultSubtasks,
-	getDebugFlag
+	getDebugFlag,
+	getTicketingIntegrationEnabled
 } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 import { emit, EVENT_TYPES } from '../events/event-emitter.js';
+import { generateSubtaskRefId, storeRefId } from '../ticketing/utils/id-utils.js';
 
 // --- Zod Schemas (Keep from previous step) ---
 const subtaskSchema = z
@@ -628,6 +630,26 @@ async function expandTask(
 		if (!Array.isArray(task.subtasks)) {
 			task.subtasks = [];
 		}
+
+		// Check if ticketing integration is enabled
+		const projectRoot = path.dirname(tasksPath);
+		const ticketingEnabled = getTicketingIntegrationEnabled(projectRoot);
+		if (ticketingEnabled) {
+			logger.info(`Ticketing integration is enabled. Generating reference IDs for subtasks of task ${task.id}`);
+		}
+
+		// Generate reference IDs for subtasks if ticketing is enabled
+		generatedSubtasks = generatedSubtasks.map(subtask => {
+			if (ticketingEnabled) {
+				// Generate a reference ID for the subtask
+				const refId = generateSubtaskRefId(task.id, subtask.id, true);
+				logger.info(`Generated reference ID ${refId} for subtask ${subtask.id} of task ${task.id}`);
+				
+				// Store the reference ID in the subtask metadata
+				return storeRefId(subtask, refId);
+			}
+			return subtask;
+		});
 
 		// Append the newly generated and validated subtasks
 		task.subtasks.push(...generatedSubtasks);
