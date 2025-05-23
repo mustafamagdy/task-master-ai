@@ -28,13 +28,24 @@ export async function synchronizeTaskStatus(taskItem, ticketIdentifier, ticketin
         }
         
         // Get current status from ticketing system
-        const ticketStatus = await ticketingSystem.getTicketStatus(
+        const ticketStatusResult = await ticketingSystem.getTicketStatus(
             ticketIdentifier,
             options.projectRoot
         );
         
-        if (!ticketStatus) {
+        if (!ticketStatusResult) {
             logger.warn(`No status found for ticket ${ticketIdentifier}`);
+            return false;
+        }
+        
+        // Extract the actual status string from the result
+        // Handle both string status and object with status property
+        const ticketStatus = typeof ticketStatusResult === 'object' && ticketStatusResult.status 
+            ? ticketStatusResult.status 
+            : ticketStatusResult;
+            
+        if (!ticketStatus || typeof ticketStatus !== 'string') {
+            logger.warn(`Invalid status format for ticket ${ticketIdentifier}: ${JSON.stringify(ticketStatusResult)}`);
             return false;
         }
         
