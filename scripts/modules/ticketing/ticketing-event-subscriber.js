@@ -59,6 +59,17 @@ async function initializeTicketingSubscribers() {
           log('warn', `Subtask ${taskId} not found. Skipping ticketing update.`);
           return;
         }
+
+        log('info', `task details: ${JSON.stringify(subtask)}`);
+        // Extract parent information
+        let parentTask = null;
+        if (subtask.parentTask && subtask.parentTask.id) {
+          // Get the full parent task object if needed
+          const { task: foundParent } = findTaskById(data.tasks, subtask.parentTask.id);
+          if (foundParent) {
+            parentTask = foundParent;
+          }
+        }
                 
         // Get ticketing instance with explicit project root
         const projectRoot = findProjectRoot();
@@ -68,8 +79,11 @@ async function initializeTicketingSubscribers() {
           return;
         }
         
-        // Get the ticket ID from the subtask metadata
-        const subtaskTicketId = ticketing.getTicketId(subtask);
+        // Get the ticket ID from the subtask metadata, passing parent task info
+        const subtaskTicketId = ticketing.getTicketId(subtask, { 
+          parentTask,
+          debug: true
+        });
         if (!subtaskTicketId) {
           log('info', `No ticket ID found for subtask ${taskId}. Skipping ticketing update.`);
           return;
