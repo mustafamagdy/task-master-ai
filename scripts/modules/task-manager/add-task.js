@@ -295,23 +295,6 @@ async function addTask(
 			subtasks: [] // Initialize with empty subtasks array
 		};
 
-		// Store reference ID in task metadata if ticketing system integration is enabled
-		if (getTicketingSystemEnabled(projectRoot)) {
-			try {
-				// generateUserStoryRefId is async, so we need to await it
-				const refId = await generateUserStoryRefId(newTaskId, projectRoot);
-				if (refId) {
-					newTask = storeRefId(newTask, refId);
-					report(`Stored reference ID ${refId} in task metadata`, 'info');
-				}
-			} catch (refIdError) {
-				report(`Error generating reference ID: ${refIdError.message}`, 'error');
-			}
-		}
-
-		// Ticketing system integration is now handled through events
-		// The ticketing-event-subscriber.js listens for task created events and creates tickets
-
 		// Add the task to the tasks array
 		data.tasks.push(newTask);
 

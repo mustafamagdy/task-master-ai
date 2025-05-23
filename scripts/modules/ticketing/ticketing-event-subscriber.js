@@ -5,19 +5,25 @@
 
 import path from 'path';
 import { log } from '../utils.js';
-import { getTicketingIntegrationEnabled } from '../config-manager.js';
-import { getTicketingInstance } from './ticketing-factory.js';
 import { subscribe, EVENT_TYPES } from '../events/event-emitter.js';
 
 /**
  * Initialize ticketing event subscribers
  * @returns {Function} Unsubscribe function to clean up all subscribers
  */
-function initializeTicketingSubscribers() {
-  // Only subscribe if ticketing integration is enabled
-  if (!getTicketingIntegrationEnabled()) {
-    log('info', 'Ticketing integration is disabled. Skipping event subscribers.');
-    return () => {}; // Return empty unsubscribe function
+async function initializeTicketingSubscribers() {
+  try {
+    // Dynamically import the configuration functions to avoid circular dependencies
+    const { getTicketingIntegrationEnabled } = await import('../config-manager.js');
+    
+    // Only subscribe if ticketing integration is enabled
+    if (!getTicketingIntegrationEnabled()) {
+      log('info', 'Ticketing integration is disabled. Skipping event subscribers.');
+      return () => {}; // Return empty unsubscribe function
+    }
+  } catch (error) {
+    log('error', `Error checking ticketing integration status: ${error.message}`);
+    return () => {}; // Return empty unsubscribe function on error
   }
 
   log('info', 'Initializing ticketing event subscribers...');
@@ -43,8 +49,9 @@ function initializeTicketingSubscribers() {
     EVENT_TYPES.SUBTASK_STATUS_CHANGED,
     async ({ taskId, subtaskId, newStatus, data, tasksPath }) => {
       try {
-        // Import findTaskById to avoid circular dependencies
+        // Import required modules dynamically to avoid circular dependencies
         const { findTaskById } = await import('../utils.js');
+        const { getTicketingInstance } = await import('./ticketing-factory.js');
         
         // Find the main task first to get its ticket ID
         const task = findTaskById(data.tasks, taskId);
@@ -274,8 +281,9 @@ function initializeTicketingSubscribers() {
  */
 async function updateTicketStatus(taskId, newStatus, data, tasksPath) {
   try {
-    // Import findTaskById to avoid circular dependencies
+    // Import required modules dynamically to avoid circular dependencies
     const { findTaskById } = await import('../utils.js');
+    const { getTicketingInstance } = await import('./ticketing-factory.js');
     
     // Find the task by ID
     const task = findTaskById(data.tasks, taskId);
