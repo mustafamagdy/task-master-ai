@@ -221,6 +221,20 @@ class JiraTicketing extends TicketingSystemInterface {
         console.log(`Searching for subtask with reference ID: ${refId}`);
         return null; // Temporary fallback until we implement the actual search
     }
+
+    /**
+     * Update ticket details (title, description, priority, etc.) when a task/subtask is updated
+     * @param {string} ticketId - Ticket ID
+     * @param {Object} taskData - New task data
+     * @param {Object} previousTaskData - Previous task data before the update
+     * @param {string|null} explicitRoot - Optional explicit path to the project root
+     * @returns {Promise<boolean>} True if successful, false otherwise
+     */
+    async updateTicketDetails(ticketId, taskData, previousTaskData, explicitRoot = null) {
+        // Use the implementation from jira-ticket-operations module
+        const { updateTicketDetails: updateTicketDetailsOp } = await import('./jira-ticket-operations.js');
+        return updateTicketDetailsOp(ticketId, taskData, previousTaskData, explicitRoot);
+    }
 }
 
 export default JiraTicketing;

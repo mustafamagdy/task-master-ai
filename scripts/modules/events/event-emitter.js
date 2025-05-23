@@ -58,9 +58,11 @@ function emit(eventType, data) {
  */
 const EVENT_TYPES = {
   TASK_CREATED: 'task:created',
+  TASK_UPDATED: 'task:updated',
   TASK_STATUS_CHANGED: 'task:status:changed',
   TASK_DELETED: 'task:deleted',
   SUBTASK_CREATED: 'subtask:created',
+  SUBTASK_UPDATED: 'subtask:updated',
   SUBTASK_STATUS_CHANGED: 'subtask:status:changed',
   SUBTASK_DELETED: 'subtask:deleted'
 };

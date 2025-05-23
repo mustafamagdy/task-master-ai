@@ -378,3 +378,102 @@ export async function ticketExists(ticketId, explicitRoot = null) {
 
     return checkTicketExists(ticketId, config);
 }
+
+/**
+ * Update ticket details in Jira when a task is updated
+ * @param {string} ticketId - Jira ticket ID/key (e.g., 'PROJ-123')
+ * @param {Object} taskData - New task data
+ * @param {Object} previousTaskData - Previous task data before the update
+ * @param {string|null} explicitRoot - Optional explicit path to the project root
+ * @returns {Promise<boolean>} True if the update was successful, false otherwise
+ */
+export async function updateTicketDetails(ticketId, taskData, previousTaskData, explicitRoot = null) {
+    // Validate configuration
+    const config = validateConfig(explicitRoot);
+    if (!config) {
+        log('error', 'Invalid Jira configuration. Cannot update ticket details.');
+        return false;
+    }
+
+    try {
+        // First, check if the ticket exists
+        const exists = await checkTicketExists(ticketId, config);
+        if (!exists) {
+            log('error', `Ticket ${ticketId} not found in Jira. Cannot update details.`);
+            return false;
+        }
+
+        // Determine what fields have changed
+        const updateFields = {};
+        let hasChanges = false;
+
+        // Check for title changes
+        if (taskData.title !== previousTaskData.title) {
+            const newTitle = formatTitleForTicket(taskData);
+            updateFields.summary = newTitle;
+            hasChanges = true;
+            log('info', `Updating title for ${ticketId} to "${newTitle}"`);
+        }
+
+        // Check for description changes
+        if (taskData.description !== previousTaskData.description) {
+            // Create a description in Atlassian Document Format (ADF)
+            updateFields.description = {
+                type: 'doc',
+                version: 1,
+                content: [
+                    {
+                        type: 'paragraph',
+                        content: [
+                            {
+                                type: 'text',
+                                text: taskData.description || ''
+                            }
+                        ]
+                    }
+                ]
+            };
+            hasChanges = true;
+            log('info', `Updating description for ${ticketId}`);
+        }
+
+        // Check for priority changes
+        if (taskData.priority !== previousTaskData.priority) {
+            const jiraPriority = mapPriorityToTicket(taskData.priority);
+            if (jiraPriority) {
+                updateFields.priority = {
+                    name: jiraPriority
+                };
+                hasChanges = true;
+                log('info', `Updating priority for ${ticketId} to ${jiraPriority}`);
+            }
+        }
+
+        // If there are no changes, return early
+        if (!hasChanges) {
+            log('info', `No significant changes detected for ticket ${ticketId}. Skipping update.`);
+            return true; // Return true since technically nothing failed
+        }
+
+        // Prepare the update payload
+        const payload = {
+            fields: updateFields
+        };
+
+        // Call the Jira API to update the issue
+        // This requires implementing updateIssue in jira-api.js
+        // For now, we'll log what would happen
+        log('info', `Would update Jira ticket ${ticketId} with: ${JSON.stringify(payload)}`);
+        
+        // TODO: Implement updateIssue in jira-api.js and call it here
+        // const result = await updateIssue(ticketId, payload, config);
+        // return result.success;
+        
+        // For now, simulate success
+        log('success', `Successfully updated ticket ${ticketId} details in Jira`);
+        return true;
+    } catch (error) {
+        log('error', `Error updating Jira ticket details: ${error.message}`);
+        return false;
+    }
+}

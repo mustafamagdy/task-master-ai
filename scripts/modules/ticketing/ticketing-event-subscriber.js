@@ -471,6 +471,100 @@ async function initializeTicketingSubscribers() {
   );
   unsubscribeFunctions.push(unsubscribeSubtaskDeleted);
 
+  // Subscribe to task update events (non-status changes)
+  const unsubscribeTaskUpdated = subscribe(
+    EVENT_TYPES.TASK_UPDATED,
+    async ({ taskId, task, previousTask, data, tasksPath }) => {
+      try {
+        // Import required modules dynamically to avoid circular dependencies
+        const { findProjectRoot } = await import('../utils.js');
+        const projectRoot = findProjectRoot();
+        const { getTicketingInstance } = await import('./ticketing-factory.js');
+        
+        // Get ticketing instance
+        const ticketing = await getTicketingInstance('jira', projectRoot);
+        if (!ticketing) {
+          log('warn', 'No ticketing system available. Skipping update for task changes.');
+          return;
+        }
+        
+        // Check if task has a ticket ID
+        const ticketId = task && typeof ticketing.getTicketId === 'function' ? 
+          ticketing.getTicketId(task) : null;
+
+        if (!ticketId) {
+          log('info', `No ticket ID found for task ${taskId}. Skipping ticketing update.`);
+          return;
+        }
+        
+        log('info', `Task ${taskId} with ticket ${ticketId} was updated. Syncing with ticketing system...`);
+        
+        // Update the ticket details in the ticketing system
+        if (typeof ticketing.updateTicketDetails === 'function') {
+          const success = await ticketing.updateTicketDetails(ticketId, task, previousTask);
+          
+          if (success) {
+            log('success', `Updated ticketing system issue ${ticketId} for task ${taskId}`);
+          } else {
+            log('warn', `Failed to update ticketing system issue ${ticketId} for task ${taskId}`);
+          }
+        } else {
+          log('warn', `Ticketing system doesn't support updating ticket details. Skipping update.`);
+        }
+      } catch (error) {
+        log('error', `Error handling task update event: ${error.message}`);
+      }
+    }
+  );
+  unsubscribeFunctions.push(unsubscribeTaskUpdated);
+
+  // Subscribe to subtask update events (non-status changes)
+  const unsubscribeSubtaskUpdated = subscribe(
+    EVENT_TYPES.SUBTASK_UPDATED,
+    async ({ taskId, subtaskId, subtask, previousSubtask, data, tasksPath }) => {
+      try {
+        // Import required modules dynamically to avoid circular dependencies
+        const { findProjectRoot } = await import('../utils.js');
+        const projectRoot = findProjectRoot();
+        const { getTicketingInstance } = await import('./ticketing-factory.js');
+        
+        // Get ticketing instance
+        const ticketing = await getTicketingInstance('jira', projectRoot);
+        if (!ticketing) {
+          log('warn', 'No ticketing system available. Skipping update for subtask changes.');
+          return;
+        }
+        
+        // Check if subtask has a ticket ID
+        const subtaskTicketId = subtask && typeof ticketing.getTicketId === 'function' ?
+          ticketing.getTicketId(subtask) : null;
+
+        if (!subtaskTicketId) {
+          log('info', `No ticket ID found for subtask ${subtaskId} of task ${taskId}. Skipping ticketing update.`);
+          return;
+        }
+        
+        log('info', `Subtask ${subtaskId} of task ${taskId} with ticket ${subtaskTicketId} was updated. Syncing with ticketing system...`);
+        
+        // Update the subtask details in the ticketing system
+        if (typeof ticketing.updateTicketDetails === 'function') {
+          const success = await ticketing.updateTicketDetails(subtaskTicketId, subtask, previousSubtask);
+          
+          if (success) {
+            log('success', `Updated ticketing system issue ${subtaskTicketId} for subtask ${subtaskId} of task ${taskId}`);
+          } else {
+            log('warn', `Failed to update ticketing system issue ${subtaskTicketId} for subtask ${subtaskId} of task ${taskId}`);
+          }
+        } else {
+          log('warn', `Ticketing system doesn't support updating ticket details. Skipping subtask update.`);
+        }
+      } catch (error) {
+        log('error', `Error handling subtask update event: ${error.message}`);
+      }
+    }
+  );
+  unsubscribeFunctions.push(unsubscribeSubtaskUpdated);
+
   // Return unsubscribe function that will clean up all event listeners
   return () => {
     unsubscribeFunctions.forEach(unsubscribe => {
