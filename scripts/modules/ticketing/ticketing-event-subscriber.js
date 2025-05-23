@@ -51,7 +51,7 @@ async function initializeTicketingSubscribers() {
     EVENT_TYPES.SUBTASK_STATUS_CHANGED,
     async ({ taskId, subtaskId, newStatus, data, tasksPath }) => {
       try {
-        log('info', `Updating subtask ${taskId}.${subtaskId} with ticket ${subtaskTicketId} to status: ${newStatus}`);
+        log('info', `Processing status update for subtask ${taskId}.${subtaskId} to status: ${newStatus}`);
         
         // Find the parent task
         const { task: foundParent } = findTaskById(data.tasks, taskId);
