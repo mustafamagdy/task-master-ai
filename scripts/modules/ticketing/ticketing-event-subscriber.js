@@ -57,18 +57,22 @@ async function initializeTicketingSubscribers() {
         const { findTaskById } = await import('../utils.js');
         const { getTicketingInstance } = await import('./ticketing-factory.js');
         
-        // Find the main task first to get its ticket ID
-        const task = findTaskById(data.tasks, taskId);
-        if (!task) {
-          log('warn', `Task ${taskId} not found for subtask ${subtaskId}. Skipping ticketing update.`);
-          return;
-        }
+        // If the event includes the subtask object directly, use it
+        let subtask = data.subtask;
         
-        // Find the subtask
-        const subtask = task.subtasks?.find(st => st.id === subtaskId);
+        log('info', `subtask: ${JSON.stringify(subtask)}`);
+        // Otherwise find the subtask in the task
         if (!subtask) {
-          log('warn', `Subtask ${subtaskId} not found in task ${taskId}. Skipping ticketing update.`);
-          return;
+          const task = findTaskById(data.tasks, taskId);
+          if (!task) {
+            log('warn', `Task ${taskId} not found for subtask ${subtaskId}. Skipping ticketing update.`);
+            return;
+          }
+          subtask = task.subtasks?.find(st => st.id === subtaskId);
+          if (!subtask) {
+            log('warn', `Subtask ${subtaskId} not found in task ${taskId}. Skipping ticketing update.`);
+            return;
+          }
         }
         
         // Get ticketing instance with explicit project root

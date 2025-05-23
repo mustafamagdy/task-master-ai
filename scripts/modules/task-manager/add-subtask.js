@@ -141,8 +141,8 @@ async function addSubtask(
 		// Emit subtask created event
 		emit(EVENT_TYPES.SUBTASK_CREATED, {
 			taskId: parentIdNum,
-			subtaskId: Number(newSubtask.id), // Ensure subtaskId is a number
-			subtask: newSubtask,
+			subtaskId: newSubtask.id, // Keep original ID from the subtask
+			subtask: newSubtask, // Include the full subtask object
 			data,
 			tasksPath
 		});

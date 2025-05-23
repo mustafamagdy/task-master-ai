@@ -86,8 +86,8 @@ async function removeTask(tasksPath, taskIds) {
 					// Emit subtask deleted event
 					emit(EVENT_TYPES.SUBTASK_DELETED, {
 						taskId: parentTaskId,
-						subtaskId: Number(subtaskId), // Ensure subtaskId is a number
-						subtask: removedSubtask,
+						subtaskId: removedSubtask.id, // Use the ID directly from the subtask object
+						subtask: removedSubtask, // Include the full subtask object
 						data,
 						tasksPath
 					});
