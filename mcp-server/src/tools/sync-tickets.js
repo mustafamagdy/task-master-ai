@@ -26,7 +26,9 @@ export function registerSyncTicketsTool(server) {
 			taskId: z
 				.string()
 				.optional()
-				.describe('Optional specific task ID to synchronize. Note: Currently syncs all tasks regardless of this parameter.'),
+				.describe(
+					'Optional specific task ID to synchronize. Note: Currently syncs all tasks regardless of this parameter.'
+				),
 			force: z
 				.boolean()
 				.optional()
@@ -77,7 +79,7 @@ export function registerSyncTicketsTool(server) {
 				log.info(
 					`${toolName}: Direct function result: success=${result.success}`
 				);
-				
+
 				return handleApiResult(result, log, 'Error synchronizing tickets');
 			} catch (error) {
 				log.error(

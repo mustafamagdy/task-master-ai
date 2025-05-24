@@ -1256,6 +1256,7 @@ function registerCommands(programInstance) {
 			const tasksPath = options.file;
 			const taskIds = options.id;
 			const all = options.all;
+			const projectRoot = findProjectRoot() || '.';
 
 			if (!taskIds && !all) {
 				console.error(
@@ -1274,9 +1275,9 @@ function registerCommands(programInstance) {
 					process.exit(1);
 				}
 				const allIds = data.tasks.map((t) => t.id).join(',');
-				clearSubtasks(tasksPath, allIds);
+				await clearSubtasks(tasksPath, allIds, projectRoot);
 			} else {
-				clearSubtasks(tasksPath, taskIds);
+				await clearSubtasks(tasksPath, taskIds, projectRoot);
 			}
 		});
 
@@ -1794,6 +1795,7 @@ function registerCommands(programInstance) {
 			const subtaskIds = options.id;
 			const convertToTask = options.convert || false;
 			const generateFiles = !options.skipGenerate;
+			const projectRoot = findProjectRoot() || '.';
 
 			if (!subtaskIds) {
 				console.error(
@@ -1832,7 +1834,8 @@ function registerCommands(programInstance) {
 						tasksPath,
 						subtaskId,
 						convertToTask,
-						generateFiles
+						generateFiles,
+						projectRoot
 					);
 
 					if (convertToTask && result) {
@@ -2100,7 +2103,11 @@ function registerCommands(programInstance) {
 				const existingIdsString = existingTasksToRemove
 					.map(({ id }) => id)
 					.join(',');
-				const result = await removeTask(tasksPath, existingIdsString, projectRoot);
+				const result = await removeTask(
+					tasksPath,
+					existingIdsString,
+					projectRoot
+				);
 
 				stopLoadingIndicator(indicator);
 

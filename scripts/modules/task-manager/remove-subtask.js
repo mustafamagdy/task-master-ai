@@ -1,6 +1,7 @@
 import path from 'path';
 import { log, readJSON, writeJSON } from '../utils.js';
 import generateTaskFiles from './generate-task-files.js';
+import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 
 /**
  * Remove a subtask from its parent task
@@ -8,13 +9,15 @@ import generateTaskFiles from './generate-task-files.js';
  * @param {string} subtaskId - ID of the subtask to remove in format "parentId.subtaskId"
  * @param {boolean} convertToTask - Whether to convert the subtask to a standalone task
  * @param {boolean} generateFiles - Whether to regenerate task files after removing the subtask
+ * @param {string} projectRoot - Project root path (for ticketing integration)
  * @returns {Object|null} The removed subtask if convertToTask is true, otherwise null
  */
 async function removeSubtask(
 	tasksPath,
 	subtaskId,
 	convertToTask = false,
-	generateFiles = true
+	generateFiles = true,
+	projectRoot = null
 ) {
 	try {
 		log('info', `Removing subtask ${subtaskId}...`);
@@ -66,6 +69,37 @@ async function removeSubtask(
 			delete parentTask.subtasks;
 		}
 
+		// Update ticket status to cancelled for the removed subtask (ticketing integration)
+		if (projectRoot) {
+			try {
+				const ticketingResult = await ticketingSyncService.updateTaskStatus(
+					subtaskId,
+					'cancelled',
+					tasksPath,
+					projectRoot
+				);
+				if (ticketingResult.success) {
+					log(
+						'info',
+						`Updated ticket status to 'cancelled' for removed subtask ${subtaskId}`
+					);
+				} else if (
+					ticketingResult.error !== 'Ticketing service not available'
+				) {
+					// Only warn if it's not just disabled ticketing
+					log(
+						'warn',
+						`Warning: Could not update ticket status for removed subtask ${subtaskId}: ${ticketingResult.error}`
+					);
+				}
+			} catch (ticketingError) {
+				log(
+					'warn',
+					`Warning: Could not update ticket status for removed subtask ${subtaskId}: ${ticketingError.message}`
+				);
+			}
+		}
+
 		let convertedTask = null;
 
 		// Convert the subtask to a standalone task if requested
@@ -96,6 +130,36 @@ async function removeSubtask(
 			data.tasks.push(convertedTask);
 
 			log('info', `Created new task ${newTaskId} from subtask ${subtaskId}`);
+
+			// Create ticket for the converted task (ticketing integration)
+			if (projectRoot) {
+				try {
+					const ticketingResult = await ticketingSyncService.syncTask(
+						convertedTask,
+						tasksPath,
+						projectRoot
+					);
+					if (ticketingResult.success) {
+						log(
+							'info',
+							`Created ticket ${ticketingResult.ticketKey} for converted task ${convertedTask.id}`
+						);
+					} else if (
+						ticketingResult.error !== 'Ticketing service not available'
+					) {
+						// Only warn if it's not just disabled ticketing
+						log(
+							'warn',
+							`Warning: Could not create ticket for converted task ${convertedTask.id}: ${ticketingResult.error}`
+						);
+					}
+				} catch (ticketingError) {
+					log(
+						'warn',
+						`Warning: Could not create ticket for converted task ${convertedTask.id}: ${ticketingError.message}`
+					);
+				}
+			}
 		} else {
 			log('info', `Subtask ${subtaskId} deleted`);
 		}

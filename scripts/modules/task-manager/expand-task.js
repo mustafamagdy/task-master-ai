@@ -18,7 +18,10 @@ import {
 	getTicketingIntegrationEnabled
 } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
-import { generateSubtaskRefId, storeRefId } from '../ticketing/utils/id-utils.js';
+import {
+	generateSubtaskRefId,
+	storeRefId
+} from '../ticketing/utils/id-utils.js';
 import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 
 // --- Zod Schemas (Keep from previous step) ---
@@ -633,11 +636,13 @@ async function expandTask(
 
 		// Generate reference IDs for all subtasks - always useful metadata regardless of ticketing status
 		logger.info(`Generating reference IDs for subtasks of task ${task.id}`);
-		generatedSubtasks = generatedSubtasks.map(subtask => {
+		generatedSubtasks = generatedSubtasks.map((subtask) => {
 			// Generate a reference ID for the subtask - always pass true to ensure ID is generated
 			const refId = generateSubtaskRefId(task.id, subtask.id, true);
-			logger.info(`Generated reference ID ${refId} for subtask ${subtask.id} of task ${task.id}`);
-			
+			logger.info(
+				`Generated reference ID ${refId} for subtask ${subtask.id} of task ${task.id}`
+			);
+
 			// Store the reference ID in the subtask metadata
 			return storeRefId(subtask, refId);
 		});
@@ -651,9 +656,11 @@ async function expandTask(
 
 		// Direct ticketing integration for each new subtask
 		if (projectRoot && generatedSubtasks.length > 0) {
-			logger.info(`Syncing ${generatedSubtasks.length} new subtasks to ticketing system...`);
+			logger.info(
+				`Syncing ${generatedSubtasks.length} new subtasks to ticketing system...`
+			);
 			let ticketingSyncCount = 0;
-			
+
 			for (const subtask of generatedSubtasks) {
 				try {
 					// Create a task-like object for the subtask that can use syncTask
@@ -666,37 +673,55 @@ async function expandTask(
 					};
 
 					// Use syncTask (which works) instead of syncSubtask (which is more complex)
-					logger.debug(`[EXPAND-TASK] Calling syncTask for subtask ${task.id}.${subtask.id} with projectRoot: ${projectRoot}`);
-					const ticketingResult = await ticketingSyncService.syncTask(subtaskAsTask, tasksPath, projectRoot);
+					logger.debug(
+						`[EXPAND-TASK] Calling syncTask for subtask ${task.id}.${subtask.id} with projectRoot: ${projectRoot}`
+					);
+					const ticketingResult = await ticketingSyncService.syncTask(
+						subtaskAsTask,
+						tasksPath,
+						projectRoot
+					);
 					logger.debug(`[EXPAND-TASK] syncTask result:`, ticketingResult);
-					
+
 					if (ticketingResult.success) {
 						// Update the original subtask with the ticket key
 						subtask.metadata = subtask.metadata || {};
 						subtask.metadata.jiraKey = ticketingResult.ticketKey;
-						
+
 						// Update the subtask in the parent task object
-						const subtaskIndex = task.subtasks.findIndex(st => st.id === subtask.id);
+						const subtaskIndex = task.subtasks.findIndex(
+							(st) => st.id === subtask.id
+						);
 						if (subtaskIndex !== -1) {
 							task.subtasks[subtaskIndex] = subtask;
 						}
-						
+
 						ticketingSyncCount++;
-						logger.info(`Created ticket ${ticketingResult.ticketKey} for subtask ${task.id}.${subtask.id}`);
-					} else if (ticketingResult.error !== 'Ticketing service not available') {
+						logger.info(
+							`Created ticket ${ticketingResult.ticketKey} for subtask ${task.id}.${subtask.id}`
+						);
+					} else if (
+						ticketingResult.error !== 'Ticketing service not available'
+					) {
 						// Only warn if it's not just disabled ticketing
-						logger.warn(`Warning: Could not create ticket for subtask ${task.id}.${subtask.id}: ${ticketingResult.error}`);
+						logger.warn(
+							`Warning: Could not create ticket for subtask ${task.id}.${subtask.id}: ${ticketingResult.error}`
+						);
 					}
 				} catch (ticketingError) {
-					logger.warn(`Warning: Ticketing integration error for subtask ${task.id}.${subtask.id}: ${ticketingError.message}`);
+					logger.warn(
+						`Warning: Ticketing integration error for subtask ${task.id}.${subtask.id}: ${ticketingError.message}`
+					);
 				}
 			}
-			
+
 			// If any tickets were created, update the file with the ticket keys
 			if (ticketingSyncCount > 0) {
 				data.tasks[taskIndex] = task; // Update with ticket metadata
 				writeJSON(tasksPath, data);
-				logger.info(`Successfully synced ${ticketingSyncCount}/${generatedSubtasks.length} subtasks to ticketing system`);
+				logger.info(
+					`Successfully synced ${ticketingSyncCount}/${generatedSubtasks.length} subtasks to ticketing system`
+				);
 			}
 		}
 
@@ -711,7 +736,9 @@ async function expandTask(
 			displayAiUsageSummary(aiServiceResponse.telemetryData, 'cli');
 		}
 
-		logger.info(`Task ${task.id} expanded with ${generatedSubtasks.length} subtasks${projectRoot ? '' : '. Use \'task-master sync-tickets\' to sync with ticketing system if needed'}.`);
+		logger.info(
+			`Task ${task.id} expanded with ${generatedSubtasks.length} subtasks${projectRoot ? '' : ". Use 'task-master sync-tickets' to sync with ticketing system if needed"}.`
+		);
 
 		// Return the updated task object AND telemetry data
 		return {

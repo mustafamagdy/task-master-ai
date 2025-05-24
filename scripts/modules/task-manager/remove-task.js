@@ -94,7 +94,10 @@ async function removeTask(tasksPath, taskIds, projectRoot = null) {
 								projectRoot
 							);
 						} catch (ticketingError) {
-							log('warn', `Warning: Could not update ticket status for deleted subtask ${taskId}: ${ticketingError.message}`);
+							log(
+								'warn',
+								`Warning: Could not update ticket status for deleted subtask ${taskId}: ${ticketingError.message}`
+							);
 						}
 					}
 
@@ -128,7 +131,10 @@ async function removeTask(tasksPath, taskIds, projectRoot = null) {
 								projectRoot
 							);
 						} catch (ticketingError) {
-							log('warn', `Warning: Could not update ticket status for deleted task ${taskId}: ${ticketingError.message}`);
+							log(
+								'warn',
+								`Warning: Could not update ticket status for deleted task ${taskId}: ${ticketingError.message}`
+							);
 						}
 					}
 

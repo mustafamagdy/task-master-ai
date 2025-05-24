@@ -36,7 +36,9 @@ async function syncTickets(tasksPath, options = {}) {
 	// Extract project root from the tasks path
 	const projectRoot = tasksPath.replace(/[\/]tasks[\/]tasks\.json$/, '');
 
-	customLog.info('Starting task synchronization with ticketing system using unified service...');
+	customLog.info(
+		'Starting task synchronization with ticketing system using unified service...'
+	);
 
 	try {
 		// Check if ticketing is enabled
@@ -87,11 +89,13 @@ async function syncTickets(tasksPath, options = {}) {
 		);
 
 		if (syncResult.success) {
-			customLog.success(`Successfully synchronized ${syncResult.created} tickets`);
-			
+			customLog.success(
+				`Successfully synchronized ${syncResult.created} tickets`
+			);
+
 			if (syncResult.errors.length > 0) {
 				customLog.warn(`${syncResult.errors.length} errors occurred:`);
-				syncResult.errors.forEach(error => customLog.warn(`  - ${error}`));
+				syncResult.errors.forEach((error) => customLog.warn(`  - ${error}`));
 			}
 
 			return {
@@ -143,4 +147,4 @@ async function syncTickets(tasksPath, options = {}) {
 /**
  * Export the syncTickets function
  */
-export { syncTickets }; 
+export { syncTickets };

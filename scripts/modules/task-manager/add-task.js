@@ -16,7 +16,10 @@ import { generateObjectService } from '../ai-services-unified.js';
 import { getDefaultPriority } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
-import { generateUserStoryRefId, storeRefId } from '../ticketing/utils/id-utils.js';
+import {
+	generateUserStoryRefId,
+	storeRefId
+} from '../ticketing/utils/id-utils.js';
 
 // Define Zod schema for the expected AI output object
 const AiTaskDataSchema = z.object({
@@ -291,8 +294,8 @@ async function addTask(
 			status: 'pending',
 			dependencies: numericDependencies,
 			priority: effectivePriority,
-			metadata: {}, 
-			subtasks: [] 
+			metadata: {},
+			subtasks: []
 		};
 
 		// Generate refId for the new task
@@ -313,15 +316,28 @@ async function addTask(
 		// Direct ticketing integration
 		let ticketingResult = null;
 		try {
-			ticketingResult = await ticketingSyncService.syncTask(newTask, tasksPath, projectRoot);
+			ticketingResult = await ticketingSyncService.syncTask(
+				newTask,
+				tasksPath,
+				projectRoot
+			);
 			if (ticketingResult.success) {
-				report(`Created ticket ${ticketingResult.ticketKey} for task ${newTaskId}`, 'success');
+				report(
+					`Created ticket ${ticketingResult.ticketKey} for task ${newTaskId}`,
+					'success'
+				);
 			} else if (ticketingResult.error !== 'Ticketing service not available') {
 				// Only warn if it's not just disabled ticketing
-				report(`Warning: Could not create ticket for task ${newTaskId}: ${ticketingResult.error}`, 'warn');
+				report(
+					`Warning: Could not create ticket for task ${newTaskId}: ${ticketingResult.error}`,
+					'warn'
+				);
 			}
 		} catch (ticketingError) {
-			report(`Warning: Ticketing integration error for task ${newTaskId}: ${ticketingError.message}`, 'warn');
+			report(
+				`Warning: Ticketing integration error for task ${newTaskId}: ${ticketingError.message}`,
+				'warn'
+			);
 		}
 
 		// Generate markdown task files
