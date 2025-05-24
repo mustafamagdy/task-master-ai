@@ -159,7 +159,9 @@ export async function addTaskDirect(args, log, context = {}) {
 		}
 
 		// Task creation completed - ticketing handled by unified ticketing service
-		log.info(`Task #${newTaskId} created successfully. Ticketing integration handled by unified ticketing service.`);
+		log.info(
+			`Task #${newTaskId} created successfully. Ticketing integration handled by unified ticketing service.`
+		);
 
 		// Restore normal logging
 		disableSilentMode();

@@ -6,13 +6,15 @@ import Table from 'cli-table3';
 import { log, readJSON, writeJSON, truncate, isSilentMode } from '../utils.js';
 import { displayBanner } from '../ui.js';
 import generateTaskFiles from './generate-task-files.js';
+import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 
 /**
  * Clear subtasks from specified tasks
  * @param {string} tasksPath - Path to the tasks.json file
  * @param {string} taskIds - Task IDs to clear subtasks from
+ * @param {string} projectRoot - Project root path (for ticketing integration)
  */
-function clearSubtasks(tasksPath, taskIds) {
+async function clearSubtasks(tasksPath, taskIds, projectRoot) {
 	displayBanner();
 
 	log('info', `Reading tasks from ${tasksPath}...`);
@@ -48,17 +50,17 @@ function clearSubtasks(tasksPath, taskIds) {
 		style: { head: [], border: [] }
 	});
 
-	taskIdArray.forEach((taskId) => {
+	for (const taskId of taskIdArray) {
 		const id = parseInt(taskId, 10);
 		if (isNaN(id)) {
 			log('error', `Invalid task ID: ${taskId}`);
-			return;
+			continue;
 		}
 
 		const task = data.tasks.find((t) => t.id === id);
 		if (!task) {
 			log('error', `Task ${id} not found`);
-			return;
+			continue;
 		}
 
 		if (!task.subtasks || task.subtasks.length === 0) {
@@ -68,10 +70,45 @@ function clearSubtasks(tasksPath, taskIds) {
 				truncate(task.title, 47),
 				chalk.yellow('No subtasks')
 			]);
-			return;
+			continue;
 		}
 
 		const subtaskCount = task.subtasks.length;
+
+		// Update ticket status for each subtask before clearing (ticketing integration)
+		if (projectRoot && task.subtasks?.length > 0) {
+			for (const subtask of task.subtasks) {
+				try {
+					const subtaskId = `${task.id}.${subtask.id}`;
+					const ticketingResult = await ticketingSyncService.updateTaskStatus(
+						subtaskId,
+						'cancelled',
+						tasksPath,
+						projectRoot
+					);
+					if (ticketingResult.success) {
+						log(
+							'info',
+							`Updated ticket status to 'cancelled' for cleared subtask ${subtaskId}`
+						);
+					} else if (
+						ticketingResult.error !== 'Ticketing service not available'
+					) {
+						// Only warn if it's not just disabled ticketing
+						log(
+							'warn',
+							`Warning: Could not update ticket status for cleared subtask ${subtaskId}: ${ticketingResult.error}`
+						);
+					}
+				} catch (ticketingError) {
+					log(
+						'warn',
+						`Warning: Could not update ticket status for cleared subtask ${task.id}.${subtask.id}: ${ticketingError.message}`
+					);
+				}
+			}
+		}
+
 		task.subtasks = [];
 		clearedCount++;
 		log('info', `Cleared ${subtaskCount} subtasks from task ${id}`);
@@ -81,7 +118,7 @@ function clearSubtasks(tasksPath, taskIds) {
 			truncate(task.title, 47),
 			chalk.green(`${subtaskCount} subtasks cleared`)
 		]);
-	});
+	}
 
 	if (clearedCount > 0) {
 		writeJSON(tasksPath, data);

@@ -26,6 +26,7 @@ import {
 	isApiKeySet // Keep this check
 } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
+import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 
 // Zod schema for post-parsing validation of the updated task object
 const updatedTaskSchema = z
@@ -478,6 +479,39 @@ The changes described in the prompt should be thoughtfully applied to make the t
 
 			// --- Write File and Generate (Unchanged) ---
 			writeJSON(tasksPath, data);
+
+			// Sync updated content to ticket (ticketing integration)
+			if (projectRoot) {
+				try {
+					const ticketingResult = await ticketingSyncService.updateTaskContent(
+						taskId,
+						updatedTask,
+						tasksPath,
+						projectRoot
+					);
+					if (ticketingResult && ticketingResult.success) {
+						report(
+							'info',
+							`Synced content changes to ticket for task ${taskId}`
+						);
+					} else if (
+						ticketingResult &&
+						ticketingResult.error !== 'Ticketing service not available'
+					) {
+						// Only warn if it's not just disabled ticketing
+						report(
+							'warn',
+							`Warning: Could not sync content changes to ticket for task ${taskId}: ${ticketingResult.error}`
+						);
+					}
+				} catch (ticketingError) {
+					report(
+						'warn',
+						`Warning: Could not sync content changes to ticket for task ${taskId}: ${ticketingError.message}`
+					);
+				}
+			}
+
 			report('success', `Successfully updated task ${taskId}`);
 			await generateTaskFiles(tasksPath, path.dirname(tasksPath));
 			// --- End Write File ---

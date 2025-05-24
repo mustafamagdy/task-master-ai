@@ -77,7 +77,10 @@ async function updateSingleTaskStatus(
 					projectRoot
 				);
 			} catch (ticketingError) {
-				log('warn', `Warning: Could not update ticket status for subtask ${parentId}.${subtask.id}: ${ticketingError.message}`);
+				log(
+					'warn',
+					`Warning: Could not update ticket status for subtask ${parentId}.${subtask.id}: ${ticketingError.message}`
+				);
 			}
 		}
 
@@ -143,7 +146,10 @@ async function updateSingleTaskStatus(
 					projectRoot
 				);
 			} catch (ticketingError) {
-				log('warn', `Warning: Could not update ticket status for task ${taskId}: ${ticketingError.message}`);
+				log(
+					'warn',
+					`Warning: Could not update ticket status for task ${taskId}: ${ticketingError.message}`
+				);
 			}
 		}
 
@@ -178,7 +184,10 @@ async function updateSingleTaskStatus(
 								projectRoot
 							);
 						} catch (ticketingError) {
-							log('warn', `Warning: Could not update ticket status for auto-updated subtask ${taskId}.${subtask.id}: ${ticketingError.message}`);
+							log(
+								'warn',
+								`Warning: Could not update ticket status for auto-updated subtask ${taskId}.${subtask.id}: ${ticketingError.message}`
+							);
 						}
 					}
 				}

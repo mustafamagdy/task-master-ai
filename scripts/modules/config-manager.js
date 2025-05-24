@@ -146,21 +146,43 @@ function _loadAndValidateConfig(explicitRoot = null) {
 
 			// Handle migration from global ticketing config to dedicated section
 			// If ticketing config exists in global but not in ticketing section, move it
-			if (parsedConfig?.global?.ticketingSystem && !parsedConfig?.ticketing?.system) {
+			if (
+				parsedConfig?.global?.ticketingSystem &&
+				!parsedConfig?.ticketing?.system
+			) {
 				// Migrate old ticketing config from global to ticketing section
-				config.ticketing.system = parsedConfig.global.ticketingSystem || config.ticketing.system;
-				config.ticketing.integrationEnabled = parsedConfig.global.ticketingIntegrationEnabled || config.ticketing.integrationEnabled;
-				config.ticketing.jiraProjectKey = parsedConfig.global.jiraProjectKey || config.ticketing.jiraProjectKey;
-				config.ticketing.jiraBaseUrl = parsedConfig.global.jiraBaseUrl || config.ticketing.jiraBaseUrl;
-				config.ticketing.jiraEmail = parsedConfig.global.jiraEmail || config.ticketing.jiraEmail;
-				config.ticketing.jiraApiToken = parsedConfig.global.jiraApiToken || config.ticketing.jiraApiToken;
-				config.ticketing.azureOrganization = parsedConfig.global.azureOrganization || config.ticketing.azureOrganization;
-				config.ticketing.azurePersonalAccessToken = parsedConfig.global.azurePersonalAccessToken || config.ticketing.azurePersonalAccessToken;
-				config.ticketing.azureProjectName = parsedConfig.global.azureProjectName || config.ticketing.azureProjectName;
-				config.ticketing.githubToken = parsedConfig.global.githubToken || config.ticketing.githubToken;
-				config.ticketing.githubOwner = parsedConfig.global.githubOwner || config.ticketing.githubOwner;
-				config.ticketing.githubRepository = parsedConfig.global.githubRepository || config.ticketing.githubRepository;
-				config.ticketing.githubProjectNumber = parsedConfig.global.githubProjectNumber || config.ticketing.githubProjectNumber;
+				config.ticketing.system =
+					parsedConfig.global.ticketingSystem || config.ticketing.system;
+				config.ticketing.integrationEnabled =
+					parsedConfig.global.ticketingIntegrationEnabled ||
+					config.ticketing.integrationEnabled;
+				config.ticketing.jiraProjectKey =
+					parsedConfig.global.jiraProjectKey || config.ticketing.jiraProjectKey;
+				config.ticketing.jiraBaseUrl =
+					parsedConfig.global.jiraBaseUrl || config.ticketing.jiraBaseUrl;
+				config.ticketing.jiraEmail =
+					parsedConfig.global.jiraEmail || config.ticketing.jiraEmail;
+				config.ticketing.jiraApiToken =
+					parsedConfig.global.jiraApiToken || config.ticketing.jiraApiToken;
+				config.ticketing.azureOrganization =
+					parsedConfig.global.azureOrganization ||
+					config.ticketing.azureOrganization;
+				config.ticketing.azurePersonalAccessToken =
+					parsedConfig.global.azurePersonalAccessToken ||
+					config.ticketing.azurePersonalAccessToken;
+				config.ticketing.azureProjectName =
+					parsedConfig.global.azureProjectName ||
+					config.ticketing.azureProjectName;
+				config.ticketing.githubToken =
+					parsedConfig.global.githubToken || config.ticketing.githubToken;
+				config.ticketing.githubOwner =
+					parsedConfig.global.githubOwner || config.ticketing.githubOwner;
+				config.ticketing.githubRepository =
+					parsedConfig.global.githubRepository ||
+					config.ticketing.githubRepository;
+				config.ticketing.githubProjectNumber =
+					parsedConfig.global.githubProjectNumber ||
+					config.ticketing.githubProjectNumber;
 			}
 			configSource = `file (${configPath})`; // Update source info
 

@@ -347,7 +347,8 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 						// Update Jira configuration in ticketing section
 						existingConfig.ticketing.jiraProjectKey =
 							replacements.jiraProjectKey || '';
-						existingConfig.ticketing.jiraBaseUrl = replacements.jiraBaseUrl || '';
+						existingConfig.ticketing.jiraBaseUrl =
+							replacements.jiraBaseUrl || '';
 						existingConfig.ticketing.jiraEmail = replacements.jiraEmail || '';
 						existingConfig.ticketing.jiraApiToken =
 							replacements.jiraApiToken || '';

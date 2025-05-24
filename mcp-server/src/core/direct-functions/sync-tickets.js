@@ -31,7 +31,9 @@ export async function syncTicketsDirect(args, log, context = {}) {
 	const mcpLog = createLogWrapper(log);
 
 	try {
-		log.info(`Starting ticket synchronization with tasksPath: ${tasksJsonPath}`);
+		log.info(
+			`Starting ticket synchronization with tasksPath: ${tasksJsonPath}`
+		);
 
 		// Check if tasksJsonPath was provided
 		if (!tasksJsonPath) {
@@ -47,7 +49,9 @@ export async function syncTicketsDirect(args, log, context = {}) {
 
 		// Note: CLI sync-tickets doesn't support individual task filtering yet
 		if (taskId) {
-			log.warn(`Individual task sync not yet supported by CLI. Syncing all tasks.`);
+			log.warn(
+				`Individual task sync not yet supported by CLI. Syncing all tasks.`
+			);
 		}
 
 		// Use silent mode to prevent CLI output from interfering with MCP JSON response
@@ -113,4 +117,4 @@ export async function syncTicketsDirect(args, log, context = {}) {
 			}
 		};
 	}
-} 
+}

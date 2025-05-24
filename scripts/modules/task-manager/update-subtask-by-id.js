@@ -20,6 +20,7 @@ import {
 import { generateTextService } from '../ai-services-unified.js';
 import { getDebugFlag } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
+import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 
 /**
  * Update a subtask by appending additional timestamped information using the unified AI service.
@@ -292,6 +293,39 @@ Output Requirements:
 		writeJSON(tasksPath, data);
 		if (outputFormat === 'text' && getDebugFlag(session)) {
 			console.log('>>> DEBUG: writeJSON call completed.');
+		}
+
+		// Sync updated content to ticket (ticketing integration)
+		if (projectRoot) {
+			try {
+				// Use a method like updateSubtaskContent for content synchronization
+				const ticketingResult = await ticketingSyncService.updateTaskContent(
+					subtaskId,
+					updatedSubtask,
+					tasksPath,
+					projectRoot
+				);
+				if (ticketingResult && ticketingResult.success) {
+					report(
+						'info',
+						`Synced content changes to ticket for subtask ${subtaskId}`
+					);
+				} else if (
+					ticketingResult &&
+					ticketingResult.error !== 'Ticketing service not available'
+				) {
+					// Only warn if it's not just disabled ticketing
+					report(
+						'warn',
+						`Warning: Could not sync content changes to ticket for subtask ${subtaskId}: ${ticketingResult.error}`
+					);
+				}
+			} catch (ticketingError) {
+				report(
+					'warn',
+					`Warning: Could not sync content changes to ticket for subtask ${subtaskId}: ${ticketingError.message}`
+				);
+			}
 		}
 
 		report('success', `Successfully updated subtask ${subtaskId}`);

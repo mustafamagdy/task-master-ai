@@ -79,7 +79,7 @@ export async function addSubtaskDirect(args, log, context = {}) {
 			: [];
 
 		let result;
-		
+
 		// Call the core addSubtask function
 		if (taskId) {
 			// Converting existing task to subtask
@@ -112,7 +112,9 @@ export async function addSubtaskDirect(args, log, context = {}) {
 		}
 
 		// Subtask creation completed - ticketing integration handled directly
-		log.info(`Subtask ${id}.${result.id} created successfully with direct ticketing integration.`);
+		log.info(
+			`Subtask ${id}.${result.id} created successfully with direct ticketing integration.`
+		);
 
 		// Restore normal logging
 		disableSilentMode();

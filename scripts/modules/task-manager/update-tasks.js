@@ -23,6 +23,7 @@ import { getDebugFlag } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
 import { generateTextService } from '../ai-services-unified.js';
 import { getModelConfiguration } from './models.js';
+import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 
 // Zod schema for validating the structure of tasks AFTER parsing
 const updatedTaskSchema = z
@@ -421,6 +422,60 @@ The changes described in the prompt should be applied to ALL tasks in the list.`
 				);
 
 			writeJSON(tasksPath, data);
+
+			// Sync content changes for multiple tickets (ticketing integration)
+			if (projectRoot) {
+				for (const updatedTask of parsedUpdatedTasks) {
+					try {
+						const ticketingResult =
+							await ticketingSyncService.updateTaskContent(
+								updatedTask.id,
+								updatedTask,
+								tasksPath,
+								projectRoot
+							);
+						if (ticketingResult && ticketingResult.success) {
+							if (isMCP) {
+								logFn.info(
+									`Synced content changes to ticket for task ${updatedTask.id}`
+								);
+							} else {
+								logFn(
+									'info',
+									`Synced content changes to ticket for task ${updatedTask.id}`
+								);
+							}
+						} else if (
+							ticketingResult &&
+							ticketingResult.error !== 'Ticketing service not available'
+						) {
+							// Only warn if it's not just disabled ticketing
+							if (isMCP) {
+								logFn.warn(
+									`Warning: Could not sync content changes to ticket for task ${updatedTask.id}: ${ticketingResult.error}`
+								);
+							} else {
+								logFn(
+									'warn',
+									`Warning: Could not sync content changes to ticket for task ${updatedTask.id}: ${ticketingResult.error}`
+								);
+							}
+						}
+					} catch (ticketingError) {
+						if (isMCP) {
+							logFn.warn(
+								`Warning: Could not sync content changes to ticket for task ${updatedTask.id}: ${ticketingError.message}`
+							);
+						} else {
+							logFn(
+								'warn',
+								`Warning: Could not sync content changes to ticket for task ${updatedTask.id}: ${ticketingError.message}`
+							);
+						}
+					}
+				}
+			}
+
 			if (isMCP)
 				logFn.info(
 					`Successfully updated ${actualUpdateCount} tasks in ${tasksPath}`

@@ -65,7 +65,7 @@ async function getTicketingInstance(explicitType = null, explicitRoot = null) {
 
 		// Check if ticketing integration is enabled
 		const ticketingEnabled = getTicketingIntegrationEnabled(explicitRoot);
-		
+
 		if (!ticketingEnabled && !explicitType) {
 			return null;
 		}
