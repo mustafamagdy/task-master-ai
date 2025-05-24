@@ -181,6 +181,22 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 		// Track which Jira ticket IDs map to which task IDs
 		const jiraToTaskMap = new Map();
 		
+		// Create a map of parent tickets to their subtasks
+		const parentToSubtasksMap = new Map();
+		
+		// Group subtasks by parent ticket key
+		for (const subtask of subTasks) {
+			if (!subtask.key || !subtask.fields?.parent?.key) continue;
+			
+			const parentKey = subtask.fields.parent.key;
+			if (!parentToSubtasksMap.has(parentKey)) {
+				parentToSubtasksMap.set(parentKey, []);
+			}
+			parentToSubtasksMap.get(parentKey).push(subtask);
+		}
+		
+		debugLog(`Created parent-to-subtasks map with ${parentToSubtasksMap.size} parent tickets`);
+		
 		// Process main tickets first
 		for (const ticket of mainTickets) {
 			try {
@@ -197,13 +213,17 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 					return metadata.jiraKey === ticketId;
 				});
 				
+				let taskToUpdate;
+				let taskIndex;
+				
 				if (existingTaskIndex >= 0) {
 					// Update existing task
-					const task = data.tasks[existingTaskIndex];
-					customLog.info(`Updating existing task ${task.id} from ticket ${ticketId}`);
+					taskIndex = existingTaskIndex;
+					taskToUpdate = data.tasks[existingTaskIndex];
+					customLog.info(`Updating existing task ${taskToUpdate.id} from ticket ${ticketId}`);
 					
 					// Update task from ticket data
-					const updatedTask = await updateTaskFromTicket(task, ticket, ticketingSystem, {
+					const updatedTask = await updateTaskFromTicket(taskToUpdate, ticket, ticketingSystem, {
 						projectRoot,
 						logger: customLog,
 						debug
@@ -211,6 +231,7 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 					
 					if (updatedTask) {
 						data.tasks[existingTaskIndex] = updatedTask;
+						taskToUpdate = updatedTask; // Update the reference
 						stats.tasksUpdated++;
 						jiraToTaskMap.set(ticketId, updatedTask.id);
 					}
@@ -218,15 +239,18 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 					// Create new task from ticket
 					customLog.info(`Creating new task from ticket ${ticketId}`);
 					
+					const nextTaskId = getNextTaskId(data.tasks);
 					const newTask = await createTaskFromTicket(ticket, ticketingSystem, {
 						projectRoot,
 						logger: customLog,
 						debug,
-						nextTaskId: getNextTaskId(data.tasks)
+						nextTaskId
 					});
 					
 					if (newTask) {
 						data.tasks.push(newTask);
+						taskIndex = data.tasks.length - 1;
+						taskToUpdate = newTask;
 						stats.tasksCreated++;
 						jiraToTaskMap.set(ticketId, newTask.id);
 						customLog.success(`Created task ${newTask.id} from ticket ${ticketId}`);
@@ -234,6 +258,69 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 						customLog.error(`Failed to create task from ticket ${ticketId}`);
 						stats.errors++;
 					}
+				}
+				
+				// Process any subtasks associated with this ticket immediately
+				if (taskToUpdate && parentToSubtasksMap.has(ticketId)) {
+					const subtasks = parentToSubtasksMap.get(ticketId);
+					customLog.info(`Processing ${subtasks.length} subtasks for ticket ${ticketId}`);
+					
+					// Ensure task has subtasks array
+					if (!taskToUpdate.subtasks) {
+						taskToUpdate.subtasks = [];
+					}
+					
+					// Process each subtask
+					for (const subtask of subtasks) {
+						const subtaskId = subtask.key;
+						
+						// Check if subtask already exists in the task
+						const existingSubtaskIndex = taskToUpdate.subtasks.findIndex(st => {
+							const metadata = st.metadata || {};
+							return metadata.jiraKey === subtaskId;
+						});
+						
+						if (existingSubtaskIndex >= 0) {
+							// Update existing subtask
+							const existingSubtask = taskToUpdate.subtasks[existingSubtaskIndex];
+							customLog.info(`Updating existing subtask ${taskToUpdate.id}.${existingSubtask.id} from ticket ${subtaskId}`);
+							
+							const updatedSubtask = await updateSubtaskFromTicket(existingSubtask, subtask, ticketingSystem, {
+								projectRoot,
+								logger: customLog,
+								debug
+							});
+							
+							if (updatedSubtask) {
+								taskToUpdate.subtasks[existingSubtaskIndex] = updatedSubtask;
+								stats.subtasksUpdated++;
+							}
+						} else {
+							// Create new subtask
+							customLog.info(`Creating new subtask under task ${taskToUpdate.id} from ticket ${subtaskId}`);
+							
+							const nextSubtaskId = getNextSubtaskId(taskToUpdate.subtasks);
+							const newSubtask = await createSubtaskFromTicket(subtask, ticketingSystem, {
+								projectRoot,
+								logger: customLog,
+								debug,
+								nextSubtaskId,
+								parentTaskId: taskToUpdate.id
+							});
+							
+							if (newSubtask) {
+								taskToUpdate.subtasks.push(newSubtask);
+								stats.subtasksCreated++;
+								customLog.success(`Created subtask ${taskToUpdate.id}.${newSubtask.id} from ticket ${subtaskId}`);
+							} else {
+								customLog.error(`Failed to create subtask from ticket ${subtaskId}`);
+								stats.errors++;
+							}
+						}
+					}
+					
+					// Update the task in the data array with its new subtasks
+					data.tasks[taskIndex] = taskToUpdate;
 				}
 				
 				stats.ticketsImported++;
@@ -245,95 +332,92 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 			}
 		}
 		
-		// Now process subtasks
-		for (const subTask of subTasks) {
-			try {
-				if (!subTask.key) {
-					customLog.warn('Skipping subtask with missing key');
-					continue;
-				}
+		// Process orphaned subtasks (those whose parents weren't found in the main ticket processing)
+		const processedParentKeys = new Set(jiraToTaskMap.keys());
+		const orphanedSubtasks = [];
+		
+		for (const [parentKey, subtasks] of parentToSubtasksMap.entries()) {
+			if (!processedParentKeys.has(parentKey)) {
+				customLog.warn(`Parent ticket ${parentKey} not processed, checking if it exists in tasks.json...`);
 				
-				const subtaskId = subTask.key;
-				const parentKey = subTask.fields?.parent?.key;
-				
-				if (!parentKey) {
-					customLog.warn(`Subtask ${subtaskId} has no parent ticket, skipping`);
-					continue;
-				}
-				
-				// Get the parent task ID from our map
-				const parentTaskId = jiraToTaskMap.get(parentKey);
-				
-				if (!parentTaskId) {
-					customLog.warn(`Parent task for subtask ${subtaskId} not found, skipping`);
-					continue;
-				}
-				
-				// Find the parent task
-				const parentTaskIndex = data.tasks.findIndex(task => task.id === parentTaskId);
-				
-				if (parentTaskIndex < 0) {
-					customLog.warn(`Parent task ${parentTaskId} not found, skipping subtask ${subtaskId}`);
-					continue;
-				}
-				
-				const parentTask = data.tasks[parentTaskIndex];
-				
-				// Check if subtask already exists
-				const existingSubtaskIndex = (parentTask.subtasks || []).findIndex(st => {
-					const metadata = st.metadata || {};
-					return metadata.jiraKey === subtaskId;
+				// Try to find a task with this Jira key in the existing data
+				const existingTaskIndex = data.tasks.findIndex(task => {
+					const metadata = task.metadata || {};
+					return metadata.jiraKey === parentKey;
 				});
 				
-				if (existingSubtaskIndex >= 0) {
-					// Update existing subtask
-					const subtask = parentTask.subtasks[existingSubtaskIndex];
-					customLog.info(`Updating existing subtask ${parentTaskId}.${subtask.id} from ticket ${subtaskId}`);
+				if (existingTaskIndex >= 0) {
+					const parentTask = data.tasks[existingTaskIndex];
+					customLog.info(`Found existing task ${parentTask.id} for parent ticket ${parentKey}`);
 					
-					// Update subtask from ticket data
-					const updatedSubtask = await updateSubtaskFromTicket(subtask, subTask, ticketingSystem, {
-						projectRoot,
-						logger: customLog,
-						debug
-					});
-					
-					if (updatedSubtask) {
-						parentTask.subtasks[existingSubtaskIndex] = updatedSubtask;
-						stats.subtasksUpdated++;
+					// Process subtasks for this parent
+					for (const subtask of subtasks) {
+						const subtaskId = subtask.key;
+						
+						// Ensure parent task has subtasks array
+						if (!parentTask.subtasks) {
+							parentTask.subtasks = [];
+						}
+						
+						// Check if subtask already exists
+						const existingSubtaskIndex = parentTask.subtasks.findIndex(st => {
+							const metadata = st.metadata || {};
+							return metadata.jiraKey === subtaskId;
+						});
+						
+						if (existingSubtaskIndex >= 0) {
+							// Update existing subtask
+							const existingSubtask = parentTask.subtasks[existingSubtaskIndex];
+							customLog.info(`Updating existing subtask ${parentTask.id}.${existingSubtask.id} from ticket ${subtaskId}`);
+							
+							const updatedSubtask = await updateSubtaskFromTicket(existingSubtask, subtask, ticketingSystem, {
+								projectRoot,
+								logger: customLog,
+								debug
+							});
+							
+							if (updatedSubtask) {
+								parentTask.subtasks[existingSubtaskIndex] = updatedSubtask;
+								stats.subtasksUpdated++;
+							}
+						} else {
+							// Create new subtask
+							customLog.info(`Creating new subtask under task ${parentTask.id} from ticket ${subtaskId}`);
+							
+							const nextSubtaskId = getNextSubtaskId(parentTask.subtasks);
+							const newSubtask = await createSubtaskFromTicket(subtask, ticketingSystem, {
+								projectRoot,
+								logger: customLog,
+								debug,
+								nextSubtaskId,
+								parentTaskId: parentTask.id
+							});
+							
+							if (newSubtask) {
+								parentTask.subtasks.push(newSubtask);
+								stats.subtasksCreated++;
+								customLog.success(`Created subtask ${parentTask.id}.${newSubtask.id} from ticket ${subtaskId}`);
+							} else {
+								customLog.error(`Failed to create subtask from ticket ${subtaskId}`);
+								stats.errors++;
+							}
+						}
 					}
+					
+					// Update the parent task in the data
+					data.tasks[existingTaskIndex] = parentTask;
 				} else {
-					// Create new subtask
-					customLog.info(`Creating new subtask under task ${parentTaskId} from ticket ${subtaskId}`);
-					
-					// Ensure parent task has subtasks array
-					parentTask.subtasks = parentTask.subtasks || [];
-					
-					const newSubtask = await createSubtaskFromTicket(subTask, ticketingSystem, {
-						projectRoot,
-						logger: customLog,
-						debug,
-						nextSubtaskId: getNextSubtaskId(parentTask.subtasks),
-						parentTaskId: parentTaskId
-					});
-					
-					if (newSubtask) {
-						parentTask.subtasks.push(newSubtask);
-						stats.subtasksCreated++;
-						customLog.success(`Created subtask ${parentTaskId}.${newSubtask.id} from ticket ${subtaskId}`);
-					} else {
-						customLog.error(`Failed to create subtask from ticket ${subtaskId}`);
-						stats.errors++;
-					}
+					// Parent task not found, collect these subtasks as orphaned
+					orphanedSubtasks.push(...subtasks);
 				}
-				
-				// Update the parent task in the data
-				data.tasks[parentTaskIndex] = parentTask;
-				stats.ticketsImported++;
-			} catch (subtaskError) {
-				customLog.error(`Error processing subtask ${subTask.key || 'unknown'}: ${subtaskError.message}`);
-				if (debug) console.error(subtaskError.stack);
-				stats.errors++;
-				continue; // Continue with next subtask
+			}
+		}
+		
+		// Report any orphaned subtasks
+		if (orphanedSubtasks.length > 0) {
+			customLog.warn(`Found ${orphanedSubtasks.length} subtasks with parent tickets not in the system`);
+			for (const orphan of orphanedSubtasks) {
+				customLog.warn(`Orphaned subtask: ${orphan.key}, parent: ${orphan.fields?.parent?.key}`);
 			}
 		}
 		
