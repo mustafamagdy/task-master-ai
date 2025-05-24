@@ -35,6 +35,6 @@
     "jiraProjectKey": "TS2",
     "jiraBaseUrl": "https://geekscloud.atlassian.net",
     "jiraEmail": "mustafa.magdy1@gmail.com",
-    "jiraApiToken": "ATATT3xFfGF0w8Ybu7fbvogwI8hNBwW3uhathkZjMbiNtCtW-D1vuPdIEd_y3Lyu6zZO6Lq9GHicBZDp7RnWudWNu_DQ9wz_fGK3vUPH3BDcxdEe1xeOXxUL2OI7ZoSNTaFVg4RzlnwrFZNel3yNgxaS-_tNW8-HTPLpCPpDj0CfQlwm_LeRgcM=94B6655E"
+    "jiraApiToken": "<USE_ENV_VARIABLE_JIRA_API_TOKEN>"
   }
 }
