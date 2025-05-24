@@ -25,8 +25,6 @@ import gradient from 'gradient-string';
 import { isSilentMode } from './modules/utils.js';
 import { convertAllCursorRulesToRooRules } from './modules/rule-transformer.js';
 import { execSync } from 'child_process';
-import inquirerSelect from '@inquirer/select';
-import inquirerInput from '@inquirer/input';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -556,101 +554,189 @@ function promptQuestion(rl, question) {
 
 // Function to prompt for ticketing system configuration
 async function promptForTicketingSystem() {
-	// Use the preloaded inquirer modules instead of dynamic imports
-	const select = inquirerSelect;
-	const input = inquirerInput;
+	// We'll use the standard inquirer instead of @inquirer/select and @inquirer/input
+	// to match the UI style used in model setup
+	const inquirer = (await import('inquirer')).default;
 
 	let ticketingOptions = {
 		type: 'none' // Default to no ticketing system
 	};
 
 	try {
-		// Prompt for ticketing system using arrow key navigation
-		const ticketingChoices = [
-			'None',
-			'Jira',
-			'Azure DevOps',
-			'GitHub Projects'
-		];
+		// Define ticketing system choices with styled icons and better formatting
+		const getTicketingChoices = () => {
+			// Create options with appropriate symbols and formatting
+			const cancelOption = { 
+				name: '⏹ Cancel Ticketing Setup', 
+				value: '__CANCEL__' 
+			};
 
-		// Create formatted choices for the select prompt
-		const formattedChoices = ticketingChoices.map((choice, index) => ({
-			name: choice,
-			value: (index + 1).toString() // Return string value to match existing code
-		}));
+			// The main ticketing options
+			const ticketingChoices = [
+				{ 
+					name: '⚪ None (no ticketing system)', 
+					value: 'none', 
+					short: 'None' 
+				},
+				{ 
+					name: '🔷 Jira', 
+					value: 'jira', 
+					short: 'Jira' 
+				},
+				{ 
+					name: '🔶 Azure DevOps', 
+					value: 'azure', 
+					short: 'Azure DevOps' 
+				},
+				{ 
+					name: '⭐ GitHub Projects', 
+					value: 'github', 
+					short: 'GitHub Projects' 
+				}
+			];
+
+			// Build the final choices array with separators
+			const choices = [
+				cancelOption,
+				new inquirer.Separator(),
+				...ticketingChoices,
+				new inquirer.Separator()
+			];
+
+			// Default to the first real option (None)
+			const defaultIndex = 2; // Position of None option
+
+			return { choices, default: defaultIndex };
+		};
+
+		// Get the formatted choices
+		const ticketingPromptData = getTicketingChoices();
 
 		// Display the selection prompt and get response
-		const ticketingChoice = await select({
-			message: 'Select ticketing system to use:',
-			choices: formattedChoices
-		});
+		const { ticketingChoice } = await inquirer.prompt([
+			{
+				type: 'list',
+				name: 'ticketingChoice',
+				message: 'Select ticketing system to use:',
+				choices: ticketingPromptData.choices,
+				default: ticketingPromptData.default
+			}
+		]);
 
-		log('info', `Selected: ${ticketingChoices[parseInt(ticketingChoice) - 1]}`);
+		// Handle cancellation
+		if (ticketingChoice === '__CANCEL__') {
+			log('info', 'Ticketing system setup canceled.');
+			return ticketingOptions; // Return default (none)
+		}
 
 		// Process ticketing system choice
-		switch (ticketingChoice.toString()) {
-			case '2': // Jira
+		switch (ticketingChoice) {
+			case 'jira':
 				ticketingOptions = { type: 'jira' };
 				log('info', 'You selected Jira as your ticketing system.');
 
-				// Prompt for Jira configuration
-				ticketingOptions.jiraProjectKey = await input({
-					message: 'Enter Jira project key:'
-				});
-				ticketingOptions.jiraBaseUrl = await input({
-					message:
-						'Enter Jira base URL (e.g., https://yourcompany.atlassian.net):'
-				});
-				ticketingOptions.jiraEmail = await input({
-					message: 'Enter Jira email:'
-				});
-				ticketingOptions.jiraApiToken = await input({
-					message: 'Enter Jira API token:'
-				});
+				// Get Jira configuration with a single prompt
+				const jiraAnswers = await inquirer.prompt([
+					{
+						type: 'input',
+						name: 'jiraProjectKey',
+						message: 'Enter Jira project key:',
+						validate: input => input.trim() ? true : 'Project key is required'
+					},
+					{
+						type: 'input',
+						name: 'jiraBaseUrl',
+						message: 'Enter Jira base URL (e.g., https://yourcompany.atlassian.net):',
+						validate: input => input.trim() ? true : 'Base URL is required'
+					},
+					{
+						type: 'input',
+						name: 'jiraEmail',
+						message: 'Enter Jira email:',
+						validate: input => input.trim() ? true : 'Email is required'
+					},
+					{
+						type: 'input',
+						name: 'jiraApiToken',
+						message: 'Enter Jira API token:',
+						validate: input => input.trim() ? true : 'API token is required'
+					}
+				]);
 
+				// Apply the answers to the ticketingOptions
+				Object.assign(ticketingOptions, jiraAnswers);
 				log('success', 'Jira configuration complete!');
 				break;
 
-			case '3': // Azure DevOps
+			case 'azure':
 				ticketingOptions = { type: 'azure' };
 				log('info', 'You selected Azure DevOps as your ticketing system.');
 
-				// Prompt for Azure DevOps configuration
-				ticketingOptions.azureOrganization = await input({
-					message: 'Enter Azure DevOps organization:'
-				});
-				ticketingOptions.azureProjectName = await input({
-					message: 'Enter Azure DevOps project name:'
-				});
-				ticketingOptions.azurePersonalAccessToken = await input({
-					message: 'Enter Azure DevOps personal access token:'
-				});
+				// Get Azure DevOps configuration with a single prompt
+				const azureAnswers = await inquirer.prompt([
+					{
+						type: 'input',
+						name: 'azureOrganization',
+						message: 'Enter Azure DevOps organization:',
+						validate: input => input.trim() ? true : 'Organization is required'
+					},
+					{
+						type: 'input',
+						name: 'azureProjectName',
+						message: 'Enter Azure DevOps project name:',
+						validate: input => input.trim() ? true : 'Project name is required'
+					},
+					{
+						type: 'input',
+						name: 'azurePersonalAccessToken',
+						message: 'Enter Azure DevOps personal access token:',
+						validate: input => input.trim() ? true : 'Access token is required'
+					}
+				]);
 
+				// Apply the answers to the ticketingOptions
+				Object.assign(ticketingOptions, azureAnswers);
 				log('success', 'Azure DevOps configuration complete!');
 				break;
 
-			case '4': // GitHub Projects
+			case 'github':
 				ticketingOptions = { type: 'github' };
 				log('info', 'You selected GitHub Projects as your ticketing system.');
 
-				// Prompt for GitHub Projects configuration
-				ticketingOptions.githubToken = await input({
-					message: 'Enter GitHub access token:'
-				});
-				ticketingOptions.githubOwner = await input({
-					message: 'Enter GitHub owner (user or organization):'
-				});
-				ticketingOptions.githubRepository = await input({
-					message: 'Enter GitHub repository name:'
-				});
-				ticketingOptions.githubProjectNumber = await input({
-					message: 'Enter GitHub project number:'
-				});
+				// Get GitHub Projects configuration with a single prompt
+				const githubAnswers = await inquirer.prompt([
+					{
+						type: 'input',
+						name: 'githubToken',
+						message: 'Enter GitHub access token:',
+						validate: input => input.trim() ? true : 'Access token is required'
+					},
+					{
+						type: 'input',
+						name: 'githubOwner',
+						message: 'Enter GitHub owner (user or organization):',
+						validate: input => input.trim() ? true : 'Owner is required'
+					},
+					{
+						type: 'input',
+						name: 'githubRepository',
+						message: 'Enter GitHub repository name:',
+						validate: input => input.trim() ? true : 'Repository name is required'
+					},
+					{
+						type: 'input',
+						name: 'githubProjectNumber',
+						message: 'Enter GitHub project number:',
+						validate: input => input.trim() ? true : 'Project number is required'
+					}
+				]);
 
+				// Apply the answers to the ticketingOptions
+				Object.assign(ticketingOptions, githubAnswers);
 				log('success', 'GitHub Projects configuration complete!');
 				break;
 
-			default: // None or invalid choice
+			default: // 'none' or invalid choice
 				log('info', 'No ticketing system will be configured.');
 				break;
 		}
@@ -1122,4 +1208,4 @@ function setupMCPConfiguration(targetDir) {
 }
 
 // Ensure necessary functions are exported
-export { initializeProject, log }; // Only export what's needed by commands.js
+export { initializeProject, log, promptForTicketingSystem }; // Include promptForTicketingSystem for testing
