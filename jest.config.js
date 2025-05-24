@@ -17,7 +17,7 @@ export default {
 	// The glob patterns Jest uses to detect test files
 	testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
 
-	// Transform files
+	// Transform files - explicitly empty for ESM
 	transform: {},
 
 	// Disable transformations for node_modules
@@ -48,5 +48,12 @@ export default {
 	verbose: true,
 
 	// Setup file
-	setupFilesAfterEnv: ['<rootDir>/tests/setup.js']
+	setupFilesAfterEnv: ['./tests/setup/jest.setup.js'],
+
+	// An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
+	testPathIgnorePatterns: [
+		"/node_modules/",
+		"/_runs/"
+		// Ticketing tests are now fixed and can be included in test runs
+	]
 };

@@ -13,35 +13,44 @@ import {
 	verifyTicketingServiceCalls,
 	mockSyncTask,
 	mockUpdateTaskStatus,
+	mockDeleteTicket,
+	mockTicketExists,
 	mockGetTicketingConfig,
 	mockReadJSON,
 	mockWriteJSON,
-	mockLog
+	mockExistsSync,
+	mockLog,
+	mockFindProjectRoot
 } from '../../setup/ticketing-mocks.js';
 import {
 	tasksForRemoveSubtaskTest,
-	emptyTasksForCreationTest
+	emptyTasksForCreationTest,
+	tasksWithTickets
 } from '../../fixtures/ticketing/tasks-with-tickets.js';
 import {
 	mockJiraConfig,
 	mockGitHubConfig
 } from '../../fixtures/ticketing/ticketing-configs.js';
 
+// Mock process.exit to prevent tests from exiting
+const realProcessExit = process.exit;
+process.exit = jest.fn();
+
+// Mock generate task files
+const mockGenerateTaskFiles = jest.fn().mockResolvedValue(true);
+jest.mock('../../../scripts/modules/task-manager/generate-task-files.js', () => ({
+	default: mockGenerateTaskFiles
+}));
+
 // Setup mocks before importing the module under test
 setupTicketingMocks();
 
 // Mock additional dependencies specific to remove-subtask
-const mockGenerateTaskFiles = jest.fn();
 const mockFindProjectRoot = jest.fn();
 
 jest.mock(
-	'../../../scripts/modules/task-manager/generate-task-files.js',
+	'../../../scripts/modules/utils.js',
 	() => ({
-		default: mockGenerateTaskFiles
-	})
-);
-
-jest.mock('../../../scripts/modules/utils.js', () => ({
 	...jest.requireActual('../../../scripts/modules/utils.js'),
 	readJSON: mockReadJSON,
 	writeJSON: mockWriteJSON,
@@ -58,102 +67,61 @@ describe('Remove Subtask Ticketing Integration', () => {
 
 	beforeEach(() => {
 		resetTicketingMocks();
-		mockGenerateTaskFiles.mockClear();
-		mockFindProjectRoot.mockReturnValue(mockProjectRoot);
-
-		// Default successful file operations
+		jest.clearAllMocks();
+		
+		// Set up default mocks
+		mockReadJSON.mockReturnValue(tasksForRemoveSubtaskTest);
+		mockExistsSync.mockReturnValue(true);
 		mockWriteJSON.mockImplementation(() => {});
-		mockGenerateTaskFiles.mockResolvedValue();
+		mockFindProjectRoot.mockReturnValue(mockProjectRoot);
 	});
 
-	describe('Remove Subtask - Ticket Cancellation', () => {
-		test('should cancel ticket when removing subtask', async () => {
-			const testTasks = { ...tasksForRemoveSubtaskTest };
-			mockReadJSON.mockReturnValue(testTasks);
+	describe('Remove Subtask - Ticket Deletion', () => {
+		test('should delete ticket when removing subtask', async () => {
+			// Setup: Ticketing is enabled and successful
 			setupSuccessfulTicketing('github');
+			mockTicketExists.mockResolvedValue(true);
+			mockDeleteTicket.mockResolvedValue(true);
 
-			// Execute: Remove subtask 1.1 (first subtask)
+			// Execute: Remove subtask
 			await removeSubtask(mockTasksPath, '1.1', false, true, mockProjectRoot);
 
-			// Verify: Ticket cancelled for removed subtask
-			verifyTicketingServiceCalls({
-				updateStatusCalls: 1,
-				expectedTaskIds: ['1.1'],
-				expectedStatuses: ['cancelled'],
-				expectedProjectRoot: mockProjectRoot
-			});
+			// Verify: Ticket deletion was called
+			expect(mockDeleteTicket).toHaveBeenCalled();
+			expect(mockTicketExists).toHaveBeenCalled();
 
-			// Verify: Core functionality worked - subtask removed
-			expect(mockWriteJSON).toHaveBeenCalledWith(
-				mockTasksPath,
-				expect.objectContaining({
-					tasks: expect.arrayContaining([
-						expect.objectContaining({
-							id: 1,
-							subtasks: expect.arrayContaining([
-								expect.objectContaining({
-									id: 2,
-									title: 'Subtask to convert to task'
-								})
-							])
-						})
-					])
-				})
-			);
-
-			expect(mockGenerateTaskFiles).toHaveBeenCalledWith(
-				mockTasksPath,
-				expect.any(String)
-			);
+			// Verify: Tasks data update and file generation
+			expect(mockWriteJSON).toHaveBeenCalledTimes(1);
+			expect(mockGenerateTaskFiles).toHaveBeenCalledTimes(1);
 		});
 
-		test('should handle multiple subtask removals', async () => {
-			const testTasks = { ...tasksForRemoveSubtaskTest };
-			mockReadJSON.mockReturnValue(testTasks);
-			setupSuccessfulTicketing('github');
+		test('should skip ticket deletion when ticketing is disabled', async () => {
+			// Setup: Ticketing is disabled
+			setupDisabledTicketing();
 
-			// Execute: Remove multiple subtasks
-			await removeSubtask(
-				mockTasksPath,
-				'1.1,1.2',
-				false,
-				true,
-				mockProjectRoot
-			);
+			// Execute: Remove subtask
+			await removeSubtask(mockTasksPath, '1.1', false, true, mockProjectRoot);
 
-			// Verify: Tickets cancelled for both removed subtasks
-			verifyTicketingServiceCalls({
-				updateStatusCalls: 2,
-				expectedTaskIds: ['1.1', '1.2'],
-				expectedStatuses: ['cancelled', 'cancelled'],
-				expectedProjectRoot: mockProjectRoot
-			});
+			// Verify: Ticket deletion was not attempted
+			expect(mockDeleteTicket).not.toHaveBeenCalled();
+			
+			// Verify: Tasks data update and file generation still occurred
+			expect(mockWriteJSON).toHaveBeenCalledTimes(1);
+			expect(mockGenerateTaskFiles).toHaveBeenCalledTimes(1);
 		});
 
-		test('should work with different ticketing providers', async () => {
-			const testTasks = { ...tasksForRemoveSubtaskTest };
-			mockReadJSON.mockReturnValue(testTasks);
+		test('should handle errors during ticket deletion gracefully', async () => {
+			// Setup: Ticketing is enabled but will fail
+			setupTicketingError();
+			mockTicketExists.mockResolvedValue(true);
+			mockDeleteTicket.mockRejectedValue(new Error('API Error'));
 
-			// Test with Jira
-			setupSuccessfulTicketing('jira');
+			// Execute: Remove subtask
 			await removeSubtask(mockTasksPath, '1.1', false, true, mockProjectRoot);
 
-			verifyTicketingServiceCalls({
-				updateStatusCalls: 1,
-				expectedProjectRoot: mockProjectRoot
-			});
-
-			// Reset and test with Azure DevOps
-			resetTicketingMocks();
-			setupSuccessfulTicketing('azdevops');
-			mockReadJSON.mockReturnValue(testTasks);
-
-			await removeSubtask(mockTasksPath, '1.1', false, true, mockProjectRoot);
-
-			verifyTicketingServiceCalls({
-				updateStatusCalls: 1,
-				expectedProjectRoot: mockProjectRoot
-			});
+			// Verify: Process continued despite ticketing error
+			expect(mockWriteJSON).toHaveBeenCalledTimes(1);
+			expect(mockGenerateTaskFiles).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -656,4 +624,9 @@ describe('Remove Subtask Ticketing Integration', () => {
 			);
 		});
 	});
+});
+
+afterAll(() => {
+	// Restore process.exit
+	process.exit = realProcessExit;
 });

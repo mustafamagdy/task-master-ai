@@ -161,6 +161,18 @@ function getProjectRoot(explicitRoot = null) {
 }
 
 /**
+ * Get the mapping configuration directory path
+ * @param {string|null} explicitRoot - Optional explicit path to the project root
+ * @returns {string|null} Path to the mapping configuration directory or null if no root found
+ */
+function getMappingConfigDir(explicitRoot = null) {
+	const projectRootDir = getProjectRoot(explicitRoot);
+	if (!projectRootDir) return null;
+	
+	return path.join(projectRootDir, 'taskmaster', 'mappings');
+}
+
+/**
  * Get mapping configuration file path for a specific ticketing system
  * @param {string} ticketingSystem - The ticketing system type (jira, azure, github)
  * @param {string|null} explicitRoot - Optional explicit path to the project root

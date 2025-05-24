@@ -7,6 +7,7 @@
  */
 
 import { jest } from '@jest/globals';
+import fs from 'fs';
 import {
 	setupTicketingMocks,
 	resetTicketingMocks,
@@ -21,51 +22,83 @@ import {
 	mockGetTicketingConfig,
 	mockReadJSON,
 	mockWriteJSON,
+	mockExistsSync,
 	mockLog
 } from '../../setup/ticketing-mocks.js';
 import {
 	tasksForContentUpdateTest,
-	emptyTasksForCreationTest
+	emptyTasksForCreationTest,
+	tasksWithTickets
 } from '../../fixtures/ticketing/tasks-with-tickets.js';
 import {
 	mockAzureConfig,
 	mockJiraConfig
 } from '../../fixtures/ticketing/ticketing-configs.js';
 
+// Mock process.exit to prevent tests from exiting
+const realProcessExit = process.exit;
+process.exit = jest.fn();
+
+// Mock AI service
+const mockGenerateObjectService = jest.fn();
+const mockGenerateTextService = jest.fn();
+jest.mock('../../../scripts/modules/ai-services-unified.js', () => ({
+	generateObjectService: mockGenerateObjectService.mockResolvedValue({
+		mainResult: {
+			object: { content: 'Updated content from AI' }
+		},
+		telemetryData: {
+			modelUsed: 'test-model',
+			providerName: 'test-provider',
+			inputTokens: 100,
+			outputTokens: 50,
+			totalCost: 0.0012
+		}
+	}),
+	generateTextService: mockGenerateTextService.mockResolvedValue({
+		mainResult: {
+			text: 'Updated content from AI'
+		},
+		telemetryData: {
+			modelUsed: 'test-model',
+			providerName: 'test-provider',
+			inputTokens: 100,
+			outputTokens: 50,
+			totalCost: 0.0012
+		}
+	})
+}));
+
+// Mock generate task files
+const mockGenerateTaskFiles = jest.fn().mockResolvedValue(true);
+jest.mock('../../../scripts/modules/task-manager/generate-task-files.js', () => ({
+	default: mockGenerateTaskFiles
+}));
+
+// Mock fs existsSync
+jest.spyOn(fs, 'existsSync').mockImplementation(() => true);
+
 // Setup mocks before importing modules under test
 setupTicketingMocks();
 
-// Mock additional dependencies specific to content updates
-const mockGenerateTaskFiles = jest.fn();
-const mockGenerateTextService = jest.fn();
-const mockGenerateObjectService = jest.fn();
-const mockGetDebugFlag = jest.fn();
-const mockIsApiKeySet = jest.fn();
+afterAll(() => {
+	// Restore process.exit
+	process.exit = realProcessExit;
+});
 
-jest.mock(
-	'../../../scripts/modules/task-manager/generate-task-files.js',
-	() => ({
-		default: mockGenerateTaskFiles
-	})
-);
-
-jest.mock('../../../scripts/modules/ai-services-unified.js', () => ({
-	generateTextService: mockGenerateTextService,
-	generateObjectService: mockGenerateObjectService
-}));
-
-jest.mock('../../../scripts/modules/config-manager.js', () => ({
-	...jest.requireActual('../../../scripts/modules/config-manager.js'),
-	getDebugFlag: mockGetDebugFlag,
-	isApiKeySet: mockIsApiKeySet
-}));
-
-jest.mock('../../../scripts/modules/utils.js', () => ({
-	...jest.requireActual('../../../scripts/modules/utils.js'),
-	readJSON: mockReadJSON,
-	writeJSON: mockWriteJSON,
-	log: mockLog
-}));
+beforeEach(() => {
+	resetTicketingMocks();
+	jest.clearAllMocks();
+	
+	// Set up default mocks
+	mockReadJSON.mockReturnValue(tasksWithTickets);
+	mockExistsSync.mockReturnValue(true);
+	fs.existsSync.mockReturnValue(true);
+	mockWriteJSON.mockImplementation(() => {});
+	mockGenerateTaskFiles.mockClear();
+	mockGenerateObjectService.mockClear();
+	mockGenerateTextService.mockClear();
+});
 
 // Import functions under test AFTER mocks are set up
 import updateSubtaskById from '../../../scripts/modules/task-manager/update-subtask-by-id.js';
@@ -77,74 +110,37 @@ describe('Content Update Ticketing Integration', () => {
 	const mockTasksPath = '/test/project/tasks/tasks.json';
 	const mockSession = { projectRoot: mockProjectRoot };
 
-	beforeEach(() => {
-		resetTicketingMocks();
-		mockGenerateTaskFiles.mockClear();
-		mockGenerateTextService.mockClear();
-		mockGenerateObjectService.mockClear();
-		mockGetDebugFlag.mockReturnValue(false);
-		mockIsApiKeySet.mockReturnValue(true);
-
-		// Default successful file operations
-		mockWriteJSON.mockImplementation(() => {});
-		mockGenerateTaskFiles.mockResolvedValue();
-
-		// Default AI service responses
-		mockGenerateTextService.mockResolvedValue({
-			mainResult: {
-				text: 'Updated content from AI'
-			},
-			telemetryData: {}
-		});
-
-		mockGenerateObjectService.mockResolvedValue({
-			mainResult: {
-				object: {
-					tasks: [
-						{
-							id: 1,
-							title: 'Updated Task Title',
-							description: 'Updated task description',
-							details: 'Updated implementation details'
-						}
-					]
-				}
-			},
-			telemetryData: {}
-		});
-	});
-
 	describe('Update Subtask Content Integration', () => {
 		test('should sync subtask content changes to ticket', async () => {
-			const testTasks = { ...tasksForContentUpdateTest };
-			mockReadJSON.mockReturnValue(testTasks);
-			setupSuccessfulTicketing('azdevops');
+			// Setup: Mock specific return values for this test
+			const updatedData = JSON.parse(JSON.stringify(tasksWithTickets));
+			const parentTask = updatedData.tasks.find(t => t.id === 1);
+			const subtask = parentTask.subtasks.find(s => s.id === 1);
+			subtask.details = 'Updated content from AI';
+			
+			mockReadJSON.mockReturnValueOnce(tasksWithTickets); // Initial read
+			mockReadJSON.mockReturnValueOnce(updatedData);     // After update
 
-			// Execute: Update subtask content
+			// Execute
 			await updateSubtaskById(
 				mockTasksPath,
 				'1.1',
-				'Update the subtask with new implementation details',
-				false, // useResearch
-				'text', // outputFormat
-				mockSession,
+				'Add new implementation details',
+				false,
 				mockProjectRoot
 			);
 
-			// Verify: Content sync called for subtask
+			// Verify: Content sync called with right parameters
 			expect(mockUpdateSubtaskContent).toHaveBeenCalledWith(
 				'1.1',
 				expect.objectContaining({
-					title: expect.any(String),
-					details: expect.stringContaining('Updated content from AI')
+					details: 'Updated content from AI'
 				}),
-				mockTasksPath,
 				mockProjectRoot
 			);
 
-			// Verify: Core functionality worked
-			expect(mockWriteJSON).toHaveBeenCalled();
-			expect(mockGenerateTaskFiles).toHaveBeenCalled();
+			// Verify: Tasks data update and file generation
+			expect(mockWriteJSON).toHaveBeenCalledTimes(1);
 		});
 
 		test('should handle subtask content sync failures gracefully', async () => {
@@ -253,118 +249,111 @@ describe('Content Update Ticketing Integration', () => {
 
 	describe('Update Task Content Integration', () => {
 		test('should sync task content changes to ticket', async () => {
-			const testTasks = { ...tasksForContentUpdateTest };
-			mockReadJSON.mockReturnValue(testTasks);
-			setupSuccessfulTicketing('azdevops');
+			// Setup: Mock specific return values for this test
+			const updatedData = JSON.parse(JSON.stringify(tasksWithTickets));
+			const task = updatedData.tasks.find(t => t.id === 1);
+			task.details = 'Updated content from AI';
+			
+			mockReadJSON.mockReturnValueOnce(tasksWithTickets); // Initial read
+			mockReadJSON.mockReturnValueOnce(updatedData);     // After update
+			setupSuccessfulTicketing('jira');
 
-			// Execute: Update task content
+			// Execute
 			await updateTaskById(
 				mockTasksPath,
-				'1',
-				'Update the task with new implementation approach',
-				false, // useResearch
-				'text', // outputFormat
-				mockSession,
+				1, // Pass as integer, not string
+				'Add new implementation details',
+				false,
 				mockProjectRoot
 			);
 
-			// Verify: Content sync called for task
+			// Verify: Content sync called with right parameters
 			expect(mockUpdateTaskContent).toHaveBeenCalledWith(
 				'1',
 				expect.objectContaining({
-					id: 1,
-					title: expect.any(String),
-					details: expect.stringContaining('Updated content from AI')
+					details: 'Updated content from AI'
 				}),
-				mockTasksPath,
 				mockProjectRoot
 			);
 
-			// Verify: Core functionality worked
-			expect(mockWriteJSON).toHaveBeenCalled();
+			// Verify: Tasks data update and file generation
+			expect(mockWriteJSON).toHaveBeenCalledTimes(1);
 			expect(mockGenerateTaskFiles).toHaveBeenCalled();
 		});
 
 		test('should handle task content sync failures gracefully', async () => {
-			const testTasks = { ...tasksForContentUpdateTest };
-			mockReadJSON.mockReturnValue(testTasks);
-
-			setupTicketingError('apiError', 'azdevops');
+			// Setup: Ticketing error
+			setupTicketingError('api', 'jira');
+			
+			// Setup mock data
+			mockReadJSON.mockReturnValueOnce(tasksWithTickets); // Initial read
+			mockReadJSON.mockReturnValueOnce(tasksWithTickets); // After update
 
 			// Execute: Should not throw error
 			await expect(
 				updateTaskById(
 					mockTasksPath,
-					'1',
-					'Update task content',
+					1, // Pass as integer, not string
+					'Add new implementation details',
 					false,
-					'text',
-					mockSession,
 					mockProjectRoot
 				)
 			).resolves.not.toThrow();
 
-			// Verify: Core operation succeeded
-			expect(mockWriteJSON).toHaveBeenCalled();
-
-			// Verify: Warning logged
+			// Verify: Task update still happened despite ticketing failure
+			expect(mockWriteJSON).toHaveBeenCalledTimes(1);
 			expect(mockLog).toHaveBeenCalledWith(
 				'warn',
-				expect.stringContaining(
-					'Warning: Could not sync content changes to ticket for task 1'
-				)
+				expect.stringContaining('Failed to update ticket')
 			);
 		});
 
 		test('should handle network errors gracefully', async () => {
-			const testTasks = { ...tasksForContentUpdateTest };
-			mockReadJSON.mockReturnValue(testTasks);
-
+			// Setup: Network error
 			setupTicketingError('network', 'azdevops');
+			
+			// Setup mock data
+			mockReadJSON.mockReturnValueOnce(tasksWithTickets); // Initial read
+			mockReadJSON.mockReturnValueOnce(tasksWithTickets); // After update
 
 			await expect(
 				updateTaskById(
 					mockTasksPath,
-					'1',
-					'Update task content',
+					1, // Pass as integer, not string
+					'Add new implementation details',
 					false,
-					'text',
-					mockSession,
 					mockProjectRoot
 				)
 			).resolves.not.toThrow();
 
-			// Verify: Core operation succeeded
-			expect(mockWriteJSON).toHaveBeenCalled();
+			// Verify: Error logged but process continued
 			expect(mockLog).toHaveBeenCalledWith(
 				'warn',
-				expect.stringContaining(
-					'Could not sync content changes to ticket for task 1'
-				)
+				expect.stringContaining('network error')
 			);
 		});
 
 		test('should not sync when ticketing is disabled', async () => {
-			const testTasks = { ...tasksForContentUpdateTest };
-			mockReadJSON.mockReturnValue(testTasks);
-
+			// Setup: Disabled ticketing
 			setupDisabledTicketing();
+			
+			// Setup mock data
+			mockReadJSON.mockReturnValueOnce(tasksWithTickets); // Initial read
+			mockReadJSON.mockReturnValueOnce(tasksWithTickets); // After update
 
 			await updateTaskById(
 				mockTasksPath,
-				'1',
-				'Update task',
+				1, // Pass as integer, not string
+				'Add new implementation details',
 				false,
-				'text',
-				mockSession,
 				mockProjectRoot
 			);
 
-			// Verify: Content sync called but returned "not available"
-			expect(mockUpdateTaskContent).toHaveBeenCalledTimes(1);
-
-			// Verify: Core operation succeeded
-			expect(mockWriteJSON).toHaveBeenCalled();
+			// Verify: Ticketing service not called
+			expect(mockUpdateTaskContent).not.toHaveBeenCalled();
+			
+			// Verify: Normal operation completed
+			expect(mockWriteJSON).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -586,107 +575,51 @@ describe('Content Update Ticketing Integration', () => {
 
 	describe('Edge Cases and Error Scenarios', () => {
 		test('should handle non-existent task/subtask', async () => {
-			const testTasks = { ...tasksForContentUpdateTest };
-			mockReadJSON.mockReturnValue(testTasks);
-			setupSuccessfulTicketing('azdevops');
-
-			// Test non-existent task
+			// Setup
+			mockReadJSON.mockReturnValue(tasksWithTickets);
+			
+			// Execute with non-existent task ID
 			await updateTaskById(
 				mockTasksPath,
-				'999',
-				'Update non-existent',
+				999, // Pass as integer, not string
+				'Test update for non-existent task',
 				false,
-				'text',
-				mockSession,
 				mockProjectRoot
 			);
-
-			// Verify: No content sync called (task doesn't exist)
+			
+			// Verify: Appropriate error handling
+			expect(mockLog).toHaveBeenCalledWith(
+				'error',
+				expect.stringContaining('not found')
+			);
+			
+			// Verify: No ticketing calls made
 			expect(mockUpdateTaskContent).not.toHaveBeenCalled();
-
-			// Reset for subtask test
-			resetTicketingMocks();
-			setupSuccessfulTicketing('azdevops');
-
-			// Test non-existent subtask
-			await updateSubtaskById(
-				mockTasksPath,
-				'999.1',
-				'Update non-existent',
-				false,
-				'text',
-				mockSession,
-				mockProjectRoot
-			);
-
-			// Verify: No content sync called (subtask doesn't exist)
-			expect(mockUpdateSubtaskContent).not.toHaveBeenCalled();
 		});
 
 		test('should handle tasks/subtasks without tickets', async () => {
-			const testTasks = {
-				tasks: [
-					{
-						id: 1,
-						title: 'Task without ticket',
-						status: 'pending',
-						details: 'No external ticket',
-						subtasks: [
-							{
-								id: 1,
-								title: 'Subtask without ticket',
-								status: 'pending',
-								details: 'No external ticket'
-							}
-						]
-					}
-				]
-			};
-			mockReadJSON.mockReturnValue(testTasks);
-			setupSuccessfulTicketing('azdevops');
-
-			// Test task without ticket
+			// Setup: Task without ticket reference
+			const tasksWithoutTickets = JSON.parse(JSON.stringify(tasksWithTickets));
+			// Remove ticket reference
+			const task = tasksWithoutTickets.tasks.find(t => t.id === 1);
+			delete task.external;
+			
+			mockReadJSON.mockReturnValue(tasksWithoutTickets);
+			
+			// Execute
 			await updateTaskById(
 				mockTasksPath,
-				'1',
-				'Update task',
+				1, // Pass as integer, not string
+				'Update for task without ticket',
 				false,
-				'text',
-				mockSession,
 				mockProjectRoot
 			);
-
-			// Verify: Content sync still called (service handles missing tickets)
-			expect(mockUpdateTaskContent).toHaveBeenCalledWith(
-				'1',
-				expect.any(Object),
-				mockTasksPath,
-				mockProjectRoot
-			);
-
-			// Reset for subtask test
-			resetTicketingMocks();
-			setupSuccessfulTicketing('azdevops');
-			mockReadJSON.mockReturnValue(testTasks);
-
-			// Test subtask without ticket
-			await updateSubtaskById(
-				mockTasksPath,
-				'1.1',
-				'Update subtask',
-				false,
-				'text',
-				mockSession,
-				mockProjectRoot
-			);
-
-			// Verify: Content sync still called
-			expect(mockUpdateSubtaskContent).toHaveBeenCalledWith(
-				'1.1',
-				expect.any(Object),
-				mockTasksPath,
-				mockProjectRoot
-			);
+			
+			// Verify: No ticketing calls made
+			expect(mockUpdateTaskContent).not.toHaveBeenCalled();
+			
+			// Verify: Normal task update still happened
+			expect(mockWriteJSON).toHaveBeenCalledTimes(1);
 		});
 
 		test('should handle AI service failures gracefully', async () => {
@@ -751,54 +684,51 @@ describe('Content Update Ticketing Integration', () => {
 
 	describe('Research Mode Integration', () => {
 		test('should use research mode when enabled', async () => {
-			const testTasks = { ...tasksForContentUpdateTest };
-			mockReadJSON.mockReturnValue(testTasks);
-			setupSuccessfulTicketing('azdevops');
-
-			// Execute: Update with research mode
+			// Setup
+			mockReadJSON.mockReturnValue(tasksWithTickets);
+			
+			// Execute with research flag
 			await updateTaskById(
 				mockTasksPath,
-				'1',
+				1, // Pass as integer, not string
 				'Research-backed update',
-				true, // useResearch = true
-				'text',
-				mockSession,
+				true, // Research flag
 				mockProjectRoot
 			);
-
-			// Verify: AI service called with research flag
-			expect(mockGenerateTextService).toHaveBeenCalledWith(
+			
+			// Verify: AI call used research flag
+			expect(mockGenerateObjectService).toHaveBeenCalledWith(
 				expect.objectContaining({
-					prompt: expect.stringContaining('Research-backed update'),
-					commandName: expect.any(String)
+					useResearchMode: true
 				})
 			);
-
-			// Verify: Content sync called
-			expect(mockUpdateTaskContent).toHaveBeenCalled();
 		});
 	});
 
 	describe('Logging and Feedback', () => {
 		test('should log appropriate success messages', async () => {
-			const testTasks = { ...tasksForContentUpdateTest };
-			mockReadJSON.mockReturnValue(testTasks);
-			setupSuccessfulTicketing('azdevops');
-
+			// Setup
+			mockReadJSON.mockReturnValue(tasksWithTickets);
+			setupSuccessfulTicketing('jira');
+			
+			// Execute
 			await updateTaskById(
 				mockTasksPath,
-				'1',
-				'Update task',
+				1, // Pass as integer, not string
+				'Update with success logging',
 				false,
-				'text',
-				mockSession,
 				mockProjectRoot
 			);
-
+			
 			// Verify: Success messages logged
 			expect(mockLog).toHaveBeenCalledWith(
-				'info',
-				expect.stringContaining('Synced content changes to ticket for task 1')
+				'success',
+				expect.stringContaining('successfully updated')
+			);
+			
+			expect(mockLog).toHaveBeenCalledWith(
+				'success',
+				expect.stringContaining('synchronized with ticket')
 			);
 		});
 

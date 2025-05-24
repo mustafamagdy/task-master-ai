@@ -137,12 +137,12 @@ jest.mock('../../../scripts/modules/utils.js', () => ({
 		temperature: 0.2,
 		defaultSubtasks: 5
 	}
-}));
+}), { virtual: true });
 
 // Mock path-utils with findTasksJsonPath
 jest.mock('../../../mcp-server/src/core/utils/path-utils.js', () => ({
 	findTasksJsonPath: mockFindTasksJsonPath
-}));
+}), { virtual: true });
 
 // Mock the AI module to prevent any real API calls
 jest.mock('../../../scripts/modules/ai-services-unified.js', () => ({
@@ -150,7 +150,7 @@ jest.mock('../../../scripts/modules/ai-services-unified.js', () => ({
 	// For example, if you are testing a function that uses generateTextService:
 	generateTextService: jest.fn().mockResolvedValue('Mock AI Response')
 	// Add other mocks for generateObjectService, streamTextService if used
-}));
+}), { virtual: true });
 
 // Mock task-manager.js to avoid real operations
 jest.mock('../../../scripts/modules/task-manager.js', () => ({
@@ -158,7 +158,7 @@ jest.mock('../../../scripts/modules/task-manager.js', () => ({
 	generateTaskFiles: mockGenerateTaskFiles,
 	findTaskById: mockFindTaskById,
 	taskExists: mockTaskExists
-}));
+}), { virtual: true });
 
 // Import dependencies after mocks are set up
 import { sampleTasks } from '../../fixtures/sample-tasks.js';

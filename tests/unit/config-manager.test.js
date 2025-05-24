@@ -85,13 +85,15 @@ const DEFAULT_CONFIG = {
 		defaultSubtasks: 5,
 		defaultPriority: 'medium',
 		projectName: 'Task Master',
-		ollamaBaseUrl: 'http://localhost:11434/api',
+		ollamaBaseUrl: 'http://localhost:11434/api'
+	},
+	ticketing: {
+		system: 'none',
+		integrationEnabled: false,
 		jiraProjectKey: '',
 		jiraBaseUrl: '',
 		jiraEmail: '',
 		jiraApiToken: '',
-		ticketingIntegrationEnabled: false,
-		ticketingSystem: 'none',
 		azureOrganization: '',
 		azureProjectName: '',
 		azurePersonalAccessToken: '',
@@ -128,6 +130,21 @@ const VALID_CUSTOM_CONFIG = {
 		logLevel: 'debug',
 		defaultPriority: 'high',
 		projectName: 'My Custom Project'
+	},
+	ticketing: {
+		system: 'none',
+		integrationEnabled: false,
+		jiraProjectKey: '',
+		jiraBaseUrl: '',
+		jiraEmail: '',
+		jiraApiToken: '',
+		azureOrganization: '',
+		azureProjectName: '',
+		azurePersonalAccessToken: '',
+		githubOwner: '',
+		githubRepository: '',
+		githubProjectNumber: '',
+		githubToken: ''
 	}
 };
 
@@ -137,6 +154,10 @@ const PARTIAL_CONFIG = {
 	},
 	global: {
 		projectName: 'Partial Project'
+	},
+	ticketing: {
+		system: 'none',
+		integrationEnabled: false
 	}
 };
 
@@ -150,6 +171,10 @@ const INVALID_PROVIDER_CONFIG = {
 	},
 	global: {
 		logLevel: 'warn'
+	},
+	ticketing: {
+		system: 'none',
+		integrationEnabled: false
 	}
 };
 
@@ -358,7 +383,8 @@ describe('getConfig Tests', () => {
 					...VALID_CUSTOM_CONFIG.models.fallback
 				}
 			},
-			global: { ...DEFAULT_CONFIG.global, ...VALID_CUSTOM_CONFIG.global }
+			global: { ...DEFAULT_CONFIG.global, ...VALID_CUSTOM_CONFIG.global },
+			ticketing: { ...DEFAULT_CONFIG.ticketing, ...VALID_CUSTOM_CONFIG.ticketing }
 		};
 		expect(config).toEqual(expectedMergedConfig);
 		expect(fsExistsSyncSpy).toHaveBeenCalledWith(MOCK_CONFIG_PATH);
@@ -396,7 +422,8 @@ describe('getConfig Tests', () => {
 				research: { ...DEFAULT_CONFIG.models.research },
 				fallback: { ...DEFAULT_CONFIG.models.fallback }
 			},
-			global: { ...DEFAULT_CONFIG.global, ...PARTIAL_CONFIG.global }
+			global: { ...DEFAULT_CONFIG.global, ...PARTIAL_CONFIG.global },
+			ticketing: { ...DEFAULT_CONFIG.ticketing, ...PARTIAL_CONFIG.ticketing }
 		};
 		expect(config).toEqual(expectedMergedConfig);
 		expect(fsReadFileSyncSpy).toHaveBeenCalledWith(MOCK_CONFIG_PATH, 'utf-8');
@@ -500,7 +527,8 @@ describe('getConfig Tests', () => {
 				},
 				fallback: { ...DEFAULT_CONFIG.models.fallback }
 			},
-			global: { ...DEFAULT_CONFIG.global, ...INVALID_PROVIDER_CONFIG.global }
+			global: { ...DEFAULT_CONFIG.global, ...INVALID_PROVIDER_CONFIG.global },
+			ticketing: { ...DEFAULT_CONFIG.ticketing, ...INVALID_PROVIDER_CONFIG.ticketing }
 		};
 		expect(config).toEqual(expectedMergedConfig);
 	});

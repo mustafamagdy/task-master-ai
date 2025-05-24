@@ -355,8 +355,28 @@ class TicketingSyncService {
 			const errors = [];
 
 			for (const task of tasks) {
-				// Sync task only if it doesn't have a ticket
-				if (!task.metadata?.jiraKey) {
+				// Check if the task has a ticket ID but it might have been deleted in Jira
+				if (task.metadata?.jiraKey) {
+					// Verify if the ticket still exists in Jira
+					const ticketExists = await this.ticketingInstance.ticketExists(
+						task.metadata.jiraKey,
+						projectRoot
+					);
+					
+					if (!ticketExists) {
+						// If ticket doesn't exist in Jira but we have a key, recreate it
+						this._log('info', `Ticket ${task.metadata.jiraKey} not found in Jira, recreating...`);
+						const result = await this.syncTask(task, tasksPath, projectRoot);
+						if (result.success) {
+							created++;
+						} else {
+							errors.push(`Task ${task.id}: ${result.error}`);
+						}
+					} else {
+						this._log('debug', `Ticket ${task.metadata.jiraKey} exists in Jira, skipping creation`);
+					}
+				} else {
+					// No ticket ID, create a new one
 					const result = await this.syncTask(task, tasksPath, projectRoot);
 					if (result.success) {
 						created++;
@@ -369,21 +389,46 @@ class TicketingSyncService {
 				if (task.subtasks && task.subtasks.length > 0) {
 					for (const subtask of task.subtasks) {
 						if (subtask.metadata?.jiraKey) {
-							continue; // Skip subtasks that already have tickets
-						}
-
-						const subtaskResult = await this.syncSubtask(
-							subtask,
-							task,
-							tasksPath,
-							projectRoot
-						);
-						if (subtaskResult.success) {
-							created++;
-						} else {
-							errors.push(
-								`Subtask ${task.id}.${subtask.id}: ${subtaskResult.error}`
+							// Verify if the subtask ticket still exists in Jira
+							const subtaskTicketExists = await this.ticketingInstance.ticketExists(
+								subtask.metadata.jiraKey,
+								projectRoot
 							);
+							
+							if (!subtaskTicketExists) {
+								// If ticket doesn't exist in Jira but we have a key, recreate it
+								this._log('info', `Subtask ticket ${subtask.metadata.jiraKey} not found in Jira, recreating...`);
+								const subtaskResult = await this.syncSubtask(
+									subtask,
+									task,
+									tasksPath,
+									projectRoot
+								);
+								if (subtaskResult.success) {
+									created++;
+								} else {
+									errors.push(
+										`Subtask ${task.id}.${subtask.id}: ${subtaskResult.error}`
+									);
+								}
+							} else {
+								this._log('debug', `Subtask ticket ${subtask.metadata.jiraKey} exists in Jira, skipping creation`);
+							}
+						} else {
+							// No ticket ID, create a new one
+							const subtaskResult = await this.syncSubtask(
+								subtask,
+								task,
+								tasksPath,
+								projectRoot
+							);
+							if (subtaskResult.success) {
+								created++;
+							} else {
+								errors.push(
+									`Subtask ${task.id}.${subtask.id}: ${subtaskResult.error}`
+								);
+							}
 						}
 					}
 				}
@@ -455,6 +500,46 @@ class TicketingSyncService {
 				'error',
 				`[TICKETING_SERVICE] Error updating task status: ${error.message}`
 			);
+			return { success: false, error: error.message };
+		}
+	}
+
+	/**
+	 * Delete a ticket in the ticketing system
+	 * @param {string} ticketId - Ticket ID to delete
+	 * @param {string} tasksPath - Path to tasks.json file
+	 * @param {string} projectRoot - Project root directory
+	 * @returns {Promise<Object>} - Result { success: boolean, error?: string }
+	 */
+	async deleteTicket(ticketId, tasksPath, projectRoot) {
+		try {
+			// Initialize if not already done
+			if (!this.isReady()) {
+				const initResult = await this.initialize(projectRoot);
+				if (!initResult) {
+					return { success: false, error: 'Ticketing service not available' };
+				}
+			}
+
+			// Check if ticket exists before attempting to delete
+			const exists = await this.ticketingInstance.ticketExists(ticketId, projectRoot);
+			if (!exists) {
+				this._log('info', `Ticket ${ticketId} does not exist, considering deletion successful`);
+				return { success: true }; // Not an error, just no ticket to delete
+			}
+
+			// Delete the ticket
+			const deleteResult = await this.ticketingInstance.deleteTicket(ticketId, projectRoot);
+			
+			if (deleteResult) {
+				this._log('info', `Successfully deleted ticket ${ticketId}`);
+				return { success: true };
+			} else {
+				this._log('error', `Failed to delete ticket ${ticketId}`);
+				return { success: false, error: 'Failed to delete ticket' };
+			}
+		} catch (error) {
+			this._log('error', `Error deleting ticket ${ticketId}: ${error.message}`);
 			return { success: false, error: error.message };
 		}
 	}
