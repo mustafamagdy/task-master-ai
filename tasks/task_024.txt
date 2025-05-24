@@ -1,6 +1,6 @@
 # Task ID: 24
 # Title: Implement AI-Powered Test Generation Command
-# Status: pending
+# Status: done
 # Dependencies: 22
 # Priority: high
 # Description: Create a new 'generate-test' command in Task Master that leverages AI to automatically produce Jest test files for tasks based on their descriptions and subtasks, utilizing Claude API for AI integration.
@@ -39,7 +39,7 @@ Testing for this feature should include:
 Create a test fixture with sample tasks of varying complexity to evaluate the test generation capabilities across different scenarios. The tests should verify that the command outputs appropriate success/error messages to the console and creates files in the expected location with proper content structure.
 
 # Subtasks:
-## 1. Create command structure for 'generate-test' [pending]
+## 1. Create command structure for 'generate-test' [done]
 ### Dependencies: None
 ### Description: Implement the basic structure for the 'generate-test' command, including command registration, parameter validation, and help documentation.
 ### Details:
@@ -59,7 +59,7 @@ Testing approach:
 - Test error handling for non-existent task IDs
 - Test basic command flow with a mock task store
 
-## 2. Implement AI prompt construction and FastMCP integration [pending]
+## 2. Implement AI prompt construction and FastMCP integration [done]
 ### Dependencies: 24.1
 ### Description: Develop the logic to analyze tasks, construct appropriate AI prompts, and interact with the AI service using FastMCP to generate test content.
 ### Details:
@@ -77,7 +77,7 @@ Testing approach:
 - Test error handling for FastMCP failures
 - Test response processing with sample FastMCP outputs
 
-## 3. Implement test file generation and output [pending]
+## 3. Implement test file generation and output [done]
 ### Dependencies: 24.2
 ### Description: Create functionality to format AI-generated tests into proper Jest test files and save them to the appropriate location.
 ### Details:

@@ -90,7 +90,7 @@ const DEFAULT_CONFIG = {
 		jiraBaseUrl: '',
 		jiraEmail: '',
 		jiraApiToken: '',
-		jiraIntegrationEnabled: false,
+		ticketingIntegrationEnabled: false,
 		ticketingSystem: 'none',
 		azureOrganization: '',
 		azureProjectName: '',

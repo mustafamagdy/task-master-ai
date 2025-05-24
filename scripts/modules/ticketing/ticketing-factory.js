@@ -6,9 +6,9 @@
 import { log } from '../utils.js';
 
 // Import implementations
-import JiraTicketing from './jira-ticketing.js';
-import AzureDevOpsTicketing from './azure-devops-ticketing.js';
-import GitHubProjectsTicketing from './github-projects-ticketing.js';
+import JiraTicketing from './jira/jira-ticketing.js';
+import AzureDevOpsTicketing from './azdevops/azure-devops-ticketing.js';
+import GitHubProjectsTicketing from './github/github-projects-ticketing.js';
 
 /**
  * Factory class for creating ticketing system implementations
@@ -59,15 +59,22 @@ class TicketingSystemFactory {
 async function getTicketingInstance(explicitType = null, explicitRoot = null) {
 	try {
 		// Dynamically import to avoid circular dependencies
-		const { getTicketingSystemType, getTicketingSystem } = await import(
+		const { getConfig, getTicketingIntegrationEnabled } = await import(
 			'../config-manager.js'
 		);
 
-		// Get the ticketing system type from config or use the explicitly provided type
-		const type = explicitType || getTicketingSystemType(explicitRoot);
+		// Check if ticketing integration is enabled
+		const ticketingEnabled = getTicketingIntegrationEnabled(explicitRoot);
+		
+		if (!ticketingEnabled && !explicitType) {
+			return null;
+		}
 
-		// Get the ticketing system configuration
-		const config = getTicketingSystem(explicitRoot);
+		// Get the configuration
+		const config = getConfig(explicitRoot);
+
+		// Get the ticketing system type
+		const type = explicitType || config?.ticketing?.system || 'none';
 
 		// Create and return the appropriate implementation
 		return TicketingSystemFactory.create(type, config);

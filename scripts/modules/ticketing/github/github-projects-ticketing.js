@@ -4,14 +4,14 @@
  * NOTE: This is a placeholder implementation with stubs for future development
  */
 
-import TicketingSystemInterface from './ticketing-interface.js';
-import { log } from '../utils.js';
+import TicketingSystemInterface from '../ticketing-interface.js';
+import { log } from '../../utils.js';
 import {
 	getGitHubToken,
 	getGitHubOwner,
 	getGitHubRepository,
 	getGitHubProjectNumber
-} from '../config-manager.js';
+} from '../../config-manager.js';
 
 /**
  * GitHub Projects implementation of the ticketing system interface

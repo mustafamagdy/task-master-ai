@@ -15,13 +15,17 @@ import {
 } from '../utils.js';
 
 import { getTicketingInstance } from '../ticketing/ticketing-factory.js';
+import { isTicketingSystemConfigured } from '../ticketing/ticketing-interface.js';
 import { generateObjectService } from '../ai-services-unified.js';
-import { getDebugFlag, getJiraIntegrationEnabled } from '../config-manager.js';
+import {
+	getDebugFlag,
+	getTicketingIntegrationEnabled
+} from '../config-manager.js';
 import {
 	generateUserStoryRefId,
 	storeRefId,
 	getRefId
-} from '../ticketing/reference-id-service.js';
+} from '../ticketing/utils/id-utils.js';
 import generateTaskFiles from './generate-task-files.js';
 import { displayAiUsageSummary } from '../ui.js';
 
@@ -275,7 +279,7 @@ Guidelines:
 		});
 
 		// Second pass: Process each task with proper IDs and reference IDs
-		const processedNewTasks = generatedData.tasks.map((task, index) => {
+		const processPromises = generatedData.tasks.map(async (task, index) => {
 			const newId = currentId + index;
 
 			// Create new task object with proper ID
@@ -293,8 +297,8 @@ Guidelines:
 			};
 
 			// Store reference ID in task metadata if Jira integration is enabled
-			if (getJiraIntegrationEnabled(projectRoot)) {
-				const refId = generateUserStoryRefId(newId, projectRoot);
+			if (getTicketingIntegrationEnabled(projectRoot)) {
+				const refId = await generateUserStoryRefId(newId, projectRoot);
 				if (refId) {
 					newTask = storeRefId(newTask, refId);
 					report(
@@ -306,6 +310,9 @@ Guidelines:
 
 			return newTask;
 		});
+
+		// Wait for all tasks to be processed with their reference IDs
+		const processedNewTasks = await Promise.all(processPromises);
 
 		// Remap dependencies for the NEWLY processed tasks
 		processedNewTasks.forEach((task) => {
@@ -322,8 +329,8 @@ Guidelines:
 
 		// Check if Jira integration is enabled and configured
 		if (
-			getJiraIntegrationEnabled(projectRoot) &&
-			isJiraConfigured(projectRoot)
+			getTicketingIntegrationEnabled(projectRoot) &&
+			isTicketingSystemConfigured(projectRoot)
 		) {
 			report(
 				'Jira integration is enabled. Creating user stories in Jira...',
@@ -355,7 +362,10 @@ Guidelines:
 
 					if (jiraIssue && jiraIssue.key) {
 						// Store Jira issue key in task metadata
-						processedNewTasks[i] = storeJiraKey(task, jiraIssue.key);
+						processedNewTasks[i] = ticketingInstance.storeTicketId(
+							task,
+							jiraIssue.key
+						);
 						// Get reference ID from metadata for logging
 						const refId = getRefId(processedNewTasks[i]);
 						report(
@@ -379,8 +389,8 @@ Guidelines:
 
 		// Check if Jira integration is enabled and configured
 		if (
-			getJiraIntegrationEnabled(projectRoot) &&
-			isJiraConfigured(projectRoot)
+			getTicketingIntegrationEnabled(projectRoot) &&
+			isTicketingSystemConfigured(projectRoot)
 		) {
 			report(
 				'Jira integration is enabled. Creating user stories in Jira...',
@@ -412,7 +422,10 @@ Guidelines:
 
 					if (jiraIssue && jiraIssue.key) {
 						// Store Jira issue key in task metadata
-						processedNewTasks[i] = storeJiraKey(task, jiraIssue.key);
+						processedNewTasks[i] = ticketingInstance.storeTicketId(
+							task,
+							jiraIssue.key
+						);
 						// Get reference ID from metadata for logging
 						const refId = getRefId(processedNewTasks[i]);
 						report(

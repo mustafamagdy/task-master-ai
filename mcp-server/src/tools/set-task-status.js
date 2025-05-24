@@ -12,6 +12,7 @@ import {
 import { setTaskStatusDirect } from '../core/task-master-core.js';
 import { findTasksJsonPath } from '../core/utils/path-utils.js';
 import { TASK_STATUS_OPTIONS } from '../../../src/constants/task-status.js';
+import { findTasksFile } from '../../../scripts/modules/ticketing/utils/task-file-utils.js';
 
 /**
  * Register the setTaskStatus tool with the MCP server
@@ -44,7 +45,8 @@ export function registerSetTaskStatusTool(server) {
 				// Use args.projectRoot directly (guaranteed by withNormalizedProjectRoot)
 				let tasksJsonPath;
 				try {
-					tasksJsonPath = findTasksJsonPath(
+					// Use the centralized utility function for finding tasks.json
+					tasksJsonPath = findTasksFile(
 						{ projectRoot: args.projectRoot, file: args.file },
 						log
 					);

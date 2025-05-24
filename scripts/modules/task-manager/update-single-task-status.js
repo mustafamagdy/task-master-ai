@@ -1,7 +1,11 @@
 import chalk from 'chalk';
 
 import { log } from '../utils.js';
-import { isValidTaskStatus } from '../../../src/constants/task-status.js';
+import {
+	isValidTaskStatus,
+	TASK_STATUS_OPTIONS
+} from '../../../src/constants/task-status.js';
+import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 
 /**
  * Update the status of a single task
@@ -52,10 +56,26 @@ async function updateSingleTaskStatus(
 		const oldStatus = subtask.status || 'pending';
 		subtask.status = newStatus;
 
+		// Add timestamp of this update
+		if (!subtask.metadata) subtask.metadata = {};
+		subtask.metadata.lastStatusUpdate = new Date().toISOString();
+
 		log(
 			'info',
 			`Updated subtask ${parentId}.${subtaskId} status from '${oldStatus}' to '${newStatus}'`
 		);
+
+		// Emit subtask status changed event
+		// Use the actual subtask object, not just the ID
+		emit(EVENT_TYPES.SUBTASK_STATUS_CHANGED, {
+			taskId: parentId,
+			subtaskId: subtask.id, // Keep the original ID as stored in the subtask
+			subtask, // Pass the actual subtask object
+			newStatus,
+			oldStatus,
+			data,
+			tasksPath
+		});
 
 		// Check if all subtasks are done (if setting to 'done')
 		if (
@@ -89,7 +109,7 @@ async function updateSingleTaskStatus(
 		}
 	} else {
 		// Handle regular task
-		const taskId = parseInt(taskIdInput, 10);
+		let taskId = parseInt(taskIdInput, 10);
 		const task = data.tasks.find((t) => t.id === taskId);
 
 		if (!task) {
@@ -100,10 +120,23 @@ async function updateSingleTaskStatus(
 		const oldStatus = task.status || 'pending';
 		task.status = newStatus;
 
+		// Add timestamp of this update
+		if (!task.metadata) task.metadata = {};
+		task.metadata.lastStatusUpdate = new Date().toISOString();
+
 		log(
 			'info',
 			`Updated task ${taskId} status from '${oldStatus}' to '${newStatus}'`
 		);
+
+		// Emit task status changed event
+		emit(EVENT_TYPES.TASK_STATUS_CHANGED, {
+			taskId,
+			newStatus,
+			oldStatus,
+			data,
+			tasksPath
+		});
 
 		// If marking as done, also mark all subtasks as done
 		if (
@@ -123,7 +156,19 @@ async function updateSingleTaskStatus(
 				);
 
 				pendingSubtasks.forEach((subtask) => {
+					const oldSubtaskStatus = subtask.status || 'pending';
 					subtask.status = newStatus;
+
+					// Emit subtask status changed event for each auto-updated subtask
+					emit(EVENT_TYPES.SUBTASK_STATUS_CHANGED, {
+						taskId,
+						subtaskId: subtask.id, // Keep the original ID as stored in the subtask
+						subtask, // Pass the actual subtask object
+						newStatus,
+						oldStatus: oldSubtaskStatus,
+						data,
+						tasksPath
+					});
 				});
 			}
 		}

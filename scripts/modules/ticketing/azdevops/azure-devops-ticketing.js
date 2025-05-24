@@ -4,13 +4,13 @@
  * NOTE: This is a placeholder implementation with stubs for future development
  */
 
-import TicketingSystemInterface from './ticketing-interface.js';
-import { log } from '../utils.js';
+import TicketingSystemInterface from '../ticketing-interface.js';
+import { log } from '../../utils.js';
 import {
 	getAzureOrganization,
 	getAzurePersonalAccessToken,
 	getAzureProjectName
-} from '../config-manager.js';
+} from '../../config-manager.js';
 
 /**
  * Azure DevOps implementation of the ticketing system interface

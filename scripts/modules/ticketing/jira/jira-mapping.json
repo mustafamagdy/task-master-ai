@@ -1,0 +1,42 @@
+{
+	"issueTypes": {
+		"task": "Story",
+		"subtask": "Subtask",
+		"epic": "Epic"
+	},
+	"fields": {
+		"priority": {
+			"enabled": false,
+			"mapping": {
+				"high": "High",
+				"medium": "Medium",
+				"low": "Low",
+				"default": "Medium"
+			}
+		},
+		"status": {
+			"enabled": true,
+			"mapping": {
+				"pending": "To Do",
+				"in-progress": "In Progress",
+				"review": "In Review",
+				"done": "Done",
+				"cancelled": "Cancelled",
+				"deferred": "Backlog",
+				"default": "To Do"
+			}
+		},
+		"assignee": {
+			"enabled": false
+		},
+		"labels": {
+			"enabled": true,
+			"prefix": "taskmaster-"
+		}
+	},
+	"relationships": {
+		"depends-on": "Blocks",
+		"related-to": "Relates to"
+	},
+	"fieldsToIgnore": ["testStrategy"]
+}

@@ -10,7 +10,7 @@ import boxen from 'boxen';
 import fs from 'fs';
 import https from 'https';
 import inquirer from 'inquirer';
-import ora from 'ora'; // Import ora
+import ora from 'ora';
 
 import { log, readJSON } from './utils.js';
 import {
@@ -33,7 +33,8 @@ import {
 	removeTask,
 	findTaskById,
 	taskExists,
-	isTaskDependentOn
+	isTaskDependentOn,
+	syncTickets
 } from './task-manager.js';
 
 import {
@@ -43,6 +44,9 @@ import {
 	fixDependenciesCommand
 } from './dependency-manager.js';
 
+import initializeMappings from './ticketing/initialize-mappings.js';
+import { displayTicketSyncResults } from './ticketing/display-results.js';
+
 import {
 	isApiKeySet,
 	getDebugFlag,
@@ -50,7 +54,8 @@ import {
 	writeConfig,
 	ConfigurationError,
 	isConfigFilePresent,
-	getAvailableModels
+	getAvailableModels,
+	getTicketingSystemType
 } from './config-manager.js';
 
 import {
@@ -81,6 +86,10 @@ import {
 	TASK_STATUS_OPTIONS
 } from '../../src/constants/task-status.js';
 import { getTaskMasterVersion } from '../../src/utils/getVersion.js';
+import {
+	initializeEventSystem,
+	shutdownEventSystem
+} from './events/initialize-events.js';
 /**
  * Runs the interactive setup process for model configuration.
  * @param {string|null} projectRoot - The resolved project root directory.
@@ -475,6 +484,8 @@ async function runInteractiveSetup(projectRoot) {
 	return true; // Indicate setup flow completed (not cancelled)
 	// Let the main command flow continue to display results
 }
+
+// displayTicketSyncResults has been moved to './ticketing/display-results.js'
 
 /**
  * Configure and register CLI commands
@@ -1272,32 +1283,51 @@ function registerCommands(programInstance) {
 			}
 		});
 
-	// sync-t	ickets command
+	// init-mappings command
+	programInstance
+		.command('init-mappings')
+		.description('Initialize or update ticketing system mapping files')
+		.action(async () => {
+			const projectRoot = findProjectRoot();
+
+			if (!projectRoot) {
+				console.error(
+					chalk.red('Error: Could not find project root directory')
+				);
+				return;
+			}
+
+			await initializeMappings({}, projectRoot);
+		});
+
+	// sync-tickets command
 	programInstance
 		.command('sync-tickets')
-		.description('Synchronize tasks with ticketing system')
+		.description('Synchronize task statuses with the ticketing system')
 		.option('-f, --file <file>', 'Path to the tasks file', 'tasks/tasks.json')
-		.option(
-			'--force',
-			'Force synchronization even if ticketing system integration is not enabled'
-		)
 		.action(async (options) => {
-			const tasksPath = path.resolve(options.file);
+			const projectRoot = findProjectRoot();
 
-			// Check if tasks.json exists
-			if (!fs.existsSync(tasksPath)) {
-				console.error(chalk.red(`Error: Tasks file not found at ${tasksPath}`));
-				process.exit(1);
+			if (!projectRoot) {
+				console.error(
+					chalk.red('Error: Could not find project root directory')
+				);
+				return;
 			}
 
 			try {
+				const tasksPath = path.join(projectRoot, options.file);
 				const results = await syncTickets(tasksPath, {
-					force: options.force
+					force: options.force,
+					debug: options.debug
 				});
 
 				displayTicketSyncResults(results);
 			} catch (error) {
 				console.error(chalk.red(`Error: ${error.message}`));
+				if (options.debug) {
+					console.error(`Stack trace: ${error.stack}`);
+				}
 				process.exit(1);
 			}
 		});
@@ -2549,6 +2579,8 @@ function displayUpgradeNotification(currentVersion, latestVersion) {
  */
 async function runCLI(argv = process.argv) {
 	try {
+		// Initialize event system
+		await initializeEventSystem();
 		// Display banner if not in a pipe
 		if (process.stdout.isTTY) {
 			displayBanner();
@@ -2630,8 +2662,31 @@ async function runCLI(argv = process.argv) {
 			}
 		}
 
+		// Shutdown event system even if there was an error
+		await shutdownEventSystem();
 		process.exit(1);
 	}
+
+	// Process.on('exit') cannot be async, so we can only do our best effort here
+	process.on('exit', () => {
+		// In an exit handler we can't await, so this is a best-effort cleanup
+		try {
+			// We'll start the shutdown process but can't wait for it
+			shutdownEventSystem();
+		} catch (err) {
+			console.error('Error during cleanup:', err);
+		}
+	});
+
+	// Handle graceful shutdown on signals - these can be async
+	['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach((signal) => {
+		process.on(signal, async () => {
+			console.log(`
+Received ${signal}, shutting down...`);
+			await shutdownEventSystem();
+			process.exit(0);
+		});
+	});
 }
 
 export {

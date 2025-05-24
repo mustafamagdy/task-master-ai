@@ -28,6 +28,7 @@ import { registerAddDependencyTool } from './add-dependency.js';
 import { registerRemoveTaskTool } from './remove-task.js';
 import { registerInitializeProjectTool } from './initialize-project.js';
 import { registerModelsTool } from './models.js';
+import { registerSyncTicketsTool } from './sync-tickets.js';
 
 /**
  * Register all Task Master tools with the MCP server
@@ -72,6 +73,9 @@ export function registerTaskMasterTools(server) {
 		registerRemoveDependencyTool(server);
 		registerValidateDependenciesTool(server);
 		registerFixDependenciesTool(server);
+
+		// Group 7: Ticketing System Integration
+		registerSyncTicketsTool(server);
 	} catch (error) {
 		logger.error(`Error registering Task Master tools: ${error.message}`);
 		throw error;

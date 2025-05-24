@@ -1,0 +1,42 @@
+{
+	"issueTypes": {
+		"task": "User Story",
+		"subtask": "Task",
+		"epic": "Epic"
+	},
+	"fields": {
+		"priority": {
+			"enabled": true,
+			"mapping": {
+				"high": "1",
+				"medium": "2",
+				"low": "3",
+				"default": "2"
+			}
+		},
+		"status": {
+			"enabled": true,
+			"mapping": {
+				"pending": "New",
+				"in-progress": "Active",
+				"review": "Resolved",
+				"done": "Closed",
+				"cancelled": "Removed",
+				"deferred": "New",
+				"default": "New"
+			}
+		},
+		"assignee": {
+			"enabled": true
+		},
+		"labels": {
+			"enabled": true,
+			"prefix": "taskmaster-"
+		}
+	},
+	"relationships": {
+		"depends-on": "Successor",
+		"related-to": "Related"
+	},
+	"fieldsToIgnore": []
+}

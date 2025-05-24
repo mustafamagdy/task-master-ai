@@ -4,6 +4,7 @@ import path from 'path';
 import { log, readJSON, writeJSON } from '../utils.js';
 import generateTaskFiles from './generate-task-files.js';
 import taskExists from './task-exists.js';
+import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 
 /**
  * Removes one or more tasks or subtasks from the tasks file
@@ -82,6 +83,15 @@ async function removeTask(tasksPath, taskIds) {
 					// Remove the subtask from the parent
 					parentTask.subtasks.splice(subtaskIndex, 1);
 
+					// Emit subtask deleted event
+					emit(EVENT_TYPES.SUBTASK_DELETED, {
+						taskId: parentTaskId,
+						subtaskId: removedSubtask.id, // Use the ID directly from the subtask object
+						subtask: removedSubtask, // Include the full subtask object
+						data,
+						tasksPath
+					});
+
 					results.messages.push(`Successfully removed subtask ${taskId}`);
 				}
 				// Handle main task removal
@@ -101,6 +111,14 @@ async function removeTask(tasksPath, taskIds) {
 
 					// Remove the task from the main array
 					data.tasks.splice(taskIndex, 1);
+
+					// Emit task deleted event
+					emit(EVENT_TYPES.TASK_DELETED, {
+						taskId: taskIdNum,
+						task: removedTask,
+						data,
+						tasksPath
+					});
 
 					results.messages.push(`Successfully removed task ${taskId}`);
 				}

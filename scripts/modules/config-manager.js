@@ -61,15 +61,17 @@ const DEFAULTS = {
 		defaultSubtasks: 5,
 		defaultPriority: 'medium',
 		projectName: 'Task Master',
-		ollamaBaseUrl: 'http://localhost:11434/api',
-		// Ticketing system configuration
-		ticketingSystem: 'none', // none, jira, azure, github
+		ollamaBaseUrl: 'http://localhost:11434/api'
+	},
+	// Dedicated ticketing section
+	ticketing: {
+		system: 'none', // none, jira, azure, github
+		integrationEnabled: false,
 		// Jira configuration
 		jiraProjectKey: '',
 		jiraBaseUrl: '',
 		jiraEmail: '',
 		jiraApiToken: '',
-		jiraIntegrationEnabled: false,
 		// Azure DevOps configuration
 		azureOrganization: '',
 		azurePersonalAccessToken: '',
@@ -138,8 +140,28 @@ function _loadAndValidateConfig(explicitRoot = null) {
 							? { ...defaults.models.fallback, ...parsedConfig.models.fallback }
 							: { ...defaults.models.fallback }
 				},
-				global: { ...defaults.global, ...parsedConfig?.global }
+				global: { ...defaults.global, ...parsedConfig?.global },
+				ticketing: { ...defaults.ticketing, ...parsedConfig?.ticketing }
 			};
+
+			// Handle migration from global ticketing config to dedicated section
+			// If ticketing config exists in global but not in ticketing section, move it
+			if (parsedConfig?.global?.ticketingSystem && !parsedConfig?.ticketing?.system) {
+				// Migrate old ticketing config from global to ticketing section
+				config.ticketing.system = parsedConfig.global.ticketingSystem || config.ticketing.system;
+				config.ticketing.integrationEnabled = parsedConfig.global.ticketingIntegrationEnabled || config.ticketing.integrationEnabled;
+				config.ticketing.jiraProjectKey = parsedConfig.global.jiraProjectKey || config.ticketing.jiraProjectKey;
+				config.ticketing.jiraBaseUrl = parsedConfig.global.jiraBaseUrl || config.ticketing.jiraBaseUrl;
+				config.ticketing.jiraEmail = parsedConfig.global.jiraEmail || config.ticketing.jiraEmail;
+				config.ticketing.jiraApiToken = parsedConfig.global.jiraApiToken || config.ticketing.jiraApiToken;
+				config.ticketing.azureOrganization = parsedConfig.global.azureOrganization || config.ticketing.azureOrganization;
+				config.ticketing.azurePersonalAccessToken = parsedConfig.global.azurePersonalAccessToken || config.ticketing.azurePersonalAccessToken;
+				config.ticketing.azureProjectName = parsedConfig.global.azureProjectName || config.ticketing.azureProjectName;
+				config.ticketing.githubToken = parsedConfig.global.githubToken || config.ticketing.githubToken;
+				config.ticketing.githubOwner = parsedConfig.global.githubOwner || config.ticketing.githubOwner;
+				config.ticketing.githubRepository = parsedConfig.global.githubRepository || config.ticketing.githubRepository;
+				config.ticketing.githubProjectNumber = parsedConfig.global.githubProjectNumber || config.ticketing.githubProjectNumber;
+			}
 			configSource = `file (${configPath})`; // Update source info
 
 			// --- Validation (Warn if file content is invalid) ---
@@ -389,8 +411,8 @@ function getOllamaBaseUrl(explicitRoot = null) {
  * @returns {string} The Jira project key or empty string if not set.
  */
 function getJiraProjectKey(explicitRoot = null) {
-	// Directly return value from config
-	return getGlobalConfig(explicitRoot).jiraProjectKey || '';
+	const config = getConfig(explicitRoot);
+	return config?.ticketing?.jiraProjectKey || '';
 }
 
 /**
@@ -399,8 +421,8 @@ function getJiraProjectKey(explicitRoot = null) {
  * @returns {string} The Jira base URL or empty string if not set.
  */
 function getJiraBaseUrl(explicitRoot = null) {
-	// Directly return value from config
-	return getGlobalConfig(explicitRoot).jiraBaseUrl || '';
+	const config = getConfig(explicitRoot);
+	return config?.ticketing?.jiraBaseUrl || '';
 }
 
 /**
@@ -409,8 +431,8 @@ function getJiraBaseUrl(explicitRoot = null) {
  * @returns {string} The Jira email or empty string if not set.
  */
 function getJiraEmail(explicitRoot = null) {
-	// Directly return value from config
-	return getGlobalConfig(explicitRoot).jiraEmail || '';
+	const config = getConfig(explicitRoot);
+	return config?.ticketing?.jiraEmail || '';
 }
 
 /**
@@ -419,18 +441,18 @@ function getJiraEmail(explicitRoot = null) {
  * @returns {string} The Jira API token or empty string if not set.
  */
 function getJiraApiToken(explicitRoot = null) {
-	// Directly return value from config
-	return getGlobalConfig(explicitRoot).jiraApiToken || '';
+	const config = getConfig(explicitRoot);
+	return config?.ticketing?.jiraApiToken || '';
 }
 
 /**
- * Gets whether Jira integration is enabled in the configuration.
+ * Gets whether ticketing system integration is enabled in the configuration.
  * @param {string|null} explicitRoot - Optional explicit path to the project root.
- * @returns {boolean} Whether Jira integration is enabled.
+ * @returns {boolean} Whether ticketing integration is enabled.
  */
-function getJiraIntegrationEnabled(explicitRoot = null) {
+function getTicketingIntegrationEnabled(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.jiraIntegrationEnabled || false;
+	return config?.ticketing?.integrationEnabled || false;
 }
 
 /**
@@ -810,7 +832,9 @@ async function _getTicketingFactory() {
  * @returns {Promise<Object|null>} The ticketing system implementation or null if none configured.
  */
 async function getTicketingSystem(explicitRoot = null) {
-	const type = getTicketingSystemType(explicitRoot);
+	const config = getConfig(explicitRoot);
+	const type = config?.ticketing?.system || 'none';
+
 	if (type === 'none') {
 		return null;
 	}
@@ -820,7 +844,6 @@ async function getTicketingSystem(explicitRoot = null) {
 		return null;
 	}
 
-	const config = getConfig(explicitRoot);
 	return factory.create(type, config);
 }
 
@@ -831,7 +854,7 @@ async function getTicketingSystem(explicitRoot = null) {
  */
 function getAzureOrganization(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.azureOrganization || '';
+	return config?.ticketing?.azureOrganization || '';
 }
 
 /**
@@ -841,7 +864,7 @@ function getAzureOrganization(explicitRoot = null) {
  */
 function getAzurePersonalAccessToken(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.azurePersonalAccessToken || '';
+	return config?.ticketing?.azurePersonalAccessToken || '';
 }
 
 /**
@@ -851,7 +874,7 @@ function getAzurePersonalAccessToken(explicitRoot = null) {
  */
 function getAzureProjectName(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.azureProjectName || '';
+	return config?.ticketing?.azureProjectName || '';
 }
 
 /**
@@ -861,7 +884,7 @@ function getAzureProjectName(explicitRoot = null) {
  */
 function getGitHubToken(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.githubToken || '';
+	return config?.ticketing?.githubToken || '';
 }
 
 /**
@@ -871,7 +894,7 @@ function getGitHubToken(explicitRoot = null) {
  */
 function getGitHubOwner(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.githubOwner || '';
+	return config?.ticketing?.githubOwner || '';
 }
 
 /**
@@ -881,7 +904,7 @@ function getGitHubOwner(explicitRoot = null) {
  */
 function getGitHubRepository(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.githubRepository || '';
+	return config?.ticketing?.githubRepository || '';
 }
 
 /**
@@ -891,7 +914,17 @@ function getGitHubRepository(explicitRoot = null) {
  */
 function getGitHubProjectNumber(explicitRoot = null) {
 	const config = getConfig(explicitRoot);
-	return config?.global?.githubProjectNumber || '';
+	return config?.ticketing?.githubProjectNumber || '';
+}
+
+/**
+ * Gets the type of ticketing system configured.
+ * @param {string|null} explicitRoot - Optional explicit path to the project root.
+ * @returns {string} The ticketing system type ('jira', 'azure', 'github', 'none').
+ */
+function getTicketingSystemType(explicitRoot = null) {
+	const config = getConfig(explicitRoot);
+	return config?.ticketing?.system || 'none';
 }
 
 export {
@@ -936,10 +969,11 @@ export {
 	getJiraBaseUrl,
 	getJiraEmail,
 	getJiraApiToken,
-	getJiraIntegrationEnabled,
+	getTicketingIntegrationEnabled,
 	// New ticketing system getters
 	getTicketingSystem,
 	getTicketingSystemEnabled,
+	getTicketingSystemType,
 	// Azure DevOps getters
 	getAzureOrganization,
 	getAzurePersonalAccessToken,

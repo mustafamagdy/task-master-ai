@@ -3,6 +3,8 @@ import path from 'path';
 import { log, readJSON, writeJSON } from '../utils.js';
 import { isTaskDependentOn } from '../task-manager.js';
 import generateTaskFiles from './generate-task-files.js';
+import { emit, EVENT_TYPES } from '../events/event-emitter.js';
+import { generateSubtaskRefId, storeRefId } from '../ticketing/utils/id-utils.js';
 
 /**
  * Add a subtask to a parent task
@@ -93,6 +95,13 @@ async function addSubtask(
 				parentTaskId: parentIdNum
 			};
 
+			// Generate refId for the converted subtask
+			const refId = generateSubtaskRefId(parentIdNum, newSubtaskId, true); // Always generate refId
+			if (refId) {
+				newSubtask = storeRefId(newSubtask, refId);
+				log('info', `Generated reference ID ${refId} for converted subtask ${parentIdNum}.${newSubtaskId}`);
+			}
+
 			// Add to parent's subtasks
 			parentTask.subtasks.push(newSubtask);
 
@@ -121,8 +130,16 @@ async function addSubtask(
 				details: newSubtaskData.details || '',
 				status: newSubtaskData.status || 'pending',
 				dependencies: newSubtaskData.dependencies || [],
+				metadata: {}, // Initialize with empty metadata object to ensure refId can be stored
 				parentTaskId: parentIdNum
 			};
+
+			// Generate refId for the new subtask
+			const refId = generateSubtaskRefId(parentIdNum, newSubtaskId, true); // Always generate refId
+			if (refId) {
+				newSubtask = storeRefId(newSubtask, refId);
+				log('info', `Generated reference ID ${refId} for new subtask ${parentIdNum}.${newSubtaskId}`);
+			}
 
 			// Add to parent's subtasks
 			parentTask.subtasks.push(newSubtask);
@@ -136,6 +153,15 @@ async function addSubtask(
 
 		// Write the updated tasks back to the file
 		writeJSON(tasksPath, data);
+
+		// Emit subtask created event
+		emit(EVENT_TYPES.SUBTASK_CREATED, {
+			taskId: parentIdNum,
+			subtaskId: newSubtask.id,
+			subtask: newSubtask,
+			data,
+			tasksPath
+		});
 
 		// Generate task files if requested
 		if (generateFiles) {

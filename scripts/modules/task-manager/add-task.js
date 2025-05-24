@@ -13,17 +13,10 @@ import {
 } from '../ui.js';
 import { readJSON, writeJSON, log as consoleLog, truncate } from '../utils.js';
 import { generateObjectService } from '../ai-services-unified.js';
-import {
-	getDefaultPriority,
-	getTicketingSystemEnabled
-} from '../config-manager.js';
-import { isTicketingSystemConfigured } from '../ticketing/ticketing-interface.js';
-import { getTicketingInstance } from '../ticketing/ticketing-factory.js';
-import {
-	generateUserStoryRefId,
-	storeRefId
-} from '../ticketing/reference-id-service.js';
+import { getDefaultPriority } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
+import { emit, EVENT_TYPES } from '../events/event-emitter.js';
+import { generateUserStoryRefId, storeRefId } from '../ticketing/utils/id-utils.js';
 
 // Define Zod schema for the expected AI output object
 const AiTaskDataSchema = z.object({
@@ -296,59 +289,17 @@ async function addTask(
 			details: taskData.details || '',
 			testStrategy: taskData.testStrategy || '',
 			status: 'pending',
-			dependencies: numericDependencies, // Use validated numeric dependencies
+			dependencies: numericDependencies,
 			priority: effectivePriority,
-			subtasks: [] // Initialize with empty subtasks array
+			metadata: {}, 
+			subtasks: [] 
 		};
 
-		// Store reference ID in task metadata if ticketing system integration is enabled
-		if (getTicketingSystemEnabled(projectRoot)) {
-			const refId = generateUserStoryRefId(newTaskId, projectRoot);
-			if (refId) {
-				newTask = storeRefId(newTask, refId);
-				report(`Stored reference ID ${refId} in task metadata`, 'info');
-			}
-		}
-
-		// Check if ticketing system integration is enabled and configured
-		if (getTicketingSystemEnabled(projectRoot)) {
-			// Then check if properly configured (async function)
-			const isConfigured = await isTicketingSystemConfigured(projectRoot);
-			if (isConfigured) {
-				report(
-					'Ticketing system integration is enabled. Creating user story in ticketing system...',
-					'info'
-				);
-				try {
-					// Create user story in ticketing system
-					const ticketingInstance = await getTicketingInstance(
-						null,
-						projectRoot
-					);
-					if (!ticketingInstance) {
-						throw new Error('No ticketing system configured');
-					}
-					const ticketingIssue = await ticketingInstance.createStory(
-						taskData,
-						projectRoot
-					);
-					if (ticketingIssue && ticketingIssue.key) {
-						// Store ticketing issue key in task metadata
-						newTask = storeTicketingKey(newTask, ticketingIssue.key);
-						report(
-							`Created ticketing user story: ${ticketingIssue.key}`,
-							'success'
-						);
-					} else {
-						report('Failed to create ticketing user story', 'warn');
-					}
-				} catch (ticketingError) {
-					report(
-						`Error creating ticketing user story: ${ticketingError.message}`,
-						'error'
-					);
-				}
-			}
+		// Generate refId for the new task
+		const refId = generateUserStoryRefId(newTaskId, true); // Always generate refId regardless of ticketing integration
+		if (refId) {
+			newTask = storeRefId(newTask, refId);
+			report(`Generated reference ID ${refId} for task ${newTaskId}`, 'info');
 		}
 
 		// Add the task to the tasks array
@@ -358,6 +309,14 @@ async function addTask(
 		// Write the updated tasks to the file
 		writeJSON(tasksPath, data);
 		report('DEBUG: tasks.json written.', 'debug');
+
+		// Emit task created event
+		emit(EVENT_TYPES.TASK_CREATED, {
+			taskId: newTaskId,
+			data,
+			tasksPath,
+			task: newTask
+		});
 
 		// Generate markdown task files
 		report('Generating task files...', 'info');

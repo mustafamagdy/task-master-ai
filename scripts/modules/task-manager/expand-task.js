@@ -15,14 +15,11 @@ import { generateTextService } from '../ai-services-unified.js';
 import {
 	getDefaultSubtasks,
 	getDebugFlag,
-	getJiraIntegrationEnabled
+	getTicketingIntegrationEnabled
 } from '../config-manager.js';
-import {
-	generateSubtaskRefId,
-	storeRefId,
-	getRefId
-} from '../ticketing/reference-id-service.js';
 import generateTaskFiles from './generate-task-files.js';
+import { emit, EVENT_TYPES } from '../events/event-emitter.js';
+import { generateSubtaskRefId, storeRefId } from '../ticketing/utils/id-utils.js';
 
 // --- Zod Schemas (Keep from previous step) ---
 const subtaskSchema = z
@@ -634,74 +631,16 @@ async function expandTask(
 			task.subtasks = [];
 		}
 
-		// Store reference IDs in subtask metadata if Jira integration is enabled
-		if (getJiraIntegrationEnabled(projectRoot)) {
-			for (let i = 0; i < generatedSubtasks.length; i++) {
-				const subtask = generatedSubtasks[i];
-				const refId = generateSubtaskRefId(task.id, subtask.id, projectRoot);
-				if (refId) {
-					generatedSubtasks[i] = storeRefId(subtask, refId);
-					logger.info(
-						`Stored reference ID ${refId} in subtask ${subtask.id} metadata`
-					);
-				}
-			}
-		}
-
-		// Check if Jira integration is enabled and configured
-		if (
-			getJiraIntegrationEnabled(projectRoot) &&
-			isJiraConfigured(projectRoot)
-		) {
-			logger.info('Jira integration is enabled. Creating tasks in Jira...');
-
-			// Get the parent task's Jira key
-			const parentJiraKey = getJiraKey(task);
-
-			if (parentJiraKey) {
-				// Create Jira tasks for each subtask
-				for (const subtask of generatedSubtasks) {
-					try {
-						// Create task in Jira
-						const jiraIssue = await createTask(
-							{
-								title: subtask.title,
-								description: subtask.description,
-								details: subtask.details,
-								priority: 'medium' // Default priority for subtasks
-							},
-							parentJiraKey,
-							projectRoot
-						);
-
-						if (jiraIssue && jiraIssue.key) {
-							// Initialize metadata if it doesn't exist
-							if (!subtask.metadata) {
-								subtask.metadata = {};
-							}
-
-							// Store Jira issue key in subtask metadata
-							subtask.metadata.jiraKey = jiraIssue.key;
-							logger.info(
-								`Created Jira task: ${jiraIssue.key} for subtask ${subtask.id}`
-							);
-						} else {
-							logger.warn(
-								`Failed to create Jira task for subtask ${subtask.id}`
-							);
-						}
-					} catch (jiraError) {
-						logger.error(
-							`Error creating Jira task for subtask ${subtask.id}: ${jiraError.message}`
-						);
-					}
-				}
-			} else {
-				logger.warn(
-					'Parent task does not have a Jira key. Skipping Jira task creation for subtasks.'
-				);
-			}
-		}
+		// Generate reference IDs for all subtasks - always useful metadata regardless of ticketing status
+		logger.info(`Generating reference IDs for subtasks of task ${task.id}`);
+		generatedSubtasks = generatedSubtasks.map(subtask => {
+			// Generate a reference ID for the subtask - always pass true to ensure ID is generated
+			const refId = generateSubtaskRefId(task.id, subtask.id, true);
+			logger.info(`Generated reference ID ${refId} for subtask ${subtask.id} of task ${task.id}`);
+			
+			// Store the reference ID in the subtask metadata
+			return storeRefId(subtask, refId);
+		});
 
 		// Append the newly generated and validated subtasks
 		task.subtasks.push(...generatedSubtasks);
@@ -709,6 +648,27 @@ async function expandTask(
 
 		data.tasks[taskIndex] = task; // Assign the modified task back
 		writeJSON(tasksPath, data);
+
+		// Emit subtask creation events for each new subtask
+		generatedSubtasks.forEach(subtask => {
+			// Create compound ID in the format expected by the ticketing subscriber (parentId.subtaskId)
+			const compoundId = `${task.id}.${subtask.id}`;
+			
+			// Make sure subtask has reference to parent task
+			const subtaskWithParent = {
+				...subtask,
+				parentTask: { id: task.id }
+			};
+			
+			emit(EVENT_TYPES.SUBTASK_CREATED, {
+				taskId: compoundId, 
+				subtask: subtaskWithParent,
+				tasksPath,
+				data
+			});
+			logger.info(`Emitted SUBTASK_CREATED event for subtask ${compoundId}`);
+		});
+
 		await generateTaskFiles(tasksPath, path.dirname(tasksPath));
 
 		// Display AI Usage Summary for CLI

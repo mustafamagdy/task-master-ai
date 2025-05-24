@@ -25,6 +25,8 @@ import gradient from 'gradient-string';
 import { isSilentMode } from './modules/utils.js';
 import { convertAllCursorRulesToRooRules } from './modules/rule-transformer.js';
 import { execSync } from 'child_process';
+import inquirerSelect from '@inquirer/select';
+import inquirerInput from '@inquirer/input';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -316,6 +318,95 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 			return;
 		}
 
+		// Handle .taskmasterconfig - merge or update JSON configuration
+		if (filename === '.taskmasterconfig') {
+			log('info', `${targetPath} already exists, updating configuration...`);
+			try {
+				// Read existing config
+				const existingContent = fs.readFileSync(targetPath, 'utf8');
+				let existingConfig = JSON.parse(existingContent);
+
+				// Make sure global object exists
+				if (!existingConfig.global) {
+					existingConfig.global = {};
+				}
+
+				// Get the selected ticketing system
+				const selectedTicketing = replacements.ticketingSystem || 'none';
+
+				// Clean up any existing placeholder values from ticketing section
+				// by initializing ticketing section with empty values
+				existingConfig.ticketing = {
+					system: selectedTicketing,
+					integrationEnabled: selectedTicketing !== 'none'
+				};
+
+				// Add specific configuration based on selected system
+				switch (selectedTicketing) {
+					case 'jira':
+						// Update Jira configuration in ticketing section
+						existingConfig.ticketing.jiraProjectKey =
+							replacements.jiraProjectKey || '';
+						existingConfig.ticketing.jiraBaseUrl = replacements.jiraBaseUrl || '';
+						existingConfig.ticketing.jiraEmail = replacements.jiraEmail || '';
+						existingConfig.ticketing.jiraApiToken =
+							replacements.jiraApiToken || '';
+						break;
+
+					case 'azure':
+						// Update Azure configuration in ticketing section
+						existingConfig.ticketing.azureOrganization =
+							replacements.azureOrganization || '';
+						existingConfig.ticketing.azurePersonalAccessToken =
+							replacements.azurePersonalAccessToken || '';
+						existingConfig.ticketing.azureProjectName =
+							replacements.azureProjectName || '';
+						break;
+
+					case 'github':
+						// Update GitHub configuration in ticketing section
+						existingConfig.ticketing.githubToken =
+							replacements.githubToken || '';
+						existingConfig.ticketing.githubOwner =
+							replacements.githubOwner || '';
+						existingConfig.ticketing.githubRepository =
+							replacements.githubRepository || '';
+						existingConfig.ticketing.githubProjectNumber =
+							replacements.githubProjectNumber || '';
+						break;
+
+					default:
+						// No ticketing system selected
+						break;
+				}
+
+				// Remove any root level ticketing configuration that may have been added incorrectly
+				delete existingConfig.ticketingSystem;
+				delete existingConfig.ticketingIntegrationEnabled;
+				delete existingConfig.jiraProjectKey;
+				delete existingConfig.jiraBaseUrl;
+				delete existingConfig.jiraEmail;
+				delete existingConfig.jiraApiToken;
+				delete existingConfig.azureOrganization;
+				delete existingConfig.azurePersonalAccessToken;
+				delete existingConfig.azureProjectName;
+				delete existingConfig.githubToken;
+				delete existingConfig.githubOwner;
+				delete existingConfig.githubRepository;
+				delete existingConfig.githubProjectNumber;
+
+				// Write the updated configuration
+				fs.writeFileSync(targetPath, JSON.stringify(existingConfig, null, 2));
+				log('success', `Updated ${targetPath} with new configuration`);
+			} catch (error) {
+				log('error', `Error updating ${targetPath}: ${error.message}`);
+				// If parsing fails, overwrite the file
+				fs.writeFileSync(targetPath, content);
+				log('warn', `Overwrote ${targetPath} due to parsing error`);
+			}
+			return;
+		}
+
 		// Handle README.md - offer to preserve or create a different file
 		if (filename === 'README-task-master.md') {
 			log('info', `${targetPath} already exists`);
@@ -339,151 +430,119 @@ function copyTemplateFile(templateName, targetPath, replacements = {}) {
 
 	// If the file doesn't exist, create it normally
 	fs.writeFileSync(targetPath, content);
+	log('info', `Created file: ${targetPath}`);
 }
 
 // Main function to initialize a new project (No longer needs isInteractive logic)
 async function initializeProject(options = {}) {
+	// Receives options as argument
 	// Only display banner if not in silent mode
 	if (!isSilentMode()) {
 		displayBanner();
 	}
 
-	const { addAliases = false, dryRun = false, yes = false } = options;
+	// Debug logging only if not in silent mode
+	// if (!isSilentMode()) {
+	// 	console.log('===== DEBUG: INITIALIZE PROJECT OPTIONS RECEIVED =====');
+	// 	console.log('Full options object:', JSON.stringify(options));
+	// 	console.log('options.yes:', options.yes);
+	// 	console.log('==================================================');
+	// }
 
-	// Configuration for the ticketing system
-	let ticketingOptions = {
-		type: 'none' // Default to no ticketing system
-	};
+	const skipPrompts = options.yes || (options.name && options.description);
 
-	if (!yes && !dryRun && !isSilentMode()) {
-		// Create readline interface for user input
+	// if (!isSilentMode()) {
+	// 	console.log('Skip prompts determined:', skipPrompts);
+	// }
+
+	if (skipPrompts) {
+		if (!isSilentMode()) {
+			console.log('SKIPPING PROMPTS - Using defaults or provided values');
+		}
+
+		// Use provided options or defaults
+		const projectName = options.name || 'task-master-project';
+		const projectDescription =
+			options.description || 'A project managed with Task Master AI';
+		const projectVersion = options.version || '0.1.0';
+		const authorName = options.author || 'Vibe coder';
+		const dryRun = options.dryRun || false;
+		const addAliases = options.aliases || false;
+
+		if (dryRun) {
+			log('info', 'DRY RUN MODE: No files will be modified');
+			log('info', 'Would initialize Task Master project');
+			log('info', 'Would create/update necessary project files');
+			if (addAliases) {
+				log('info', 'Would add shell aliases for task-master');
+			}
+			return {
+				dryRun: true
+			};
+		}
+
+		createProjectStructure(addAliases, dryRun);
+	} else {
+		// Interactive logic
+		log('info', 'Required options not provided, proceeding with prompts.');
 		const rl = readline.createInterface({
 			input: process.stdin,
 			output: process.stdout
 		});
 
 		try {
-			// Prompt for ticketing system using arrow key navigation
-			const ticketingOptions = [
-				'None',
-				'Jira',
-				'Azure DevOps',
-				'GitHub Projects'
-			];
-			
-			const ticketingChoice = await promptSelectionMenu(
+			// Only prompt for shell aliases
+			const addAliasesInput = await promptQuestion(
 				rl,
-				'Select ticketing system to use:',
-				ticketingOptions
+				chalk.cyan(
+					'Add shell aliases for task-master? This lets you type "tm" instead of "task-master" (Y/n): '
+				)
+			);
+			const addAliasesPrompted = addAliasesInput.trim().toLowerCase() !== 'n';
+
+			// Confirm settings...
+			console.log('\nTask Master Project settings:');
+			console.log(
+				chalk.blue(
+					'Add shell aliases (so you can use "tm" instead of "task-master"):'
+				),
+				chalk.white(addAliasesPrompted ? 'Yes' : 'No')
 			);
 
-			// Process ticketing system choice
-			switch (ticketingChoice.toString()) {
-				case '2': // Jira
-					ticketingOptions = { type: 'jira' };
-					log('info', 'You selected Jira as your ticketing system.');
-
-					// Prompt for Jira configuration
-					log('info', 'Enter Jira project key:');
-					ticketingOptions.jiraProjectKey = await promptQuestion(rl, '');
-
-					log(
-						'info',
-						'Enter Jira base URL (e.g., https://yourcompany.atlassian.net):'
-					);
-					ticketingOptions.jiraBaseUrl = await promptQuestion(rl, '');
-
-					log('info', 'Enter Jira email:');
-					ticketingOptions.jiraEmail = await promptQuestion(rl, '');
-
-					log('info', 'Enter Jira API token:');
-					ticketingOptions.jiraApiToken = await promptQuestion(rl, '');
-
-					log('success', 'Jira configuration complete!');
-					break;
-
-				case '3': // Azure DevOps
-					ticketingOptions = { type: 'azure' };
-					log('info', 'You selected Azure DevOps as your ticketing system.');
-
-					// Prompt for Azure DevOps configuration
-					log('info', 'Enter Azure DevOps organization:');
-					ticketingOptions.azureOrganization = await promptQuestion(rl, '');
-
-					log('info', 'Enter Azure DevOps project name:');
-					ticketingOptions.azureProjectName = await promptQuestion(rl, '');
-
-					log('info', 'Enter Azure DevOps personal access token:');
-					ticketingOptions.azurePersonalAccessToken = await promptQuestion(
-						rl,
-						''
-					);
-
-					log('success', 'Azure DevOps configuration complete!');
-					break;
-
-				case '4': // GitHub Projects
-					ticketingOptions = { type: 'github' };
-					log('info', 'You selected GitHub Projects as your ticketing system.');
-
-					// Prompt for GitHub Projects configuration
-					log('info', 'Enter GitHub access token:');
-					ticketingOptions.githubToken = await promptQuestion(rl, '');
-
-					log('info', 'Enter GitHub owner (user or organization):');
-					ticketingOptions.githubOwner = await promptQuestion(rl, '');
-
-					log('info', 'Enter GitHub repository name:');
-					ticketingOptions.githubRepository = await promptQuestion(rl, '');
-
-					log('info', 'Enter GitHub project number:');
-					ticketingOptions.githubProjectNumber = await promptQuestion(rl, '');
-
-					log('success', 'GitHub Projects configuration complete!');
-					break;
-
-				default: // None or invalid choice
-					log('info', 'No ticketing system will be configured.');
-					break;
-			}
-		} catch (error) {
-			log(
-				'error',
-				`Error during ticketing system configuration: ${error.message}`
+			const confirmInput = await promptQuestion(
+				rl,
+				chalk.yellow('\nDo you want to continue with these settings? (Y/n): ')
 			);
-			log(
-				'warn',
-				'Continuing with default configuration (no ticketing system).'
-			);
-		} finally {
+			const shouldContinue = confirmInput.trim().toLowerCase() !== 'n';
 			rl.close();
+
+			if (!shouldContinue) {
+				log('info', 'Project initialization cancelled by user');
+				process.exit(0);
+				return;
+			}
+
+			const dryRun = options.dryRun || false;
+
+			if (dryRun) {
+				log('info', 'DRY RUN MODE: No files will be modified');
+				log('info', 'Would initialize Task Master project');
+				log('info', 'Would create/update necessary project files');
+				if (addAliasesPrompted) {
+					log('info', 'Would add shell aliases for task-master');
+				}
+				return {
+					dryRun: true
+				};
+			}
+
+			createProjectStructure(addAliasesPrompted, dryRun);
+		} catch (error) {
+			rl.close();
+			log('error', `Error during initialization process: ${error.message}`);
+			process.exit(1);
 		}
 	}
-
-	// Create project file structure with ticketing options
-	await createProjectStructure(
-		addAliases,
-		dryRun,
-		ticketingOptions.jiraProjectKey || '',
-		ticketingOptions
-	);
-}
-
-// Utility function to prompt a yes/no question
-function promptYesNoQuestion(rl, question, defaultYes = true) {
-	return promptQuestion(
-		rl,
-		`${question} ${defaultYes ? '[Y/n]' : '[y/N]'} `
-	).then((answer) => {
-		answer = answer.trim().toLowerCase();
-		if (answer === '' || answer === 'y' || answer === 'yes') {
-			return true;
-		} else if (answer === 'n' || answer === 'no') {
-			return false;
-		} else {
-			return defaultYes;
-		}
-	});
 }
 
 // Helper function to promisify readline question
@@ -495,84 +554,116 @@ function promptQuestion(rl, question) {
 	});
 }
 
-// Custom selection menu with arrow key navigation
-async function promptSelectionMenu(rl, message, options) {
-    // Store current state of stdin
-    const originalStdinRawMode = process.stdin.isRaw;
-    
-    // Configure readline for raw mode (to capture keypresses)
-    readline.emitKeypressEvents(process.stdin);
-    if (process.stdin.isTTY) {
-        process.stdin.setRawMode(true);
-    }
-    
-    let selectedIndex = 0;
-    
-    // Function to render the menu options
-    const renderMenu = () => {
-        // Clear previous output
-        console.clear();
-        console.log(chalk.blue('ℹ️ ') + message);
-        console.log(); // Empty line for spacing
-        
-        // Display options with selection indicator
-        options.forEach((option, index) => {
-            if (index === selectedIndex) {
-                console.log(chalk.cyan(`> ${option}`));
-            } else {
-                console.log(`  ${option}`);
-            }
-        });
-        
-        console.log(); // Empty line for spacing
-        console.log(chalk.dim('Use arrow keys ↑↓ to navigate, Enter to select'));
-    };
-    
-    // Initial render
-    renderMenu();
-    
-    // Return a new Promise that will resolve when the user makes a selection
-    return new Promise((resolve) => {
-        // Handle keypress events
-        const keypressHandler = (str, key) => {
-            if (key.ctrl && key.name === 'c') {
-                // Ctrl+C - exit
-                process.exit();
-            } else if (key.name === 'up' && selectedIndex > 0) {
-                // Up arrow - move selection up
-                selectedIndex--;
-                renderMenu();
-            } else if (key.name === 'down' && selectedIndex < options.length - 1) {
-                // Down arrow - move selection down
-                selectedIndex++;
-                renderMenu();
-            } else if (key.name === 'return') {
-                // Enter - make selection
-                // Clean up event listener
-                process.stdin.removeListener('keypress', keypressHandler);
-                
-                // Restore stdin to original state
-                if (process.stdin.isTTY) {
-                    process.stdin.setRawMode(originalStdinRawMode);
-                }
-                
-                // Return 1-based index to match existing code conventions
-                resolve(selectedIndex + 1);
-            }
-        };
-        
-        // Register keypress handler
-        process.stdin.on('keypress', keypressHandler);
-    });
+// Function to prompt for ticketing system configuration
+async function promptForTicketingSystem() {
+	// Use the preloaded inquirer modules instead of dynamic imports
+	const select = inquirerSelect;
+	const input = inquirerInput;
+
+	let ticketingOptions = {
+		type: 'none' // Default to no ticketing system
+	};
+
+	try {
+		// Prompt for ticketing system using arrow key navigation
+		const ticketingChoices = [
+			'None',
+			'Jira',
+			'Azure DevOps',
+			'GitHub Projects'
+		];
+
+		// Create formatted choices for the select prompt
+		const formattedChoices = ticketingChoices.map((choice, index) => ({
+			name: choice,
+			value: (index + 1).toString() // Return string value to match existing code
+		}));
+
+		// Display the selection prompt and get response
+		const ticketingChoice = await select({
+			message: 'Select ticketing system to use:',
+			choices: formattedChoices
+		});
+
+		log('info', `Selected: ${ticketingChoices[parseInt(ticketingChoice) - 1]}`);
+
+		// Process ticketing system choice
+		switch (ticketingChoice.toString()) {
+			case '2': // Jira
+				ticketingOptions = { type: 'jira' };
+				log('info', 'You selected Jira as your ticketing system.');
+
+				// Prompt for Jira configuration
+				ticketingOptions.jiraProjectKey = await input({
+					message: 'Enter Jira project key:'
+				});
+				ticketingOptions.jiraBaseUrl = await input({
+					message:
+						'Enter Jira base URL (e.g., https://yourcompany.atlassian.net):'
+				});
+				ticketingOptions.jiraEmail = await input({
+					message: 'Enter Jira email:'
+				});
+				ticketingOptions.jiraApiToken = await input({
+					message: 'Enter Jira API token:'
+				});
+
+				log('success', 'Jira configuration complete!');
+				break;
+
+			case '3': // Azure DevOps
+				ticketingOptions = { type: 'azure' };
+				log('info', 'You selected Azure DevOps as your ticketing system.');
+
+				// Prompt for Azure DevOps configuration
+				ticketingOptions.azureOrganization = await input({
+					message: 'Enter Azure DevOps organization:'
+				});
+				ticketingOptions.azureProjectName = await input({
+					message: 'Enter Azure DevOps project name:'
+				});
+				ticketingOptions.azurePersonalAccessToken = await input({
+					message: 'Enter Azure DevOps personal access token:'
+				});
+
+				log('success', 'Azure DevOps configuration complete!');
+				break;
+
+			case '4': // GitHub Projects
+				ticketingOptions = { type: 'github' };
+				log('info', 'You selected GitHub Projects as your ticketing system.');
+
+				// Prompt for GitHub Projects configuration
+				ticketingOptions.githubToken = await input({
+					message: 'Enter GitHub access token:'
+				});
+				ticketingOptions.githubOwner = await input({
+					message: 'Enter GitHub owner (user or organization):'
+				});
+				ticketingOptions.githubRepository = await input({
+					message: 'Enter GitHub repository name:'
+				});
+				ticketingOptions.githubProjectNumber = await input({
+					message: 'Enter GitHub project number:'
+				});
+
+				log('success', 'GitHub Projects configuration complete!');
+				break;
+
+			default: // None or invalid choice
+				log('info', 'No ticketing system will be configured.');
+				break;
+		}
+	} catch (error) {
+		log('error', `Error during ticketing configuration: ${error.message}`);
+		log('warn', 'Continuing with default configuration (no ticketing system).');
+	}
+
+	return ticketingOptions;
 }
 
 // Function to create the project structure
-function createProjectStructure(
-	addAliases,
-	dryRun,
-	jiraProjectKey = '',
-	ticketingOptions = {}
-) {
+async function createProjectStructure(addAliases, dryRun) {
 	const targetDir = process.cwd();
 	log('info', `Initializing project in ${targetDir}`);
 
@@ -604,59 +695,6 @@ function createProjectStructure(
 		year: new Date().getFullYear()
 	};
 
-	// Add ticketing system configuration to replacements
-	const configReplacements = {
-		...replacements,
-		// Default to no ticketing system if not specified
-		ticketingSystem: ticketingOptions.type || 'none',
-		// Jira configuration
-		jiraProjectKey:
-			ticketingOptions.type === 'jira'
-				? ticketingOptions.jiraProjectKey || jiraProjectKey
-				: '',
-		jiraBaseUrl:
-			ticketingOptions.type === 'jira'
-				? ticketingOptions.jiraBaseUrl || ''
-				: '',
-		jiraEmail:
-			ticketingOptions.type === 'jira' ? ticketingOptions.jiraEmail || '' : '',
-		jiraApiToken:
-			ticketingOptions.type === 'jira'
-				? ticketingOptions.jiraApiToken || ''
-				: '',
-		jiraIntegrationEnabled: ticketingOptions.type === 'jira' ? true : false,
-		// Azure DevOps configuration
-		azureOrganization:
-			ticketingOptions.type === 'azure'
-				? ticketingOptions.azureOrganization || ''
-				: '',
-		azurePersonalAccessToken:
-			ticketingOptions.type === 'azure'
-				? ticketingOptions.azurePersonalAccessToken || ''
-				: '',
-		azureProjectName:
-			ticketingOptions.type === 'azure'
-				? ticketingOptions.azureProjectName || ''
-				: '',
-		// GitHub Projects configuration
-		githubToken:
-			ticketingOptions.type === 'github'
-				? ticketingOptions.githubToken || ''
-				: '',
-		githubOwner:
-			ticketingOptions.type === 'github'
-				? ticketingOptions.githubOwner || ''
-				: '',
-		githubRepository:
-			ticketingOptions.type === 'github'
-				? ticketingOptions.githubRepository || ''
-				: '',
-		githubProjectNumber:
-			ticketingOptions.type === 'github'
-				? ticketingOptions.githubProjectNumber || ''
-				: ''
-	};
-
 	// Copy .env.example
 	copyTemplateFile(
 		'env.example',
@@ -664,11 +702,13 @@ function createProjectStructure(
 		replacements
 	);
 
-	// Copy .taskmasterconfig with project name and Jira project key
+	// Copy .taskmasterconfig with project name
 	copyTemplateFile(
 		'.taskmasterconfig',
 		path.join(targetDir, '.taskmasterconfig'),
-		configReplacements
+		{
+			...replacements
+		}
 	);
 
 	// Copy .gitignore
@@ -779,13 +819,18 @@ function createProjectStructure(
 			'Running interactive model setup. Please select your preferred AI models.'
 		);
 		try {
-			execSync('npx task-master models --setup', {
+			// Use the full path to the bin directory
+			const packagePath = path.resolve(path.join(__dirname, '..'));
+			const cliPath = path.join(packagePath, 'bin', 'task-master.js');
+
+			// Execute with proper shell escaping and quoted paths
+			execSync(`node "${cliPath}" models --setup`, {
 				stdio: 'inherit',
 				cwd: targetDir
 			});
 			log('success', 'AI Models configured.');
 		} catch (error) {
-			log('error', 'Failed to configure AI models:', error.message);
+			log('error', `Failed to configure AI models: ${error.message}`);
 			log('warn', 'You may need to run "task-master models --setup" manually.');
 		}
 	} else if (isSilentMode() && !dryRun) {
@@ -796,6 +841,68 @@ function createProjectStructure(
 		);
 	} else if (dryRun) {
 		log('info', 'DRY RUN: Skipping interactive model setup.');
+	}
+	// ====================================
+
+	// === Add Ticketing System Configuration Step ===
+	if (!isSilentMode() && !dryRun) {
+		// Get ticketing configuration from user after model setup
+		log('info', 'Setting up ticketing system integration (final step)...');
+		const ticketingOptions = await promptForTicketingSystem();
+
+		// If user selected a ticketing system, update the configuration file
+		if (ticketingOptions.type !== 'none') {
+			log('info', 'Updating configuration with ticketing system settings...');
+
+			// Set up ticketing configuration replacements
+			const configReplacements = {
+				year: new Date().getFullYear(),
+				ticketingSystem: ticketingOptions.type
+			};
+
+			// Add configuration for the selected ticketing system
+			switch (ticketingOptions.type) {
+				case 'jira':
+					configReplacements.jiraProjectKey =
+						ticketingOptions.jiraProjectKey || '';
+					configReplacements.jiraBaseUrl = ticketingOptions.jiraBaseUrl || '';
+					configReplacements.jiraEmail = ticketingOptions.jiraEmail || '';
+					configReplacements.jiraApiToken = ticketingOptions.jiraApiToken || '';
+					configReplacements.ticketingIntegrationEnabled = true;
+					break;
+
+				case 'azure':
+					configReplacements.azureOrganization =
+						ticketingOptions.azureOrganization || '';
+					configReplacements.azurePersonalAccessToken =
+						ticketingOptions.azurePersonalAccessToken || '';
+					configReplacements.azureProjectName =
+						ticketingOptions.azureProjectName || '';
+					configReplacements.ticketingIntegrationEnabled = true;
+					break;
+
+				case 'github':
+					configReplacements.githubToken = ticketingOptions.githubToken || '';
+					configReplacements.githubOwner = ticketingOptions.githubOwner || '';
+					configReplacements.githubRepository =
+						ticketingOptions.githubRepository || '';
+					configReplacements.githubProjectNumber =
+						ticketingOptions.githubProjectNumber || '';
+					configReplacements.ticketingIntegrationEnabled = true;
+					break;
+			}
+
+			// Update the .taskmasterconfig file with the new settings
+			copyTemplateFile(
+				'.taskmasterconfig',
+				path.join(targetDir, '.taskmasterconfig'),
+				configReplacements
+			);
+
+			log('success', 'Configuration updated with ticketing system settings.');
+		}
+	} else if (isSilentMode() && !dryRun) {
+		log('info', 'Skipping interactive ticketing setup in silent (MCP) mode.');
 	}
 	// ====================================
 

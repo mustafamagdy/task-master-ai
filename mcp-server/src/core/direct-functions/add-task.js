@@ -102,7 +102,8 @@ export async function addTaskDirect(args, log, context = {}) {
 				title: args.title,
 				description: args.description,
 				details: args.details || '',
-				testStrategy: args.testStrategy || ''
+				testStrategy: args.testStrategy || '',
+				metadata: {}
 			};
 
 			log.info(
