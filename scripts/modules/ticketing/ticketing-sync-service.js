@@ -242,6 +242,8 @@ class TicketingSyncService {
 
 	/**
 	 * Sync a newly created subtask with the ticketing system
+	 * Creates a proper subtask ticket linked to the parent task's ticket
+	 * CRITICAL: This must use createTask() NOT createStory() to create proper subtask relationships
 	 * @param {Object} subtask - The subtask object
 	 * @param {Object} parentTask - The parent task object
 	 * @param {string} tasksPath - Path to tasks.json file
@@ -274,23 +276,23 @@ class TicketingSyncService {
 				return { success: false, error: 'Parent task has no ticket' };
 			}
 
-			// SIMPLIFIED APPROACH: Use createStory (which works) instead of complex createTask
-			// This creates standalone tickets for subtasks rather than true Jira subtasks
-			// but ensures consistent ticketing integration
+			// FIX: Use createTask instead of createStory for subtasks
+			// This ensures subtasks are properly linked to their parent tickets
 			const subtaskData = {
 				id: subtask.id,
 				parentId: parentTask.id,
-				title: `[Subtask] ${subtask.title}`, // Prefix to indicate it's a subtask
-				description: `${subtask.description}\n\nParent Task: ${parentTask.title} (${parentTicketKey})`,
-				details: subtask.details,
+				title: subtask.title,
+				description: subtask.description || '',
+				details: subtask.details || '',
 				priority: subtask.priority || parentTask.priority,
 				status: subtask.status,
 				metadata: subtask.metadata || {}
 			};
 
-			// Use createStory which is proven to work reliably
-			const ticketingIssue = await this.ticketingInstance.createStory(
+			// Use createTask which will properly link the subtask to its parent
+			const ticketingIssue = await this.ticketingInstance.createTask(
 				subtaskData,
+				parentTicketKey,
 				projectRoot
 			);
 
@@ -311,7 +313,7 @@ class TicketingSyncService {
 
 				log(
 					'success',
-					`[TICKETING_SERVICE] Created ticket ${ticketingIssue.key} for subtask ${parentTask.id}.${subtask.id}`
+					`[TICKETING_SERVICE] Created subtask ticket ${ticketingIssue.key} for subtask ${parentTask.id}.${subtask.id}`
 				);
 				return { success: true, ticketKey: ticketingIssue.key };
 			} else {
