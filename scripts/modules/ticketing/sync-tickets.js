@@ -162,148 +162,13 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 		
 		customLog.info(`Found ${allTickets.length} tickets in Jira.`);
 		
-		// First, analyze all tickets to identify parent-child relationships based on naming patterns
-		// This is important for projects where subtask type might not be properly set in Jira
+		// First, import all tickets as individual tasks
+		// We'll organize them into parent-child relationships afterward
 		
-		// Track all tickets by key for quick lookup
-		const ticketsByKey = new Map();
+		// Process all tickets
+		const ticketToTaskMap = new Map(); // Maps Jira ticket key to task objects in our system
 		
-		// Examine titles to identify potential parent-child relationships
-		const titleBasedParentChildMap = new Map();
-		
-		// Regex patterns to identify common subtask naming conventions
-		const subtaskPatterns = [
-			// Matches patterns like [T006-01] where T006 is the parent
-			/^\[([UT]\d+)-\d+\]/,
-			// Matches patterns like [US001.1] where US001 is the parent
-			/^\[([UT]S\d+)\.(\d+)\]/,
-			// Add more patterns as needed
-		];
-		
-		// First pass: index all tickets and attempt to identify parent-child relationships
 		for (const ticket of allTickets) {
-			if (!ticket.key) continue;
-			
-			// Store ticket for easy lookup
-			ticketsByKey.set(ticket.key, ticket);
-			
-			// Check if this could be a subtask based on title pattern
-			const title = ticket.fields?.summary || '';
-			
-			for (const pattern of subtaskPatterns) {
-				const match = title.match(pattern);
-				if (match) {
-					const parentRef = match[1]; // Extract the parent reference (e.g., T006, US001)
-					
-					// Store this as a potential child of a parent with this reference
-					if (!titleBasedParentChildMap.has(parentRef)) {
-						titleBasedParentChildMap.set(parentRef, []);
-					}
-					titleBasedParentChildMap.get(parentRef).push(ticket.key);
-					
-					debugLog(`Identified potential subtask ${ticket.key} with title "${title}" as child of reference ${parentRef}`);
-					break;
-				}
-			}
-		}
-		
-		debugLog(`Found ${titleBasedParentChildMap.size} potential parent references based on title patterns`);
-		
-		// Second pass: Process tickets using both Jira's issuetype and our title-based detection
-		
-		// Process parent tickets (stories/epics) first based on issuetype
-		const mainTickets = allTickets.filter(ticket => 
-			ticket.fields && 
-			ticket.fields.issuetype && 
-			ticket.fields.issuetype.name && 
-			ticket.fields.issuetype.name.toLowerCase() !== 'sub-task');
-		
-		// Process subtasks separately using issuetype
-		const jiraSubTasks = allTickets.filter(ticket => 
-			ticket.fields && 
-			ticket.fields.issuetype && 
-			ticket.fields.issuetype.name && 
-			ticket.fields.issuetype.name.toLowerCase() === 'sub-task');
-		
-		customLog.info(`Processing ${mainTickets.length} main tickets and ${jiraSubTasks.length} Jira-identified subtasks.`);
-		
-		// Track which Jira ticket IDs map to which task IDs
-		const jiraToTaskMap = new Map();
-		
-		// Create parent to subtasks maps based on both Jira's parent field and our title-based detection
-		const parentToSubtasksMap = new Map();
-		
-		// First add Jira's explicit parent-child relationships
-		for (const subtask of jiraSubTasks) {
-			if (!subtask.key || !subtask.fields?.parent?.key) continue;
-			
-			const parentKey = subtask.fields.parent.key;
-			if (!parentToSubtasksMap.has(parentKey)) {
-				parentToSubtasksMap.set(parentKey, []);
-			}
-			parentToSubtasksMap.get(parentKey).push(subtask);
-		}
-		
-		// Create a reverse lookup from task titles to their tickets
-		const refIdToTicketMap = new Map();
-		
-		// Process main tickets to extract reference IDs from titles
-		for (const ticket of mainTickets) {
-			const title = ticket.fields?.summary || '';
-			// Try to extract reference ID from title like [US001] or [T001]
-			const refMatch = title.match(/^\[([UT]S?\d+)\]/);
-			if (refMatch) {
-				const refId = refMatch[1];
-				refIdToTicketMap.set(refId, ticket.key);
-				debugLog(`Found ticket ${ticket.key} with reference ID ${refId} in title "${title}"`);
-			}
-		}
-		
-		// Now merge in our title-based parent-child relationships
-		for (const [parentRef, childKeys] of titleBasedParentChildMap.entries()) {
-			// Find the ticket with this reference ID
-			const parentTicketKey = refIdToTicketMap.get(parentRef);
-			
-			if (parentTicketKey) {
-				debugLog(`Found parent ticket ${parentTicketKey} for reference ${parentRef}`);
-				
-				// Add these children to the parent's subtasks
-				if (!parentToSubtasksMap.has(parentTicketKey)) {
-					parentToSubtasksMap.set(parentTicketKey, []);
-				}
-				
-				// Add each child if it's not already in the list
-				for (const childKey of childKeys) {
-					const childTicket = ticketsByKey.get(childKey);
-					if (childTicket) {
-						const existingChildren = parentToSubtasksMap.get(parentTicketKey);
-						if (!existingChildren.some(t => t.key === childKey)) {
-							existingChildren.push(childTicket);
-							debugLog(`Added ticket ${childKey} as child of ${parentTicketKey} based on title pattern`);
-						}
-					}
-				}
-			} else {
-				debugLog(`Could not find parent ticket for reference ${parentRef}`);
-			}
-		}
-		
-		debugLog(`Created parent-to-subtasks map with ${parentToSubtasksMap.size} parent tickets`);
-		
-		// Group tickets that should be treated as subtasks based on their naming
-		const likelySubtasks = new Set();
-		
-		// Add all tickets identified as subtasks to the set
-		for (const subtasksArray of parentToSubtasksMap.values()) {
-			for (const subtask of subtasksArray) {
-				likelySubtasks.add(subtask.key);
-			}
-		}
-		
-		debugLog(`Identified ${likelySubtasks.size} total tickets as subtasks based on all methods`);
-		
-		// Process main tickets, but skip those that are identified as subtasks
-		for (const ticket of mainTickets) {
 			try {
 				if (!ticket.key) {
 					customLog.warn('Skipping ticket with missing key');
@@ -312,25 +177,17 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 				
 				const ticketId = ticket.key;
 				
-				// Skip if this ticket is actually a subtask based on our analysis
-				if (likelySubtasks.has(ticketId)) {
-					debugLog(`Skipping ticket ${ticketId} as it's identified as a subtask`);
-					continue;
-				}
-				
 				// Check if a task with this ticket ID already exists
 				const existingTaskIndex = data.tasks.findIndex(task => {
 					const metadata = task.metadata || {};
 					return metadata.jiraKey === ticketId;
 				});
 				
-				let taskToUpdate;
-				let taskIndex;
+				let taskObject;
 				
 				if (existingTaskIndex >= 0) {
 					// Update existing task
-					taskIndex = existingTaskIndex;
-					taskToUpdate = data.tasks[existingTaskIndex];
+					const taskToUpdate = data.tasks[existingTaskIndex];
 					customLog.info(`Updating existing task ${taskToUpdate.id} from ticket ${ticketId}`);
 					
 					// Update task from ticket data
@@ -342,9 +199,8 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 					
 					if (updatedTask) {
 						data.tasks[existingTaskIndex] = updatedTask;
-						taskToUpdate = updatedTask; // Update the reference
+						taskObject = updatedTask;
 						stats.tasksUpdated++;
-						jiraToTaskMap.set(ticketId, updatedTask.id);
 					}
 				} else {
 					// Create new task from ticket
@@ -360,10 +216,8 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 					
 					if (newTask) {
 						data.tasks.push(newTask);
-						taskIndex = data.tasks.length - 1;
-						taskToUpdate = newTask;
+						taskObject = newTask;
 						stats.tasksCreated++;
-						jiraToTaskMap.set(ticketId, newTask.id);
 						customLog.success(`Created task ${newTask.id} from ticket ${ticketId}`);
 					} else {
 						customLog.error(`Failed to create task from ticket ${ticketId}`);
@@ -371,67 +225,9 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 					}
 				}
 				
-				// Process any subtasks associated with this ticket immediately
-				if (taskToUpdate && parentToSubtasksMap.has(ticketId)) {
-					const subtasks = parentToSubtasksMap.get(ticketId);
-					customLog.info(`Processing ${subtasks.length} subtasks for ticket ${ticketId}`);
-					
-					// Ensure task has subtasks array
-					if (!taskToUpdate.subtasks) {
-						taskToUpdate.subtasks = [];
-					}
-					
-					// Process each subtask
-					for (const subtask of subtasks) {
-						const subtaskId = subtask.key;
-						
-						// Check if subtask already exists in the task
-						const existingSubtaskIndex = taskToUpdate.subtasks.findIndex(st => {
-							const metadata = st.metadata || {};
-							return metadata.jiraKey === subtaskId;
-						});
-						
-						if (existingSubtaskIndex >= 0) {
-							// Update existing subtask
-							const existingSubtask = taskToUpdate.subtasks[existingSubtaskIndex];
-							customLog.info(`Updating existing subtask ${taskToUpdate.id}.${existingSubtask.id} from ticket ${subtaskId}`);
-							
-							const updatedSubtask = await updateSubtaskFromTicket(existingSubtask, subtask, ticketingSystem, {
-								projectRoot,
-								logger: customLog,
-								debug
-							});
-							
-							if (updatedSubtask) {
-								taskToUpdate.subtasks[existingSubtaskIndex] = updatedSubtask;
-								stats.subtasksUpdated++;
-							}
-						} else {
-							// Create new subtask
-							customLog.info(`Creating new subtask under task ${taskToUpdate.id} from ticket ${subtaskId}`);
-							
-							const nextSubtaskId = getNextSubtaskId(taskToUpdate.subtasks);
-							const newSubtask = await createSubtaskFromTicket(subtask, ticketingSystem, {
-								projectRoot,
-								logger: customLog,
-								debug,
-								nextSubtaskId,
-								parentTaskId: taskToUpdate.id
-							});
-							
-							if (newSubtask) {
-								taskToUpdate.subtasks.push(newSubtask);
-								stats.subtasksCreated++;
-								customLog.success(`Created subtask ${taskToUpdate.id}.${newSubtask.id} from ticket ${subtaskId}`);
-							} else {
-								customLog.error(`Failed to create subtask from ticket ${subtaskId}`);
-								stats.errors++;
-							}
-						}
-					}
-					
-					// Update the task in the data array with its new subtasks
-					data.tasks[taskIndex] = taskToUpdate;
+				// Store the mapping
+				if (taskObject) {
+					ticketToTaskMap.set(ticketId, taskObject);
 				}
 				
 				stats.ticketsImported++;
@@ -443,92 +239,93 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 			}
 		}
 		
-		// Process orphaned subtasks (those whose parents weren't found in the main ticket processing)
-		const processedParentKeys = new Set(jiraToTaskMap.keys());
-		const orphanedSubtasks = [];
+		// Now, reorganize tasks into parent-child relationships based on their titles
+		// First, create maps for each type of reference pattern
 		
-		for (const [parentKey, subtasks] of parentToSubtasksMap.entries()) {
-			if (!processedParentKeys.has(parentKey)) {
-				customLog.warn(`Parent ticket ${parentKey} not processed, checking if it exists in tasks.json...`);
-				
-				// Try to find a task with this Jira key in the existing data
-				const existingTaskIndex = data.tasks.findIndex(task => {
-					const metadata = task.metadata || {};
-					return metadata.jiraKey === parentKey;
-				});
-				
-				if (existingTaskIndex >= 0) {
-					const parentTask = data.tasks[existingTaskIndex];
-					customLog.info(`Found existing task ${parentTask.id} for parent ticket ${parentKey}`);
-					
-					// Process subtasks for this parent
-					for (const subtask of subtasks) {
-						const subtaskId = subtask.key;
-						
-						// Ensure parent task has subtasks array
-						if (!parentTask.subtasks) {
-							parentTask.subtasks = [];
-						}
-						
-						// Check if subtask already exists
-						const existingSubtaskIndex = parentTask.subtasks.findIndex(st => {
-							const metadata = st.metadata || {};
-							return metadata.jiraKey === subtaskId;
-						});
-						
-						if (existingSubtaskIndex >= 0) {
-							// Update existing subtask
-							const existingSubtask = parentTask.subtasks[existingSubtaskIndex];
-							customLog.info(`Updating existing subtask ${parentTask.id}.${existingSubtask.id} from ticket ${subtaskId}`);
-							
-							const updatedSubtask = await updateSubtaskFromTicket(existingSubtask, subtask, ticketingSystem, {
-								projectRoot,
-								logger: customLog,
-								debug
-							});
-							
-							if (updatedSubtask) {
-								parentTask.subtasks[existingSubtaskIndex] = updatedSubtask;
-								stats.subtasksUpdated++;
-							}
-						} else {
-							// Create new subtask
-							customLog.info(`Creating new subtask under task ${parentTask.id} from ticket ${subtaskId}`);
-							
-							const nextSubtaskId = getNextSubtaskId(parentTask.subtasks);
-							const newSubtask = await createSubtaskFromTicket(subtask, ticketingSystem, {
-								projectRoot,
-								logger: customLog,
-								debug,
-								nextSubtaskId,
-								parentTaskId: parentTask.id
-							});
-							
-							if (newSubtask) {
-								parentTask.subtasks.push(newSubtask);
-								stats.subtasksCreated++;
-								customLog.success(`Created subtask ${parentTask.id}.${newSubtask.id} from ticket ${subtaskId}`);
-							} else {
-								customLog.error(`Failed to create subtask from ticket ${subtaskId}`);
-								stats.errors++;
-							}
-						}
-					}
-					
-					// Update the parent task in the data
-					data.tasks[existingTaskIndex] = parentTask;
-				} else {
-					// Parent task not found, collect these subtasks as orphaned
-					orphanedSubtasks.push(...subtasks);
+		// Map for tasks with [T{numbers}-{numbers}] pattern (e.g., [T006-01])
+		const tPatternMap = new Map(); // Maps the parent part (T006) to the full key (T006-01)
+		
+		// Map for tasks with [US{numbers}] pattern (parent tasks like [US006])
+		const usPatternMap = new Map(); // Maps the US number (US006) to the task
+		
+		// Identify all task patterns
+		for (const [ticketId, task] of ticketToTaskMap.entries()) {
+			const title = task.title || '';
+			
+			// Check if it's a T pattern subtask like [T006-01]
+			const tMatch = title.match(/^\[([T]\d+)-(\d+)\]/);
+			if (tMatch) {
+				const parentRef = tMatch[1]; // e.g., T006
+				if (!tPatternMap.has(parentRef)) {
+					tPatternMap.set(parentRef, []);
 				}
+				tPatternMap.get(parentRef).push({ticketId, task});
+				customLog.info(`Identified subtask pattern: ${title} with parent reference ${parentRef}`);
+				continue;
+			}
+			
+			// Check if it's a parent US pattern like [US006]
+			const usMatch = title.match(/^\[(US\d+)\]/);
+			if (usMatch) {
+				const usRef = usMatch[1]; // e.g., US006
+				usPatternMap.set(usRef, {ticketId, task});
+				customLog.info(`Identified parent pattern: ${title} with reference ${usRef}`);
 			}
 		}
 		
-		// Report any orphaned subtasks
-		if (orphanedSubtasks.length > 0) {
-			customLog.warn(`Found ${orphanedSubtasks.length} subtasks with parent tickets not in the system`);
-			for (const orphan of orphanedSubtasks) {
-				customLog.warn(`Orphaned subtask: ${orphan.key}, parent: ${orphan.fields?.parent?.key}`);
+		// Now, for each T pattern (like T006), find its corresponding US parent (like US006)
+		// and make it a subtask
+		for (const [tRef, subtasks] of tPatternMap.entries()) {
+			// Convert T006 to US006
+			const correspondingUSRef = tRef.replace(/^T/, 'US');
+			
+			// Find the parent task
+			const parentEntry = usPatternMap.get(correspondingUSRef);
+			
+			if (parentEntry) {
+				const parentTask = parentEntry.task;
+				customLog.info(`Found parent task ${parentTask.id} with title "${parentTask.title}" for subtasks with reference ${tRef}`);
+				
+				// Ensure parent has subtasks array
+				if (!parentTask.subtasks) {
+					parentTask.subtasks = [];
+				}
+				
+				// Process each subtask
+				for (const {ticketId, task} of subtasks) {
+					// Remove this task from the main tasks array
+					const taskIndex = data.tasks.findIndex(t => t.id === task.id);
+					if (taskIndex >= 0) {
+						data.tasks.splice(taskIndex, 1);
+						customLog.info(`Removed task ${task.id} from main tasks array to make it a subtask`);
+					}
+					
+					// Create a new subtask
+					const subtaskId = getNextSubtaskId(parentTask.subtasks);
+					
+					// Create the subtask object with appropriate fields
+					const newSubtask = {
+						id: subtaskId,
+						title: task.title,
+						description: task.description || '',
+						status: task.status || 'pending',
+						details: task.details || '',
+						metadata: {
+							jiraKey: ticketId,
+							refId: generateSubtaskRefId(parentTask.id, subtaskId, true),
+							lastTicketSync: new Date().toISOString()
+						}
+					};
+					
+					// Add the subtask to the parent
+					parentTask.subtasks.push(newSubtask);
+					stats.subtasksCreated++;
+					stats.tasksCreated--; // Adjust the counter since we moved it
+					
+					customLog.success(`Created subtask ${parentTask.id}.${subtaskId} from task ${task.id} with ticket ${ticketId}`);
+				}
+			} else {
+				customLog.warn(`Could not find parent task with reference ${correspondingUSRef} for subtasks with reference ${tRef}`);
 			}
 		}
 		
