@@ -35,6 +35,6 @@
     "jiraProjectKey": "TS2",
     "jiraBaseUrl": "https://geekscloud.atlassian.net",
     "jiraEmail": "mustafa.magdy1@gmail.com",
-    "jiraApiToken": "***REMOVED***"
+    "jiraApiToken": "<USE_ENV_VARIABLE_JIRA_API_TOKEN>"
   }
 }
