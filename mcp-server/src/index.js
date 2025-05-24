@@ -5,8 +5,6 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import logger from './logger.js';
 import { registerTaskMasterTools } from './tools/index.js';
-import { initializeEventSystem } from '../../scripts/modules/events/initialize-events.js';
-import { initializeTicketingSubscribers } from '../../scripts/modules/ticketing/events/ticketing-event-subscriber.js';
 
 // Load environment variables
 dotenv.config();
@@ -51,20 +49,13 @@ class TaskMasterMCPServer {
 	async init() {
 		if (this.initialized) return;
 
-		// Initialize the event system with ticketing subscribers
-		try {
-			this.logger.info('Initializing event system for MCP server...');
-			await initializeEventSystem({ force: true, debug: true });
-			this.logger.info('Event system initialized for MCP server');
-		} catch (error) {
-			this.logger.error(`Error initializing event system: ${error.message}`);
-			// Continue even if event system fails, but log the error
-		}
+		this.logger.info('Initializing Task Master MCP server...');
 
-		// Pass the manager instance to the tool registration function
+		// Register Task Master tools
 		registerTaskMasterTools(this.server, this.asyncManager);
 
 		this.initialized = true;
+		this.logger.info('Task Master MCP server initialized successfully');
 
 		return this;
 	}

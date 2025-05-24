@@ -4,15 +4,16 @@ import path from 'path';
 import { log, readJSON, writeJSON } from '../utils.js';
 import generateTaskFiles from './generate-task-files.js';
 import taskExists from './task-exists.js';
-import { emit, EVENT_TYPES } from '../events/event-emitter.js';
+import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 
 /**
  * Removes one or more tasks or subtasks from the tasks file
  * @param {string} tasksPath - Path to the tasks file
  * @param {string} taskIds - Comma-separated string of task/subtask IDs to remove (e.g., '5,6.1,7')
+ * @param {string} projectRoot - Project root directory for ticketing integration
  * @returns {Object} Result object with success status, messages, and removed task info
  */
-async function removeTask(tasksPath, taskIds) {
+async function removeTask(tasksPath, taskIds, projectRoot = null) {
 	const results = {
 		success: true,
 		messages: [],
@@ -83,14 +84,19 @@ async function removeTask(tasksPath, taskIds) {
 					// Remove the subtask from the parent
 					parentTask.subtasks.splice(subtaskIndex, 1);
 
-					// Emit subtask deleted event
-					emit(EVENT_TYPES.SUBTASK_DELETED, {
-						taskId: parentTaskId,
-						subtaskId: removedSubtask.id, // Use the ID directly from the subtask object
-						subtask: removedSubtask, // Include the full subtask object
-						data,
-						tasksPath
-					});
+					// Direct ticketing integration for subtask deletion
+					if (projectRoot) {
+						try {
+							await ticketingSyncService.updateTaskStatus(
+								taskId, // compound ID like "5.2"
+								'cancelled',
+								tasksPath,
+								projectRoot
+							);
+						} catch (ticketingError) {
+							log('warn', `Warning: Could not update ticket status for deleted subtask ${taskId}: ${ticketingError.message}`);
+						}
+					}
 
 					results.messages.push(`Successfully removed subtask ${taskId}`);
 				}
@@ -112,13 +118,19 @@ async function removeTask(tasksPath, taskIds) {
 					// Remove the task from the main array
 					data.tasks.splice(taskIndex, 1);
 
-					// Emit task deleted event
-					emit(EVENT_TYPES.TASK_DELETED, {
-						taskId: taskIdNum,
-						task: removedTask,
-						data,
-						tasksPath
-					});
+					// Direct ticketing integration for task deletion
+					if (projectRoot) {
+						try {
+							await ticketingSyncService.updateTaskStatus(
+								taskIdNum,
+								'cancelled',
+								tasksPath,
+								projectRoot
+							);
+						} catch (ticketingError) {
+							log('warn', `Warning: Could not update ticket status for deleted task ${taskId}: ${ticketingError.message}`);
+						}
+					}
 
 					results.messages.push(`Successfully removed task ${taskId}`);
 				}
