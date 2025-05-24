@@ -15,7 +15,7 @@ import { readJSON, writeJSON, log as consoleLog, truncate } from '../utils.js';
 import { generateObjectService } from '../ai-services-unified.js';
 import { getDefaultPriority } from '../config-manager.js';
 import generateTaskFiles from './generate-task-files.js';
-import { emit, EVENT_TYPES } from '../events/event-emitter.js';
+import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 import { generateUserStoryRefId, storeRefId } from '../ticketing/utils/id-utils.js';
 
 // Define Zod schema for the expected AI output object
@@ -310,13 +310,19 @@ async function addTask(
 		writeJSON(tasksPath, data);
 		report('DEBUG: tasks.json written.', 'debug');
 
-		// Emit task created event
-		emit(EVENT_TYPES.TASK_CREATED, {
-			taskId: newTaskId,
-			data,
-			tasksPath,
-			task: newTask
-		});
+		// Direct ticketing integration
+		let ticketingResult = null;
+		try {
+			ticketingResult = await ticketingSyncService.syncTask(newTask, tasksPath, projectRoot);
+			if (ticketingResult.success) {
+				report(`Created ticket ${ticketingResult.ticketKey} for task ${newTaskId}`, 'success');
+			} else if (ticketingResult.error !== 'Ticketing service not available') {
+				// Only warn if it's not just disabled ticketing
+				report(`Warning: Could not create ticket for task ${newTaskId}: ${ticketingResult.error}`, 'warn');
+			}
+		} catch (ticketingError) {
+			report(`Warning: Ticketing integration error for task ${newTaskId}: ${ticketingError.message}`, 'warn');
+		}
 
 		// Generate markdown task files
 		report('Generating task files...', 'info');

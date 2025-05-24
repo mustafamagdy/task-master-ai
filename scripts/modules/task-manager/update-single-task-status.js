@@ -5,7 +5,7 @@ import {
 	isValidTaskStatus,
 	TASK_STATUS_OPTIONS
 } from '../../../src/constants/task-status.js';
-import { emit, EVENT_TYPES } from '../events/event-emitter.js';
+import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 
 /**
  * Update the status of a single task
@@ -14,13 +14,15 @@ import { emit, EVENT_TYPES } from '../events/event-emitter.js';
  * @param {string} newStatus - New status
  * @param {Object} data - Tasks data
  * @param {boolean} showUi - Whether to show UI elements
+ * @param {string} projectRoot - Project root for ticketing integration
  */
 async function updateSingleTaskStatus(
 	tasksPath,
 	taskIdInput,
 	newStatus,
 	data,
-	showUi = true
+	showUi = true,
+	projectRoot = null
 ) {
 	if (!isValidTaskStatus(newStatus)) {
 		throw new Error(
@@ -65,17 +67,19 @@ async function updateSingleTaskStatus(
 			`Updated subtask ${parentId}.${subtaskId} status from '${oldStatus}' to '${newStatus}'`
 		);
 
-		// Emit subtask status changed event
-		// Use the actual subtask object, not just the ID
-		emit(EVENT_TYPES.SUBTASK_STATUS_CHANGED, {
-			taskId: parentId,
-			subtaskId: subtask.id, // Keep the original ID as stored in the subtask
-			subtask, // Pass the actual subtask object
-			newStatus,
-			oldStatus,
-			data,
-			tasksPath
-		});
+		// Direct ticketing integration for subtask status update
+		if (projectRoot) {
+			try {
+				await ticketingSyncService.updateTaskStatus(
+					`${parentId}.${subtask.id}`, // Compound ID for subtask
+					newStatus,
+					tasksPath,
+					projectRoot
+				);
+			} catch (ticketingError) {
+				log('warn', `Warning: Could not update ticket status for subtask ${parentId}.${subtask.id}: ${ticketingError.message}`);
+			}
+		}
 
 		// Check if all subtasks are done (if setting to 'done')
 		if (
@@ -129,14 +133,19 @@ async function updateSingleTaskStatus(
 			`Updated task ${taskId} status from '${oldStatus}' to '${newStatus}'`
 		);
 
-		// Emit task status changed event
-		emit(EVENT_TYPES.TASK_STATUS_CHANGED, {
-			taskId,
-			newStatus,
-			oldStatus,
-			data,
-			tasksPath
-		});
+		// Direct ticketing integration for task status update
+		if (projectRoot) {
+			try {
+				await ticketingSyncService.updateTaskStatus(
+					taskId,
+					newStatus,
+					tasksPath,
+					projectRoot
+				);
+			} catch (ticketingError) {
+				log('warn', `Warning: Could not update ticket status for task ${taskId}: ${ticketingError.message}`);
+			}
+		}
 
 		// If marking as done, also mark all subtasks as done
 		if (
@@ -155,21 +164,24 @@ async function updateSingleTaskStatus(
 					`Also marking ${pendingSubtasks.length} subtasks as '${newStatus}'`
 				);
 
-				pendingSubtasks.forEach((subtask) => {
+				for (const subtask of pendingSubtasks) {
 					const oldSubtaskStatus = subtask.status || 'pending';
 					subtask.status = newStatus;
 
-					// Emit subtask status changed event for each auto-updated subtask
-					emit(EVENT_TYPES.SUBTASK_STATUS_CHANGED, {
-						taskId,
-						subtaskId: subtask.id, // Keep the original ID as stored in the subtask
-						subtask, // Pass the actual subtask object
-						newStatus,
-						oldStatus: oldSubtaskStatus,
-						data,
-						tasksPath
-					});
-				});
+					// Direct ticketing integration for auto-updated subtasks
+					if (projectRoot) {
+						try {
+							await ticketingSyncService.updateTaskStatus(
+								`${taskId}.${subtask.id}`, // Compound ID for subtask
+								newStatus,
+								tasksPath,
+								projectRoot
+							);
+						} catch (ticketingError) {
+							log('warn', `Warning: Could not update ticket status for auto-updated subtask ${taskId}.${subtask.id}: ${ticketingError.message}`);
+						}
+					}
+				}
 			}
 		}
 	}

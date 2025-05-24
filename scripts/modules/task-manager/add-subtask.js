@@ -3,8 +3,8 @@ import path from 'path';
 import { log, readJSON, writeJSON } from '../utils.js';
 import { isTaskDependentOn } from '../task-manager.js';
 import generateTaskFiles from './generate-task-files.js';
-import { emit, EVENT_TYPES } from '../events/event-emitter.js';
 import { generateSubtaskRefId, storeRefId } from '../ticketing/utils/id-utils.js';
+import ticketingSyncService from '../ticketing/ticketing-sync-service.js';
 
 /**
  * Add a subtask to a parent task
@@ -13,6 +13,7 @@ import { generateSubtaskRefId, storeRefId } from '../ticketing/utils/id-utils.js
  * @param {number|string|null} existingTaskId - ID of an existing task to convert to subtask (optional)
  * @param {Object} newSubtaskData - Data for creating a new subtask (used if existingTaskId is null)
  * @param {boolean} generateFiles - Whether to regenerate task files after adding the subtask
+ * @param {Object} context - Additional context including projectRoot
  * @returns {Object} The newly created or converted subtask
  */
 async function addSubtask(
@@ -20,7 +21,8 @@ async function addSubtask(
 	parentId,
 	existingTaskId = null,
 	newSubtaskData = null,
-	generateFiles = true
+	generateFiles = true,
+	context = {}
 ) {
 	try {
 		log('info', `Adding subtask to parent task ${parentId}...`);
@@ -154,20 +156,59 @@ async function addSubtask(
 		// Write the updated tasks back to the file
 		writeJSON(tasksPath, data);
 
-		// Emit subtask created event
-		emit(EVENT_TYPES.SUBTASK_CREATED, {
-			taskId: parentIdNum,
-			subtaskId: newSubtask.id,
-			subtask: newSubtask,
-			data,
-			tasksPath
-		});
+		// Direct ticketing integration
+		// Use the EXACT same pattern as add-task which works successfully
+		const { projectRoot } = context;
+		if (projectRoot) {
+			let ticketingResult = null;
+			try {
+				// Create a task-like object for the subtask that can use syncTask
+				const subtaskAsTask = {
+					...newSubtask,
+					title: `[Subtask] ${newSubtask.title}`, // Prefix to indicate it's a subtask
+					description: `${newSubtask.description}\n\nParent Task: Task #${parentIdNum}`,
+					// Keep the subtask ID structure for tracking
+					metadata: newSubtask.metadata || {}
+				};
+
+				// Use syncTask (which works) instead of syncSubtask (which doesn't)
+				console.log(`[ADD-SUBTASK] Calling syncTask for subtask ${parentIdNum}.${newSubtask.id} with projectRoot: ${projectRoot}`);
+				ticketingResult = await ticketingSyncService.syncTask(subtaskAsTask, tasksPath, projectRoot);
+				console.log(`[ADD-SUBTASK] syncTask result:`, ticketingResult);
+				
+				if (ticketingResult.success) {
+					// Update the original subtask with the ticket key
+					newSubtask.metadata = newSubtask.metadata || {};
+					newSubtask.metadata.jiraKey = ticketingResult.ticketKey;
+					
+					// Update the subtask in the file
+					const updatedData = readJSON(tasksPath);
+					const updatedParentTask = updatedData.tasks.find((t) => t.id === parentIdNum);
+					if (updatedParentTask && updatedParentTask.subtasks) {
+						const subtaskIndex = updatedParentTask.subtasks.findIndex(st => st.id === newSubtask.id);
+						if (subtaskIndex !== -1) {
+							updatedParentTask.subtasks[subtaskIndex] = newSubtask;
+							writeJSON(tasksPath, updatedData);
+						}
+					}
+					
+					log('success', `Created ticket ${ticketingResult.ticketKey} for subtask ${parentIdNum}.${newSubtask.id}`);
+				} else if (ticketingResult.error !== 'Ticketing service not available') {
+					// Only warn if it's not just disabled ticketing
+					log('warn', `Warning: Could not create ticket for subtask ${parentIdNum}.${newSubtask.id}: ${ticketingResult.error}`);
+				}
+			} catch (ticketingError) {
+				log('warn', `Warning: Ticketing integration error for subtask ${parentIdNum}.${newSubtask.id}: ${ticketingError.message}`);
+			}
+		}
 
 		// Generate task files if requested
 		if (generateFiles) {
 			log('info', 'Regenerating task files...');
 			await generateTaskFiles(tasksPath, path.dirname(tasksPath));
 		}
+
+		log('success', `Subtask ${parentIdNum}.${newSubtask.id} created successfully${context.projectRoot ? '' : '. Use \'task-master sync-tickets\' to sync with ticketing system if needed'}.`);
 
 		return newSubtask;
 	} catch (error) {

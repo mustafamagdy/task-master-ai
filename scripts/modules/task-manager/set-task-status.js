@@ -62,7 +62,7 @@ async function setTaskStatus(tasksPath, taskIdInput, newStatus, options = {}) {
 			updatedTasks.push(id);
 
 			// Ticketing system updates are now handled through events
-			// The ticketing-event-subscriber.js listens for task status changed events
+			// Direct ticketing integration handles status updates automatically
 		}
 
 		// Write the updated tasks to the file

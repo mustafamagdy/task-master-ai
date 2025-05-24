@@ -86,10 +86,7 @@ import {
 	TASK_STATUS_OPTIONS
 } from '../../src/constants/task-status.js';
 import { getTaskMasterVersion } from '../../src/utils/getVersion.js';
-import {
-	initializeEventSystem,
-	shutdownEventSystem
-} from './events/initialize-events.js';
+
 /**
  * Runs the interactive setup process for model configuration.
  * @param {string|null} projectRoot - The resolved project root directory.
@@ -1939,6 +1936,7 @@ function registerCommands(programInstance) {
 		.action(async (options) => {
 			const tasksPath = options.file;
 			const taskIdsString = options.id;
+			const projectRoot = findProjectRoot(); // Get project root for ticketing integration
 
 			if (!taskIdsString) {
 				console.error(chalk.red('Error: Task ID(s) are required'));
@@ -2102,7 +2100,7 @@ function registerCommands(programInstance) {
 				const existingIdsString = existingTasksToRemove
 					.map(({ id }) => id)
 					.join(',');
-				const result = await removeTask(tasksPath, existingIdsString);
+				const result = await removeTask(tasksPath, existingIdsString, projectRoot);
 
 				stopLoadingIndicator(indicator);
 
@@ -2579,8 +2577,6 @@ function displayUpgradeNotification(currentVersion, latestVersion) {
  */
 async function runCLI(argv = process.argv) {
 	try {
-		// Initialize event system
-		await initializeEventSystem();
 		// Display banner if not in a pipe
 		if (process.stdout.isTTY) {
 			displayBanner();
@@ -2662,28 +2658,15 @@ async function runCLI(argv = process.argv) {
 			}
 		}
 
-		// Shutdown event system even if there was an error
-		await shutdownEventSystem();
 		process.exit(1);
 	}
 
-	// Process.on('exit') cannot be async, so we can only do our best effort here
-	process.on('exit', () => {
-		// In an exit handler we can't await, so this is a best-effort cleanup
-		try {
-			// We'll start the shutdown process but can't wait for it
-			shutdownEventSystem();
-		} catch (err) {
-			console.error('Error during cleanup:', err);
-		}
-	});
+	// Process cleanup handlers
 
-	// Handle graceful shutdown on signals - these can be async
+	// Handle graceful shutdown on signals
 	['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach((signal) => {
-		process.on(signal, async () => {
-			console.log(`
-Received ${signal}, shutting down...`);
-			await shutdownEventSystem();
+		process.on(signal, () => {
+			console.log(`\nReceived ${signal}, shutting down...`);
 			process.exit(0);
 		});
 	});

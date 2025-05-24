@@ -9,6 +9,7 @@ import {
 	disableSilentMode
 } from '../../../../scripts/modules/utils.js';
 import { createLogWrapper } from '../../tools/utils.js';
+// Note: Ticket creation is handled directly by the unified ticketing service
 
 /**
  * Direct function wrapper for adding a new task with error handling.
@@ -156,6 +157,9 @@ export async function addTaskDirect(args, log, context = {}) {
 			newTaskId = result.newTaskId;
 			telemetryData = result.telemetryData;
 		}
+
+		// Task creation completed - ticketing handled by unified ticketing service
+		log.info(`Task #${newTaskId} created successfully. Ticketing integration handled by unified ticketing service.`);
 
 		// Restore normal logging
 		disableSilentMode();
