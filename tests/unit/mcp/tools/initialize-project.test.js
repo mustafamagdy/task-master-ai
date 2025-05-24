@@ -30,7 +30,7 @@ const mockCreateErrorResponse = jest.fn((message, details) => ({
 jest.mock('../../../../mcp-server/src/tools/utils.js', () => ({
 	createContentResponse: mockCreateContentResponse,
 	createErrorResponse: mockCreateErrorResponse
-}));
+}), { virtual: true });
 
 // Mock the z object from zod
 const mockZod = {

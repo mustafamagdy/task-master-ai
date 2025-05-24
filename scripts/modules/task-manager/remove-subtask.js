@@ -72,30 +72,41 @@ async function removeSubtask(
 		// Update ticket status to cancelled for the removed subtask (ticketing integration)
 		if (projectRoot) {
 			try {
-				const ticketingResult = await ticketingSyncService.updateTaskStatus(
-					subtaskId,
-					'cancelled',
-					tasksPath,
-					projectRoot
-				);
-				if (ticketingResult.success) {
-					log(
-						'info',
-						`Updated ticket status to 'cancelled' for removed subtask ${subtaskId}`
+				// Get the ticket ID if it exists
+				const subtask = removedSubtask;
+				const ticketId = subtask.metadata?.jiraKey;
+				
+				if (ticketId) {
+					const ticketingResult = await ticketingSyncService.deleteTicket(
+						ticketId,
+						tasksPath,
+						projectRoot
 					);
-				} else if (
-					ticketingResult.error !== 'Ticketing service not available'
-				) {
-					// Only warn if it's not just disabled ticketing
+					
+					if (ticketingResult.success) {
+						log(
+							'info',
+							`Deleted ticket ${ticketId} for removed subtask ${subtaskId}`
+						);
+					} else if (
+						ticketingResult.error !== 'Ticketing service not available'
+					) {
+						// Only warn if it's not just disabled ticketing
+						log(
+							'warn',
+							`Warning: Could not delete ticket for removed subtask ${subtaskId}: ${ticketingResult.error}`
+						);
+					}
+				} else {
 					log(
-						'warn',
-						`Warning: Could not update ticket status for removed subtask ${subtaskId}: ${ticketingResult.error}`
+						'debug',
+						`Subtask ${subtaskId} does not have an associated ticket, skipping deletion`
 					);
 				}
 			} catch (ticketingError) {
 				log(
 					'warn',
-					`Warning: Could not update ticket status for removed subtask ${subtaskId}: ${ticketingError.message}`
+					`Warning: Could not delete ticket for removed subtask ${subtaskId}: ${ticketingError.message}`
 				);
 			}
 		}
@@ -170,7 +181,13 @@ async function removeSubtask(
 		// Generate task files if requested
 		if (generateFiles) {
 			log('info', 'Regenerating task files...');
-			await generateTaskFiles(tasksPath, path.dirname(tasksPath));
+			try {
+				const outputDir = path.dirname(tasksPath);
+				await generateTaskFiles(tasksPath, outputDir);
+			} catch (genError) {
+				log('error', `Error regenerating task files: ${genError.message}`);
+				// Don't fail the operation because of file generation error
+			}
 		}
 
 		return convertedTask;

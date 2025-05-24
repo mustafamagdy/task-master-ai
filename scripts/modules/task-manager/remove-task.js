@@ -32,71 +32,97 @@ async function removeTask(tasksPath, taskIds, projectRoot = null) {
 	}
 
 	try {
-		// Read the tasks file ONCE before the loop
+		// Read task data
 		const data = readJSON(tasksPath);
-		if (!data || !data.tasks) {
-			throw new Error(`No valid tasks found in ${tasksPath}`);
+		if (!data || !data.tasks || !Array.isArray(data.tasks)) {
+			results.success = false;
+			results.errors.push('Invalid task data in file.');
+			return results;
 		}
 
-		const tasksToDeleteFiles = []; // Collect IDs of main tasks whose files should be deleted
+		// Track task IDs to delete files for
+		const tasksToDeleteFiles = [];
 
+		// Process each task ID
 		for (const taskId of taskIdsToRemove) {
-			// Check if the task ID exists *before* attempting removal
-			if (!taskExists(data.tasks, taskId)) {
-				const errorMsg = `Task with ID ${taskId} not found or already removed.`;
-				results.errors.push(errorMsg);
-				results.success = false; // Mark overall success as false if any error occurs
-				continue; // Skip to the next ID
-			}
-
 			try {
-				// Handle subtask removal (e.g., '5.2')
-				if (typeof taskId === 'string' && taskId.includes('.')) {
-					const [parentTaskId, subtaskId] = taskId
-						.split('.')
-						.map((id) => parseInt(id, 10));
+				// Validate task existence
+				const exists = await taskExists(tasksPath, taskId);
+				if (!exists) {
+					throw new Error(`Task with ID ${taskId} not found`);
+				}
 
-					// Find the parent task
-					const parentTask = data.tasks.find((t) => t.id === parentTaskId);
+				// Handle subtask removal
+				if (taskId.includes('.')) {
+					// Split to get parent ID and subtask ID
+					const [parentIdStr, subtaskIdStr] = taskId.split('.');
+					const parentId = parseInt(parentIdStr, 10);
+					const subtaskId = parseInt(subtaskIdStr, 10);
+
+					// Find parent task
+					const parentTask = data.tasks.find((t) => t.id === parentId);
 					if (!parentTask || !parentTask.subtasks) {
-						throw new Error(
-							`Parent task ${parentTaskId} or its subtasks not found for subtask ${taskId}`
-						);
+						throw new Error(`Parent task with ID ${parentId} not found`);
 					}
 
-					// Find the subtask to remove
+					// Find subtask index
 					const subtaskIndex = parentTask.subtasks.findIndex(
 						(st) => st.id === subtaskId
 					);
 					if (subtaskIndex === -1) {
 						throw new Error(
-							`Subtask ${subtaskId} not found in parent task ${parentTaskId}`
+							`Subtask with ID ${subtaskId} not found in parent task ${parentId}`
 						);
 					}
 
-					// Store the subtask info before removal
-					const removedSubtask = {
-						...parentTask.subtasks[subtaskIndex],
-						parentTaskId: parentTaskId
-					};
-					results.removedTasks.push(removedSubtask);
+					// Store subtask for return
+					const removedSubtask = parentTask.subtasks[subtaskIndex];
+					results.removedTasks.push({
+						...removedSubtask,
+						parentTaskId: parentId
+					});
 
-					// Remove the subtask from the parent
+					// Remove the subtask from parent
 					parentTask.subtasks.splice(subtaskIndex, 1);
 
-					// Direct ticketing integration for subtask deletion
+					// Delete ticket for the removed subtask (ticketing integration)
 					if (projectRoot) {
 						try {
-							await ticketingSyncService.updateTaskStatus(
-								taskId, // compound ID like "5.2"
-								'cancelled',
-								tasksPath,
-								projectRoot
-							);
+							// Get ticket ID from the subtask
+							const subtask = removedSubtask;
+							const ticketId = subtask.metadata?.jiraKey;
+							
+							if (ticketId) {
+								const ticketingResult = await ticketingSyncService.deleteTicket(
+									ticketId,
+									tasksPath,
+									projectRoot
+								);
+								
+								if (ticketingResult.success) {
+									log(
+										'info',
+										`Deleted ticket ${ticketId} for removed subtask ${taskId}`
+									);
+								} else if (
+									ticketingResult.error !== 'Ticketing service not available'
+								) {
+									// Only warn if it's not just disabled ticketing
+									log(
+										'warn',
+										`Warning: Could not delete ticket for removed subtask ${taskId}: ${ticketingResult.error}`
+									);
+								}
+							} else {
+								log(
+									'debug',
+									`Subtask ${taskId} does not have an associated ticket, skipping deletion`
+								);
+							}
 						} catch (ticketingError) {
 							log(
 								'warn',
-								`Warning: Could not update ticket status for deleted subtask ${taskId}: ${ticketingError.message}`
+								`Warning: Could not delete ticket for removed subtask ${taskId}: ${ticketingError.message}`
 							);
 						}
 					}
@@ -121,19 +147,71 @@ async function removeTask(tasksPath, taskIds, projectRoot = null) {
 					// Remove the task from the main array
 					data.tasks.splice(taskIndex, 1);
 
-					// Direct ticketing integration for task deletion
+					// Delete ticket for the removed task (ticketing integration)
 					if (projectRoot) {
 						try {
-							await ticketingSyncService.updateTaskStatus(
-								taskIdNum,
-								'cancelled',
-								tasksPath,
-								projectRoot
-							);
+							// Get ticket ID from the task
+							const task = removedTask;
+							const ticketId = task.metadata?.jiraKey;
+							
+							if (ticketId) {
+								const ticketingResult = await ticketingSyncService.deleteTicket(
+									ticketId,
+									tasksPath,
+									projectRoot
+								);
+								
+								if (ticketingResult.success) {
+									log(
+										'info',
+										`Deleted ticket ${ticketId} for removed task ${taskId}`
+									);
+								} else if (
+									ticketingResult.error !== 'Ticketing service not available'
+								) {
+									// Only warn if it's not just disabled ticketing
+									log(
+										'warn',
+										`Warning: Could not delete ticket for removed task ${taskId}: ${ticketingResult.error}`
+									);
+								}
+							} else {
+								log(
+									'debug',
+									`Task ${taskId} does not have an associated ticket, skipping deletion`
+								);
+							}
+							
+							// If the task has subtasks with tickets, delete those too
+							if (task.subtasks && task.subtasks.length > 0) {
+								for (const subtask of task.subtasks) {
+									const subtaskTicketId = subtask.metadata?.jiraKey;
+									if (subtaskTicketId) {
+										try {
+											const subtaskResult = await ticketingSyncService.deleteTicket(
+												subtaskTicketId,
+												tasksPath,
+												projectRoot
+											);
+											if (subtaskResult.success) {
+												log(
+													'info',
+													`Deleted ticket ${subtaskTicketId} for subtask ${taskId}.${subtask.id}`
+												);
+											}
+										} catch (subtaskError) {
+											log(
+												'warn',
+												`Warning: Could not delete ticket for subtask ${taskId}.${subtask.id}: ${subtaskError.message}`
+											);
+										}
+									}
+								}
+							}
 						} catch (ticketingError) {
 							log(
 								'warn',
-								`Warning: Could not update ticket status for deleted task ${taskId}: ${ticketingError.message}`
+								`Warning: Could not delete ticket for removed task ${taskId}: ${ticketingError.message}`
 							);
 						}
 					}
@@ -147,96 +225,44 @@ async function removeTask(tasksPath, taskIds, projectRoot = null) {
 				results.success = false;
 				log('warn', errorMsg); // Log as warning and continue with next ID
 			}
-		} // End of loop through taskIdsToRemove
+		}
 
-		// --- Post-Loop Operations ---
-
-		// Only proceed with cleanup and saving if at least one task was potentially removed
-		if (results.removedTasks.length > 0) {
-			// Remove all references AFTER all tasks/subtasks are removed
-			const allRemovedIds = new Set(
-				taskIdsToRemove.map((id) =>
-					typeof id === 'string' && id.includes('.') ? id : parseInt(id, 10)
-				)
-			);
-
-			data.tasks.forEach((task) => {
-				// Clean dependencies in main tasks
-				if (task.dependencies) {
-					task.dependencies = task.dependencies.filter(
-						(depId) => !allRemovedIds.has(depId)
-					);
-				}
-				// Clean dependencies in remaining subtasks
-				if (task.subtasks) {
-					task.subtasks.forEach((subtask) => {
-						if (subtask.dependencies) {
-							subtask.dependencies = subtask.dependencies.filter(
-								(depId) =>
-									!allRemovedIds.has(`${task.id}.${depId}`) &&
-									!allRemovedIds.has(depId) // check both subtask and main task refs
-							);
-						}
-					});
-				}
-			});
-
-			// Save the updated tasks file ONCE
+		// Only write file and regenerate if there were no errors or some successful removals
+		if (results.success || results.messages.length > 0) {
+			// Write updated data back to file
 			writeJSON(tasksPath, data);
 
-			// Delete task files AFTER saving tasks.json
-			for (const taskIdNum of tasksToDeleteFiles) {
-				const taskFileName = path.join(
+			// Delete task files for removed tasks
+			for (const taskId of tasksToDeleteFiles) {
+				const taskFilePath = path.join(
 					path.dirname(tasksPath),
-					`task_${taskIdNum.toString().padStart(3, '0')}.txt`
+					`task_${taskId.toString().padStart(3, '0')}.txt`
 				);
-				if (fs.existsSync(taskFileName)) {
+				if (fs.existsSync(taskFilePath)) {
 					try {
-						fs.unlinkSync(taskFileName);
-						results.messages.push(`Deleted task file: ${taskFileName}`);
-					} catch (unlinkError) {
-						const unlinkMsg = `Failed to delete task file ${taskFileName}: ${unlinkError.message}`;
-						results.errors.push(unlinkMsg);
-						results.success = false;
-						log('warn', unlinkMsg);
+						fs.unlinkSync(taskFilePath);
+						log('info', `Deleted task file: ${taskFilePath}`);
+					} catch (fileError) {
+						log('warn', `Warning: Could not delete file: ${fileError.message}`);
 					}
 				}
 			}
 
-			// Generate updated task files ONCE
+			// Regenerate task files
 			try {
-				await generateTaskFiles(tasksPath, path.dirname(tasksPath));
-				results.messages.push('Task files regenerated successfully.');
+				const outputDir = path.dirname(tasksPath);
+				await generateTaskFiles(tasksPath, outputDir);
 			} catch (genError) {
-				const genErrMsg = `Failed to regenerate task files: ${genError.message}`;
-				results.errors.push(genErrMsg);
-				results.success = false;
-				log('warn', genErrMsg);
+				log('error', `Error regenerating task files: ${genError.message}`);
+				// Don't fail the operation because of file generation error
 			}
-		} else if (results.errors.length === 0) {
-			// Case where valid IDs were provided but none existed
-			results.messages.push('No tasks found matching the provided IDs.');
 		}
 
-		// Consolidate messages for final output
-		const finalMessage = results.messages.join('\n');
-		const finalError = results.errors.join('\n');
-
-		return {
-			success: results.success,
-			message: finalMessage || 'No tasks were removed.',
-			error: finalError || null,
-			removedTasks: results.removedTasks
-		};
+		return results;
 	} catch (error) {
-		// Catch errors from reading file or other initial setup
-		log('error', `Error removing tasks: ${error.message}`);
-		return {
-			success: false,
-			message: '',
-			error: `Operation failed: ${error.message}`,
-			removedTasks: []
-		};
+		results.success = false;
+		results.errors.push(`Error removing task(s): ${error.message}`);
+		return results;
 	}
 }
 

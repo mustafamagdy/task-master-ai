@@ -15,13 +15,41 @@ import {
 	mockAzureConfig,
 	mockDisabledConfig
 } from '../fixtures/ticketing/ticketing-configs.js';
+import { tasksWithTickets } from '../fixtures/ticketing/tasks-with-tickets.js';
 
 // Mock functions for ticketing service operations
 export const mockSyncTask = jest.fn();
+export const mockSyncSubtask = jest.fn();
+export const mockSyncMultipleTasks = jest.fn();
 export const mockUpdateTaskStatus = jest.fn();
 export const mockUpdateTaskContent = jest.fn();
 export const mockUpdateSubtaskContent = jest.fn();
 export const mockGetTicketingConfig = jest.fn();
+export const mockInitialize = jest.fn().mockResolvedValue(true);
+export const mockIsAvailable = jest.fn().mockReturnValue(true);
+export const mockGetStatus = jest.fn().mockReturnValue({ ready: true });
+export const mockIsReady = jest.fn().mockReturnValue(true);
+export const mockCreateTicketingInstance = jest.fn();
+export const mockIsConfigured = jest.fn().mockReturnValue(true);
+export const mockValidateConfig = jest.fn().mockReturnValue(true);
+export const mockGetConfig = jest.fn();
+export const mockCreateStory = jest.fn().mockResolvedValue({ key: 'TEST-123', id: '123' });
+export const mockMapPriorityToTicket = jest.fn();
+export const mockFormatTitleForTicket = jest.fn();
+export const mockStoreTicketId = jest.fn();
+export const mockGetTicketId = jest.fn();
+export const mockMapStatusToTicket = jest.fn();
+export const mockGetAllTickets = jest.fn();
+export const mockGetTicketStatus = jest.fn();
+export const mockMapTicketStatusToTaskmaster = jest.fn();
+export const mockMapTicketPriorityToTaskmaster = jest.fn();
+export const mockUpdateTicketStatus = jest.fn();
+export const mockCreateTask = jest.fn().mockResolvedValue({ key: 'TEST-123', id: '123' });
+export const mockFindTicketByRefId = jest.fn();
+export const mockFindSubtaskByRefId = jest.fn();
+export const mockUpdateTicketDetails = jest.fn();
+export const mockGetTicketingSystemType = jest.fn().mockReturnValue('jira');
+export const mockIsTicketingEnabled = jest.fn().mockReturnValue(true);
 
 // Mock functions for individual ticketing provider services
 export const mockJiraService = {
@@ -45,84 +73,150 @@ export const mockAzureDevOpsService = {
 	validateConfig: jest.fn()
 };
 
-// Mock HTTP client for API calls
-export const mockAxios = {
-	post: jest.fn(),
-	put: jest.fn(),
-	patch: jest.fn(),
-	get: jest.fn(),
-	delete: jest.fn()
-};
-
-// Mock axios create function
-export const mockAxiosCreate = jest.fn(() => mockAxios);
+// Mock fetch API for HTTP calls
+export const mockFetch = jest.fn();
 
 // Mock file system operations for configs
 export const mockReadJSON = jest.fn();
 export const mockWriteJSON = jest.fn();
 export const mockExistsSync = jest.fn();
 export const mockLog = jest.fn();
+export const mockFindProjectRoot = jest.fn().mockReturnValue('/test/project');
+
+// Add these mock functions after mockUpdateTaskStatus if they don't exist
+export const mockDeleteTicket = jest.fn().mockResolvedValue(true);
+export const mockTicketExists = jest.fn().mockResolvedValue(true);
 
 /**
- * Setup all ticketing-related mocks
- * Call this in beforeEach or at the start of test files
+ * Set up the common mocks for ticketing tests
  */
 export const setupTicketingMocks = () => {
-	// Mock axios for HTTP requests
-	jest.mock('axios', () => ({
+	// Mock the ticketing-sync-service
+	jest.mock('../../../scripts/modules/ticketing/ticketing-sync-service.js', () => ({
 		default: {
-			create: mockAxiosCreate
+			initialize: mockInitialize,
+			isAvailable: mockIsAvailable,
+			getStatus: mockGetStatus,
+			isReady: mockIsReady,
+			syncTask: mockSyncTask,
+			syncSubtask: mockSyncSubtask,
+			syncMultipleTasks: mockSyncMultipleTasks,
+			updateTaskStatus: mockUpdateTaskStatus,
+			updateTaskContent: mockUpdateTaskContent,
+			updateSubtaskContent: mockUpdateSubtaskContent,
+			deleteTicket: mockDeleteTicket
 		},
-		create: mockAxiosCreate
+		TicketingSyncService: jest.fn().mockImplementation(() => ({
+			initialize: mockInitialize,
+			isAvailable: mockIsAvailable,
+			getStatus: mockGetStatus,
+			isReady: mockIsReady,
+			syncTask: mockSyncTask,
+			syncSubtask: mockSyncSubtask,
+			syncMultipleTasks: mockSyncMultipleTasks,
+			updateTaskStatus: mockUpdateTaskStatus,
+			updateTaskContent: mockUpdateTaskContent,
+			updateSubtaskContent: mockUpdateSubtaskContent,
+			deleteTicket: mockDeleteTicket
+		}))
 	}));
 
-	// Mock the main ticketing sync service
-	jest.mock(
-		'../../scripts/modules/ticketing/ticketing-sync-service.js',
-		() => ({
-			default: {
-				syncTask: mockSyncTask,
-				updateTaskStatus: mockUpdateTaskStatus,
-				updateTaskContent: mockUpdateTaskContent,
-				updateSubtaskContent: mockUpdateSubtaskContent
-			}
-		})
-	);
-
-	// Mock individual ticketing provider services
-	jest.mock('../../scripts/modules/ticketing/jira/jira-service.js', () => ({
-		default: mockJiraService
+	// Mock the ticketing-factory
+	jest.mock('../../../scripts/modules/ticketing/ticketing-factory.js', () => ({
+		default: {
+			createTicketingInstance: mockCreateTicketingInstance
+		}
 	}));
 
-	jest.mock('../../scripts/modules/ticketing/github/github-service.js', () => ({
-		default: mockGitHubService
+	// Mock the jira-ticketing module
+	jest.mock('../../../scripts/modules/ticketing/jira/jira-ticketing.js', () => ({
+		default: {
+			isConfigured: mockIsConfigured,
+			validateConfig: mockValidateConfig,
+			getConfig: mockGetConfig,
+			createStory: mockCreateStory,
+			mapPriorityToTicket: mockMapPriorityToTicket,
+			formatTitleForTicket: mockFormatTitleForTicket,
+			storeTicketId: mockStoreTicketId,
+			getTicketId: mockGetTicketId,
+			mapStatusToTicket: mockMapStatusToTicket,
+			getAllTickets: mockGetAllTickets,
+			getTicketStatus: mockGetTicketStatus,
+			mapTicketStatusToTaskmaster: mockMapTicketStatusToTaskmaster,
+			mapTicketPriorityToTaskmaster: mockMapTicketPriorityToTaskmaster,
+			updateTicketStatus: mockUpdateTicketStatus,
+			createTask: mockCreateTask,
+			ticketExists: mockTicketExists,
+			findTicketByRefId: mockFindTicketByRefId,
+			updateTicketDetails: mockUpdateTicketDetails,
+			deleteTicket: mockDeleteTicket
+		}
 	}));
 
-	jest.mock(
-		'../../scripts/modules/ticketing/azdevops/azdevops-service.js',
-		() => ({
-			default: mockAzureDevOpsService
-		})
-	);
-
-	// Mock configuration manager for ticketing configs
-	jest.mock('../../scripts/modules/config-manager.js', () => ({
-		...jest.requireActual('../../scripts/modules/config-manager.js'),
-		getTicketingConfig: mockGetTicketingConfig
+	// Mock the github-ticketing module
+	jest.mock('../../../scripts/modules/ticketing/github/github-ticketing.js', () => ({
+		default: {
+			isConfigured: mockIsConfigured,
+			validateConfig: mockValidateConfig,
+			getConfig: mockGetConfig,
+			createStory: mockCreateStory,
+			mapPriorityToTicket: mockMapPriorityToTicket,
+			formatTitleForTicket: mockFormatTitleForTicket,
+			storeTicketId: mockStoreTicketId,
+			getTicketId: mockGetTicketId,
+			mapStatusToTicket: mockMapStatusToTicket,
+			getAllTickets: mockGetAllTickets,
+			getTicketStatus: mockGetTicketStatus,
+			mapTicketStatusToTaskmaster: mockMapTicketStatusToTaskmaster,
+			mapTicketPriorityToTaskmaster: mockMapTicketPriorityToTaskmaster,
+			updateTicketStatus: mockUpdateTicketStatus,
+			createTask: mockCreateTask,
+			ticketExists: mockTicketExists,
+			findTicketByRefId: mockFindTicketByRefId,
+			updateTicketDetails: mockUpdateTicketDetails,
+			deleteTicket: mockDeleteTicket
+		}
 	}));
 
-	// Mock utils for file operations
-	jest.mock('../../scripts/modules/utils.js', () => ({
-		...jest.requireActual('../../scripts/modules/utils.js'),
+	// Mock the azdevops-ticketing module
+	jest.mock('../../../scripts/modules/ticketing/azdevops/azdevops-ticketing.js', () => ({
+		default: {
+			isConfigured: mockIsConfigured,
+			validateConfig: mockValidateConfig,
+			getConfig: mockGetConfig,
+			createStory: mockCreateStory,
+			mapPriorityToTicket: mockMapPriorityToTicket,
+			formatTitleForTicket: mockFormatTitleForTicket,
+			storeTicketId: mockStoreTicketId,
+			getTicketId: mockGetTicketId,
+			mapStatusToTicket: mockMapStatusToTicket,
+			getAllTickets: mockGetAllTickets,
+			getTicketStatus: mockGetTicketStatus,
+			mapTicketStatusToTaskmaster: mockMapTicketStatusToTaskmaster,
+			mapTicketPriorityToTaskmaster: mockMapTicketPriorityToTaskmaster,
+			updateTicketStatus: mockUpdateTicketStatus,
+			createTask: mockCreateTask,
+			ticketExists: mockTicketExists,
+			findTicketByRefId: mockFindTicketByRefId,
+			updateTicketDetails: mockUpdateTicketDetails,
+			deleteTicket: mockDeleteTicket
+		}
+	}));
+
+	// Mock the utils module
+	jest.mock('../../../scripts/modules/utils.js', () => ({
+		log: mockLog,
 		readJSON: mockReadJSON,
 		writeJSON: mockWriteJSON,
-		log: mockLog
+		findProjectRoot: mockFindProjectRoot,
+		existsSync: mockExistsSync
 	}));
 
-	// Mock fs for config file checks
-	jest.mock('fs', () => ({
-		...jest.requireActual('fs'),
-		existsSync: mockExistsSync
+	// Mock the config-manager module
+	jest.mock('../../../scripts/modules/config-manager.js', () => ({
+		getTicketingSystemType: mockGetTicketingSystemType,
+		isTicketingEnabled: mockIsTicketingEnabled,
+		getConfig: mockGetTicketingConfig
 	}));
 };
 
@@ -143,15 +237,18 @@ export const resetTicketingMocks = () => {
 	Object.values(mockGitHubService).forEach((mock) => mock.mockClear());
 	Object.values(mockAzureDevOpsService).forEach((mock) => mock.mockClear());
 
-	// Reset HTTP mocks
-	Object.values(mockAxios).forEach((mock) => mock.mockClear());
-	mockAxiosCreate.mockClear();
+	// Reset fetch mock
+	mockFetch.mockClear();
 
 	// Reset file system mocks
 	mockReadJSON.mockClear();
 	mockWriteJSON.mockClear();
 	mockExistsSync.mockClear();
 	mockLog.mockClear();
+
+	// Reset default implementations
+	mockExistsSync.mockReturnValue(true); // Default to files existing
+	mockReadJSON.mockReturnValue(tasksWithTickets); // Return mock tasks data
 };
 
 /**
@@ -202,6 +299,14 @@ export const setupSuccessfulTicketing = (provider = 'jira') => {
 
 	// Configure file system mocks
 	mockExistsSync.mockReturnValue(true);
+
+	// Configure fetch mock for successful HTTP requests
+	mockFetch.mockResolvedValue({
+		ok: true,
+		status: 200,
+		json: jest.fn().mockResolvedValue(responses.syncTask),
+		text: jest.fn().mockResolvedValue('Success')
+	});
 };
 
 /**
@@ -245,11 +350,22 @@ export const setupTicketingError = (
 		mockUpdateTaskStatus.mockRejectedValue(error);
 		mockUpdateTaskContent.mockRejectedValue(error);
 		mockUpdateSubtaskContent.mockRejectedValue(error);
+
+		// Configure fetch mock for network errors
+		mockFetch.mockRejectedValue(error);
 	} else {
 		mockSyncTask.mockResolvedValue(error);
 		mockUpdateTaskStatus.mockResolvedValue(error);
 		mockUpdateTaskContent.mockResolvedValue(error);
 		mockUpdateSubtaskContent.mockResolvedValue(error);
+
+		// Configure fetch mock for API errors
+		mockFetch.mockResolvedValue({
+			ok: false,
+			status: 400,
+			json: jest.fn().mockResolvedValue(error),
+			text: jest.fn().mockResolvedValue(JSON.stringify(error))
+		});
 	}
 };
 

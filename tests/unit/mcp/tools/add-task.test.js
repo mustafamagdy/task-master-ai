@@ -19,7 +19,7 @@ import {
 const mockAddTaskDirect = jest.fn();
 jest.mock('../../../../mcp-server/src/core/task-master-core.js', () => ({
 	addTaskDirect: mockAddTaskDirect
-}));
+}), { virtual: true });
 
 const mockHandleApiResult = jest.fn((result) => result);
 const mockGetProjectRootFromSession = jest.fn(() => '/mock/project/root');
@@ -37,7 +37,7 @@ jest.mock('../../../../mcp-server/src/tools/utils.js', () => ({
 		data: content
 	})),
 	executeTaskMasterCommand: jest.fn()
-}));
+}), { virtual: true });
 
 // Mock the z object from zod
 const mockZod = {

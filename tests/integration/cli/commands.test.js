@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import path from 'path';
 
 // --- Define mock functions ---
 const mockGetMainModelId = jest.fn().mockReturnValue('claude-3-opus');
@@ -21,8 +22,8 @@ const mockLog = jest.fn();
 const mockStartLoadingIndicator = jest.fn(() => ({ stop: jest.fn() }));
 const mockStopLoadingIndicator = jest.fn();
 
-// --- Setup mocks using unstable_mockModule (recommended for ES modules) ---
-jest.unstable_mockModule('../../../scripts/modules/config-manager.js', () => ({
+// Mock config-manager module
+jest.mock('../../../scripts/modules/config-manager.js', () => ({
 	getMainModelId: mockGetMainModelId,
 	getResearchModelId: mockGetResearchModelId,
 	getFallbackModelId: mockGetFallbackModelId,
@@ -31,15 +32,16 @@ jest.unstable_mockModule('../../../scripts/modules/config-manager.js', () => ({
 	setFallbackModel: mockSetFallbackModel,
 	getAvailableModels: mockGetAvailableModels,
 	VALID_PROVIDERS: ['anthropic', 'openai']
-}));
+}), { virtual: true });
 
-jest.unstable_mockModule('../../../scripts/modules/ui.js', () => ({
+// Mock UI module
+jest.mock('../../../scripts/modules/ui.js', () => ({
 	displayHelp: mockDisplayHelp,
 	displayBanner: mockDisplayBanner,
 	log: mockLog,
 	startLoadingIndicator: mockStartLoadingIndicator,
 	stopLoadingIndicator: mockStopLoadingIndicator
-}));
+}), { virtual: true });
 
 // --- Mock chalk for consistent output formatting ---
 const mockChalk = {
@@ -68,9 +70,9 @@ Object.keys(mockChalk).forEach((key) => {
 	if (key !== 'default') mockChalk.default[key] = mockChalk[key];
 });
 
-jest.unstable_mockModule('chalk', () => ({
+jest.mock('chalk', () => ({
 	default: mockChalk.default
-}));
+}), { virtual: true });
 
 // --- Import modules (AFTER mock setup) ---
 let configManager, ui, chalk;
@@ -78,9 +80,27 @@ let configManager, ui, chalk;
 describe('CLI Models Command (Action Handler Test)', () => {
 	// Setup dynamic imports before tests run
 	beforeAll(async () => {
-		configManager = await import('../../../scripts/modules/config-manager.js');
-		ui = await import('../../../scripts/modules/ui.js');
-		chalk = (await import('chalk')).default;
+		// Create stubs for the imported modules to avoid actually importing them
+		configManager = {
+			getMainModelId: mockGetMainModelId,
+			getResearchModelId: mockGetResearchModelId,
+			getFallbackModelId: mockGetFallbackModelId,
+			setMainModel: mockSetMainModel,
+			setResearchModel: mockSetResearchModel,
+			setFallbackModel: mockSetFallbackModel,
+			getAvailableModels: mockGetAvailableModels,
+			VALID_PROVIDERS: ['anthropic', 'openai']
+		};
+		
+		ui = {
+			displayHelp: mockDisplayHelp,
+			displayBanner: mockDisplayBanner,
+			log: mockLog,
+			startLoadingIndicator: mockStartLoadingIndicator,
+			stopLoadingIndicator: mockStopLoadingIndicator
+		};
+		
+		chalk = mockChalk.default;
 	});
 
 	// --- Replicate the action handler logic from commands.js ---
