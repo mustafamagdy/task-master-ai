@@ -1,5 +1,19 @@
 # task-master-ai
 
+## 0.14.1
+
+### Patch Changes
+
+- [`b11b277`](https://github.com/eyaltoledano/claude-task-master/commit/b11b2772f0afda24f66da7ff81c99c7048b74b54) Thanks [@mustafamagdy](https://github.com/mustafamagdy)! - Fix sync-tickets when importing from Jira - remove importedFromJira flag and generate refIds for new tasks
+
+  cd /Users/mmagdy/Home/Dev/task-master-ai && npx changeset add
+
+- [`4bb5f8c`](https://github.com/eyaltoledano/claude-task-master/commit/4bb5f8caa29152c1e9d923b27db7160a66adb25f) Thanks [@mustafamagdy](https://github.com/mustafamagdy)! - Fix sync-tickets to correctly move tasks with [T###-##] patterns to be proper subtasks of their corresponding [US###] parent tasks when importing from Jira
+
+- [`c61821f`](https://github.com/eyaltoledano/claude-task-master/commit/c61821f57e8bc825426d811db568447867043984) Thanks [@mustafamagdy](https://github.com/mustafamagdy)! - Fix sync-tickets "down" import to properly detect Jira subtasks using title patterns, ensuring tickets like [T006-01] are created as subtasks of [T006]
+
+- [`66383f1`](https://github.com/eyaltoledano/claude-task-master/commit/66383f1d92add5e7d67719819d76f3d2af829af2) Thanks [@mustafamagdy](https://github.com/mustafamagdy)! - Fix sync-tickets "down" import to properly handle Jira subtasks as task subtasks instead of separate tasks
+
 ## 0.14.0
 
 ### Minor Changes
