@@ -40,6 +40,21 @@ Taskmaster uses two primary methods for configuration:
       		"projectName": "Your Project Name",
       		"ollamaBaseUrl": "http://localhost:11434/api",
       		"azureOpenaiBaseUrl": "https://your-endpoint.openai.azure.com/"
+      	},
+      	"ticketing": {
+      	  "system": "none",
+      	  "integrationEnabled": false,
+      	  "jiraProjectKey": "YOUR_PROJECT_KEY",
+      	  "jiraBaseUrl": "https://your-jira-instance.atlassian.net",
+      	  "jiraEmail": "your-email@example.com",
+      	  "jiraApiToken": "YOUR_JIRA_API_TOKEN",
+      	  "githubToken": "YOUR_GITHUB_PAT",
+      	  "githubOwner": "your-github-username-or-org",
+      	  "githubRepository": "your-repo-name",
+      	  "githubProjectNumber": "your-project-number",
+      	  "azureOrganization": "https://dev.azure.com/YourOrgName",
+      	  "azurePersonalAccessToken": "YOUR_AZURE_DEVOPS_PAT",
+      	  "azureProjectName": "YourAzureDevOpsProjectName"
       	}
       }
       ```
@@ -79,6 +94,70 @@ PERPLEXITY_API_KEY=pplx-your-key-here
 # AZURE_OPENAI_ENDPOINT=https://your-azure-endpoint.openai.azure.com/
 # OLLAMA_BASE_URL=http://custom-ollama-host:11434/api
 ```
+
+## Ticketing System Integration
+
+Taskmaster can integrate with Jira, GitHub Issues, and Azure DevOps Boards to create and synchronize tasks as tickets/issues/work items. This is configured via the `ticketing` object within the `.taskmasterconfig` file.
+
+```json
+// In .taskmasterconfig
+"ticketing": {
+  "system": "none",
+  "integrationEnabled": false,
+  "jiraProjectKey": "YOUR_PROJECT_KEY",
+  "jiraBaseUrl": "https://your-jira-instance.atlassian.net",
+  "jiraEmail": "your-email@example.com",
+  "jiraApiToken": "YOUR_JIRA_API_TOKEN", // Note: Store securely if possible
+  "githubToken": "YOUR_GITHUB_PAT", // Note: Store securely if possible
+  "githubOwner": "your-github-username-or-org",
+  "githubRepository": "your-repo-name",
+  "githubProjectNumber": "your-project-number", // Optional: for GitHub Projects
+  "azureOrganization": "https://dev.azure.com/YourOrgName",
+  "azurePersonalAccessToken": "YOUR_AZURE_DEVOPS_PAT", // Note: Store securely if possible
+  "azureProjectName": "YourAzureDevOpsProjectName"
+}
+```
+
+### Configuration Fields:
+
+*   **`system` (string):** Specifies the ticketing system to integrate with.
+    *   Valid values:
+        *   `"none"`: (Default) No ticketing integration.
+        *   `"jira"`: Integrate with Jira.
+        *   `"github"`: Integrate with GitHub Issues (and optionally GitHub Projects).
+        *   `"azure"`: Integrate with Azure DevOps Boards.
+*   **`integrationEnabled` (boolean):** Set to `true` to enable the selected integration. Defaults to `false`.
+
+### Jira Configuration (`system: "jira"`)
+
+*   **`jiraProjectKey` (string):** Your Jira project key (e.g., "PROJ", "TASK").
+*   **`jiraBaseUrl` (string):** The base URL of your Jira instance (e.g., "https://your-domain.atlassian.net").
+*   **`jiraEmail` (string):** The email address associated with your Jira account (used for authentication with the API token).
+*   **`jiraApiToken` (string):** Your Jira API token. Create this from your Atlassian account settings.
+
+### GitHub Configuration (`system: "github"`)
+
+*   **`githubToken` (string):** Your GitHub Personal Access Token (PAT). Required scopes:
+    *   `repo`: For accessing repositories and managing issues.
+    *   `project`: (If using GitHub Projects integration) For managing project items.
+*   **`githubOwner` (string):** The owner of the repository (your GitHub username or organization name).
+*   **`githubRepository` (string):** The name of the repository where issues will be created.
+*   **`githubProjectNumber` (string, optional):** The number of your GitHub Project (classic or new "Projects V2") if you want to associate created issues with a project. This can usually be found in the project's URL.
+
+### Azure DevOps Configuration (`system: "azure"`)
+
+*   **`azureOrganization` (string):** Your Azure DevOps organization URL (e.g., "https://dev.azure.com/YourOrgName").
+*   **`azurePersonalAccessToken` (string):** Your Azure DevOps Personal Access Token (PAT). Required scopes typically include:
+    *   `Work Items (Read, write, & manage)`
+    *   Ensure the token has access to the specified project.
+*   **`azureProjectName` (string):** The name of your Azure DevOps project where work items will be created.
+
+### Note on Token Security
+
+API tokens and Personal Access Tokens (`jiraApiToken`, `githubToken`, `azurePersonalAccessToken`) are sensitive credentials. The current configuration stores them directly in the `.taskmasterconfig` file. 
+Be mindful of this if you commit your `.taskmasterconfig` file to a shared repository. 
+While Taskmaster's `.gitignore` attempts to exclude this file by default, ensure your project's `.gitignore` also correctly excludes it if you prefer not to share this configuration.
+For enhanced security, consider whether these tokens should be managed via environment variables (similar to AI provider API keys), though this would require adjustments to how Taskmaster's `config-manager.js` retrieves these specific values.
 
 ## Troubleshooting
 

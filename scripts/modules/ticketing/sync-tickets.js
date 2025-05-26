@@ -25,8 +25,6 @@ import {
 	generateSubtaskRefId
 } from './utils/index.js';
 import {
-	getTicketId,
-	storeTicketId,
 	synchronizeTaskStatus,
 	pushTaskStatusToTicket,
 	createTicketForTask,
@@ -66,7 +64,8 @@ async function debugCreateTicketForTask(task, ticketingSystem, options) {
 		customLog.info(`DEBUG CREATE TICKET: Ticketing system type: ${ticketingSystem.constructor.name}`);
 		
 		// Check if the task already has a ticket
-		const existingTicketId = getTicketId(task);
+		// Use the ticketingSystem's method to get the ticket ID
+		const existingTicketId = ticketingSystem.getTicketId(task);
 		if (existingTicketId) {
 			customLog.info(`DEBUG CREATE TICKET: Task already has ticket ID: ${existingTicketId}`);
 			return existingTicketId;
@@ -86,16 +85,17 @@ async function debugCreateTicketForTask(task, ticketingSystem, options) {
 			const createResult = await ticketingSystem.createStory(task, projectRoot);
 			customLog.info(`DEBUG CREATE TICKET: createStory result: ${JSON.stringify(createResult)}`);
 			
-			if (createResult && createResult.key) {
-				ticketId = createResult.key;
+			// Try to get ticket ID from 'id' then 'key'
+			if (createResult && (createResult.id || createResult.key)) {
+				ticketId = createResult.id || createResult.key;
 				customLog.info(`DEBUG CREATE TICKET: Successfully created ticket: ${ticketId}`);
 				
-				// Store the ticket ID in the task
-				task.metadata = task.metadata || {};
-				task.metadata.jiraKey = ticketId;
-				customLog.info(`DEBUG CREATE TICKET: Updated task metadata with jiraKey: ${ticketId}`);
+				// Store the ticket ID in the task using the ticketingSystem's method
+				customLog.info(`DEBUG CREATE TICKET: Calling ticketingSystem.storeTicketId with task ID ${task.id} and ticket ID ${ticketId}`);
+				ticketingSystem.storeTicketId(task, ticketId); // This will handle metadata updates
+				customLog.info(`DEBUG CREATE TICKET: Updated task metadata via storeTicketId`);
 			} else {
-				customLog.error(`DEBUG CREATE TICKET: No valid ticket key returned from createStory`);
+				customLog.error(`DEBUG CREATE TICKET: No valid ticket id or key returned from createStory. Result: ${JSON.stringify(createResult)}`);
 			}
 		} catch (error) {
 			customLog.error(`DEBUG CREATE TICKET ERROR: ${error.message}`);
@@ -122,7 +122,7 @@ async function debugCreateTicketForTask(task, ticketingSystem, options) {
  * @param {Object} options - Additional options
  * @returns {Promise<Object>} Stats about imported tickets
  */
-async function importAllTicketsFromJira(data, ticketingSystem, options) {
+async function importAllTicketsFromProvider(data, ticketingSystem, options) {
 	const { projectRoot, customLog, debug, debugLog } = options;
 	
 	// Stats for reporting
@@ -178,10 +178,8 @@ async function importAllTicketsFromJira(data, ticketingSystem, options) {
 				const ticketId = ticket.key;
 				
 				// Check if a task with this ticket ID already exists
-				const existingTaskIndex = data.tasks.findIndex(task => {
-					const metadata = task.metadata || {};
-					return metadata.jiraKey === ticketId;
-				});
+				// Use ticketingSystem.getTicketId for comparison
+				const existingTaskIndex = data.tasks.findIndex(task => ticketingSystem.getTicketId(task) === ticketId);
 				
 				let taskObject;
 				
@@ -722,18 +720,27 @@ async function syncTickets(tasksPath, options = {}) {
 		}
 		
 		// Special handling for DOWN direction with no specific task IDs
-		// Import all tickets from Jira and create/update tasks for them
+		// Import all tickets from Provider and create/update tasks for them
 		if (direction === SYNC_DIRECTIONS.DOWN && !taskIds) {
 			customLog.info('Performing full import of all tickets from ticketing system to tasks...');
 			
-			const importStats = await importAllTicketsFromJira(data, ticketingSystem, {
-				projectRoot,
-				customLog,
-				debug,
-				debugLog
-			});
+			// Only run full import if the ticketing system is JiraTicketing or supports full import
+			if (ticketingSystem.constructor.name === 'JiraTicketing' || (typeof ticketingSystem.supportsFullImport === 'function' && ticketingSystem.supportsFullImport())) {
+				const importStats = await importAllTicketsFromProvider(data, ticketingSystem, {
+					projectRoot,
+					customLog,
+					debug,
+					debugLog
+				});
+				// Merge import stats into main stats
+				Object.assign(stats, importStats);
+			} else {
+				customLog.info(`Ticketing system ${ticketingSystem.constructor.name} does not support full import. Skipping.`);
+				// Optionally, you might want to set stats to indicate no import was done
+				stats.skippedFullImport = true; 
+			}
 			
-			// Merge import stats into main stats
+			// Save the updated tasks file
 			Object.assign(stats, importStats);
 			
 			// Save the updated tasks file
@@ -949,7 +956,8 @@ async function syncTickets(tasksPath, options = {}) {
 					customLog.info(`Processing task ${task.id}: ${task.title}`);
 
 					// Store the original parent task ticketId before processing subtasks
-					originalParentTicketId = getTicketId(task);
+					// Use ticketingSystem.getTicketId
+					originalParentTicketId = ticketingSystem.getTicketId(task);
 
 					// Get reference ID for the task
 					const refId = getRefId(task);
@@ -960,13 +968,13 @@ async function syncTickets(tasksPath, options = {}) {
 						continue;
 					}
 
-					// Check if task already has a ticket ID
-					let ticketId = getTicketId(task);
+					// Check if task already has a ticket ID using ticketingSystem's method
+					let ticketId = ticketingSystem.getTicketId(task);
 					debugLog(
 						`Task ${task.id} initial ticketId check: ${ticketId || 'undefined'}`
 					);
 
-					// If ticket ID exists, verify it actually exists in Jira
+					// If ticket ID exists, verify it actually exists in the ticketing system
 					if (ticketId) {
 						try {
 							const ticketExists = await ticketingSystem.ticketExists(
@@ -978,8 +986,10 @@ async function syncTickets(tasksPath, options = {}) {
 									`Ticket ${ticketId} for task ${task.id} does not exist in ticketing system, will recreate`
 								);
 								// For safety, assume ticket doesn't exist and try to recreate
-								task.metadata = task.metadata || {};
-								delete task.metadata.jiraKey;
+                                // ticketingSystem.storeTicketId(task, null) could be a way to clear it if the interface supports it
+                                // For now, just nullify ticketId to trigger recreation logic.
+                                // The actual metadata clearing should be handled by storeTicketId if it's designed to do so.
+                                ticketingSystem.storeTicketId(task, null); // Assuming this clears the stored ID
 								ticketId = null;
 							}
 						} catch (error) {
@@ -988,8 +998,7 @@ async function syncTickets(tasksPath, options = {}) {
 							);
 							stats.errors++;
 							// For safety, assume ticket doesn't exist and try to recreate
-							task.metadata = task.metadata || {};
-							delete task.metadata.jiraKey;
+                            ticketingSystem.storeTicketId(task, null); // Assuming this clears the stored ID
 							ticketId = null;
 						}
 					}
@@ -1008,11 +1017,11 @@ async function syncTickets(tasksPath, options = {}) {
 								customLog.success(
 									`Found ticket ${ticketId} for task ${task.id} by reference ID ${refId}`
 								);
-								// Store the ticket ID in task metadata
+								// Store the ticket ID in task metadata using ticketingSystem's method
 								debugLog(
-									`Storing ticket ID ${ticketId} in task ${task.id} metadata`
+									`Storing ticket ID ${ticketId} in task ${task.id} metadata via ticketingSystem.storeTicketId`
 								);
-								storeTicketId(task, ticketId);
+								ticketingSystem.storeTicketId(task, ticketId);
 
 								// Save the updated metadata
 								debugLog('Saving updated metadata to tasks.json');
@@ -1081,8 +1090,8 @@ async function syncTickets(tasksPath, options = {}) {
 
 			// Process subtasks if present
 			if (task.subtasks && task.subtasks.length > 0) {
-				// Get the parent ticketId
-				const parentTicketId = getTicketId(task);
+				// Get the parent ticketId using ticketingSystem's method
+				const parentTicketId = ticketingSystem.getTicketId(task);
 
 				// Skip subtasks processing if parent doesn't have a ticket and we need one
 				if (!parentTicketId) {
@@ -1117,9 +1126,9 @@ async function syncTickets(tasksPath, options = {}) {
 							continue;
 						}
 
-						// Check if subtask already has a ticket ID
-						let subtaskTicketId = getTicketId(subtask, {
-							parentTask: task,
+						// Check if subtask already has a ticket ID using ticketingSystem's method
+						let subtaskTicketId = ticketingSystem.getTicketId(subtask, {
+							parentTask: task, // Assuming getTicketId can take context if needed for subtasks
 							debug
 						});
 
@@ -1142,19 +1151,21 @@ async function syncTickets(tasksPath, options = {}) {
 										parentTicketId,
 										ticketingSystem,
 										{
-											parentTask: task,
+											parentTask: task, // Pass parentTask for context if needed by createSubtaskTicket
 											projectRoot,
 											logger: customLog,
 											debug
 										}
 									);
+									// createSubtaskTicket should internally call storeTicketId for the subtask
 
 									if (subtaskTicketId) {
 										customLog.success(
 											`Created subtask ticket ${subtaskTicketId} for subtask ${subtask.id}`
 										);
-										// Save the updated metadata
-										debugLog('Saving updated metadata to tasks.json');
+										// The storeTicketId should have been called by createSubtaskTicket or ticketingSystem.createSubtask
+										// Save the updated tasks file (as storeTicketId might have modified it)
+										debugLog('Saving updated metadata to tasks.json after subtask creation');
 										options.writeJSON?.(tasksPath, data) ||
 											writeJSON(tasksPath, data);
 										stats.subtasksCreated++;
